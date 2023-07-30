@@ -1,15 +1,31 @@
 version: "3.8"
 
 services:
-  robotics_openproject_server:
-    container_name: robotics_openproject_server
-    image: ubuntu:22.04
-    entrypoint: tail -f /dev/null
+
+  robotics_openproject_backend:
+    container_name: robotics_openproject_backend
+    build: ./docker/backend
     volumes:
-      - root:/root:rw
-    ports:
-      - ${PORT}:4200
-      - 3200:3200
+      - builds:/root
+      - sources:/robotics-openproject
+    environment:
+      DB_ADDRESS: 172.20.0.2
+    networks:
+      backend:
+    depends_on:
+      - robotics_openproject_builder
+      - robotics_openproject_db
+
+  robotics_openproject_builder:
+    container_name: robotics_openproject_builder
+    build: ./docker/builder
+    volumes:
+      - builds:/root
+      - sources:/robotics-openproject
+    environment:
+      DB_ADDRESS: 172.20.0.2
+    networks:
+      backend:
     depends_on:
       - robotics_openproject_db
   
@@ -19,7 +35,24 @@ services:
     ports:
       - 5432:5432
     restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.2
     environment:
       POSTGRES_DB: "openproject"
       POSTGRES_USER: "openproject"
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+volumes:
+  builds:
+    name: robotics_openproject_builds
+    external: false
+  sources:
+    name: robotics_openproject_sources
+    external: false
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
