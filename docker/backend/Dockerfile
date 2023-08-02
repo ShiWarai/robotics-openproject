@@ -1,10 +1,7 @@
-FROM ubuntu:22.04
+FROM shiwarai/robotics_openproject_server:latest
 
 SHELL ["/bin/bash", "-c"]
+WORKDIR /robotics-openproject
+COPY openproject_run.sh /home/openproject_run.sh
 
-# Packages
-RUN apt-get update
-RUN apt-get install -y git curl build-essential zlib1g-dev libyaml-dev libssl-dev libpq-dev libreadline-dev
-
-ENTRYPOINT ["tail", "-f", "/dev/null"]
-
+CMD /home/openproject_run.sh

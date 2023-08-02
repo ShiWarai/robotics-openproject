@@ -6,28 +6,54 @@ services:
     container_name: robotics_openproject_backend
     build: ./docker/backend
     volumes:
+      - gems:/usr/local/lib/
       - builds:/root
       - sources:/robotics-openproject
     environment:
       DB_ADDRESS: 172.20.0.2
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    networks:
+      backend:
+        ipv4_address: 172.20.0.3
+    depends_on:
+      robotics_openproject_builder:
+        condition: "service_completed_successfully"
+
+  robotics_openproject_frontend:
+    container_name: robotics_openproject_frontend
+    build: ./docker/frontend
+    volumes:
+      - builds:/root
+      - sources:/robotics-openproject
+    ports:
+      - 4200:4200
+    environment:
+      DB_ADDRESS: 172.20.0.2
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
     depends_on:
-      - robotics_openproject_builder
-      - robotics_openproject_db
+      robotics_openproject_builder:
+        condition: "service_completed_successfully"
 
   robotics_openproject_builder:
     container_name: robotics_openproject_builder
     build: ./docker/builder
     volumes:
-      - builds:/root
-      - sources:/robotics-openproject
+      - gems:/usr/local/lib/
+      - builds:/root:rw
+      - sources:/robotics-openproject:rw
     environment:
       DB_ADDRESS: 172.20.0.2
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
     depends_on:
-      - robotics_openproject_db
+      robotics_openproject_db:
+        condition: "service_healthy"
   
   robotics_openproject_db:
     container_name: robotics_openproject_db
@@ -42,6 +68,11 @@ services:
       POSTGRES_DB: "openproject"
       POSTGRES_USER: "openproject"
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
 volumes:
   builds:
@@ -49,6 +80,9 @@ volumes:
     external: false
   sources:
     name: robotics_openproject_sources
+    external: false
+  gems:
+    name: robotics_openproject_gems
     external: false
 
 networks:
