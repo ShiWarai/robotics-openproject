@@ -5,6 +5,7 @@ SHELL ["bash", "-c"]
 WORKDIR /robotics-openproject
 
 RUN git clone https://github.com/ShiWarai/robotics-openproject.git --branch dev /robotics-openproject
+COPY configuration.yml /robotics-openproject/config/configuration.yml
 
 COPY openproject_build.sh /home/openproject_build.sh
 COPY openproject_migrate.sh /home/openproject_migrate.sh

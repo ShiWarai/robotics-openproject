@@ -35,6 +35,21 @@ services:
       robotics_openproject_builder:
         condition: "service_completed_successfully"
 
+  robotics_openproject_worker:
+    container_name: robotics_openproject_worker
+    build: ./docker/worker
+    volumes:
+      - builds:/root
+      - sources:/robotics-openproject
+    environment:
+      DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+    networks:
+      backend:
+    depends_on:
+      robotics_openproject_builder:
+        condition: "service_completed_successfully"
+
   robotics_openproject_builder:
     container_name: robotics_openproject_builder
     build: ./docker/builder
@@ -65,9 +80,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
-      interval: 10s
-      timeout: 3s
-      retries: 5
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   builds:

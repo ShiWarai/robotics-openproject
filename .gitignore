@@ -128,6 +128,7 @@ structure.sql
 
 # Local development docker
 /docker.env
+docker/builder/configuration.yml
 
 # Local development direnv files
 /.envrc
