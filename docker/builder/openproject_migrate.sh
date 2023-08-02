@@ -8,6 +8,6 @@ if [ ! -d "/robotics-openproject/tmp/cache" ]; then
 
   cd /robotics-openproject
 
-  bundle exec rake db:migrate RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=postgresql://openproject:$DB_PASSWORD@$DB_ADDRESS/openproject
-  bundle exec rake db:seed RAILS_ENV=production OPENPROJECT_DEFAULT_LANGUAGE=ru SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=postgresql://openproject:$DB_PASSWORD@$DB_ADDRESS/openproject
+  bundle exec rake db:migrate RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=$DB_URL
+  bundle exec rake db:seed RAILS_ENV=production OPENPROJECT_DEFAULT_LANGUAGE=ru SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=$DB_URL
 fi

@@ -10,6 +10,6 @@ if [ ! -d "/robotics-openproject/tmp/pids" ]; then
 
   rm -rf public/assets >> log/setup.log
   (cd frontend && npm ci) >> log/setup.log
-  bundle exec rake openproject:plugins:register_frontend DATABASE_URL=postgresql://openproject:$DB_PASSWORD@$DB_ADDRESS/openproject
-  bundle exec rake assets:precompile RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=postgresql://openproject:$DB_PASSWORD@$DB_ADDRESS/openproject
+  bundle exec rake openproject:plugins:register_frontend DATABASE_URL=$DB_URL
+  bundle exec rake assets:precompile RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE DATABASE_URL=$DB_URL
 fi

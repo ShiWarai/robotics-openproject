@@ -10,8 +10,7 @@ services:
       - builds:/root
       - sources:/robotics-openproject
     environment:
-      DB_ADDRESS: 172.20.0.2
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
@@ -29,8 +28,6 @@ services:
     ports:
       - 4200:4200
     environment:
-      DB_ADDRESS: 172.20.0.2
-      DB_PASSWORD: ${DB_PASSWORD}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
@@ -42,12 +39,10 @@ services:
     container_name: robotics_openproject_builder
     build: ./docker/builder
     volumes:
-      - gems:/usr/local/lib/
       - builds:/root:rw
       - sources:/robotics-openproject:rw
     environment:
-      DB_ADDRESS: 172.20.0.2
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
