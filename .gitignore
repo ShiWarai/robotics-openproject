@@ -127,8 +127,8 @@ structure.sql
 /.env.*.local
 
 # Local development docker
-/.env
-/docker-compose.override.yml
+/docker.env
+docker/builder/configuration.yml
 
 # Local development direnv files
 /.envrc
