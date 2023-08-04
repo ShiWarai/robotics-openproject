@@ -4,7 +4,7 @@ FROM shiwarai/robotics-openproject-builds:latest
 SHELL ["bash", "-c"]
 WORKDIR /robotics-openproject
 
-RUN git clone https://github.com/ShiWarai/robotics-openproject.git --branch dev /robotics-openproject
+RUN git clone https://github.com/ShiWarai/robotics-openproject.git --branch main /robotics-openproject
 COPY configuration.yml /robotics-openproject/config/configuration.yml
 
 COPY openproject_build.sh /home/openproject_build.sh
