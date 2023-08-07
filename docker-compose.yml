@@ -10,6 +10,7 @@ services:
       - builds:/root
       - sources:/robotics-openproject
     environment:
+      HTTPS_ENABLE: ${HTTPS_ENABLE}
       DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
