@@ -1,6 +1,6 @@
 #!/bin/bash
 
 # Save DB
-docker exec -t $(docker ps -aq --filter name=robotics_openproject_db) pg_dump -U openproject -c openproject > dump.sql
+./save_db.sh
 # Delete all project data
-docker container stop $(docker ps -aq -f label=com.docker.compose.project=robotics-openproject) && docker image prune -af && docker volume prune -f && docker builder prune -af
+docker container rm -f $(docker ps -aq -f label=com.docker.compose.project=robotics-openproject) && docker image prune -af && docker volume rm -f $(docker volume ls -q --filter name=robotics_openproject_*) && docker builder prune -af
