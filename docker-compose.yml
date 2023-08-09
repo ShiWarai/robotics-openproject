@@ -6,7 +6,6 @@ services:
     container_name: robotics_openproject_backend
     build: ./docker/backend
     volumes:
-      - gems:/usr/local/lib/
       - builds:/root
       - sources:/robotics-openproject
     environment:
@@ -94,9 +93,6 @@ volumes:
     external: false
   sources:
     name: robotics_openproject_sources
-    external: false
-  gems:
-    name: robotics_openproject_gems
     external: false
 
 networks:
