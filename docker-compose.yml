@@ -81,6 +81,8 @@ services:
       POSTGRES_DB: "openproject"
       POSTGRES_USER: "openproject"
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
       interval: 5s
@@ -93,6 +95,9 @@ volumes:
     external: false
   sources:
     name: robotics_openproject_sources
+    external: false
+  db_data:
+    name: robotics_openproject_db_data
     external: false
 
 networks:
