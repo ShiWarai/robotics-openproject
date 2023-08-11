@@ -4,13 +4,10 @@ FROM shiwarai/robotics-openproject-builds:latest
 SHELL ["bash", "-c"]
 WORKDIR /robotics-openproject
 
-RUN git clone https://github.com/ShiWarai/robotics-openproject.git --branch stable /robotics-openproject
-COPY configuration.yml /robotics-openproject/config/configuration.yml
+COPY --chmod=777 openproject_deps.sh /home/openproject_deps.sh
+COPY --chmod=777 openproject_migrate.sh /home/openproject_migrate.sh
+COPY --chmod=777 openproject_compile.sh /home/openproject_compile.sh
+COPY --chmod=777 openproject_sources_pull.sh /home/openproject_sources_pull.sh
+COPY configuration.yml /home/configuration.yml
 
-COPY openproject_build.sh /home/openproject_build.sh
-COPY openproject_migrate.sh /home/openproject_migrate.sh
-COPY openproject_compile.sh /home/openproject_compile.sh
-RUN /home/openproject_build.sh
-RUN rm -rf /robotics-openproject/tmp/cache /robotics-openproject/tmp/pids
-
-ENTRYPOINT /home/openproject_migrate.sh && /home/openproject_compile.sh
+ENTRYPOINT /home/openproject_sources_pull.sh
