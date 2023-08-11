@@ -6,4 +6,5 @@ docker volume rm robotics_openproject_sources
 docker image rm $(docker image ls -aq --filter "reference=*robotics_openproject*")
 docker builder prune -f
 
-./run.sh
+
+utils-scripts/run.sh
