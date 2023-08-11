@@ -4,7 +4,7 @@ cd /robotics-openproject
 
 updated=0
 if [ ! -d ".git" ]; then # Install
-  git clone https://github.com/ShiWarai/robotics-openproject.git --branch dev /robotics-openproject
+  git clone https://github.com/ShiWarai/robotics-openproject.git --branch stable /robotics-openproject
   mv /home/configuration.yml /robotics-openproject/config/configuration.yml
   rm -rf /robotics-openproject/tmp/cache
   updated=1
@@ -15,5 +15,5 @@ fi
 
 rm -rf /robotics-openproject/tmp/pids
 if [ "$updated" != "Already up to date." ]; then
-  /home/openproject_build.sh && /home/openproject_migrate.sh && /home/openproject_compile.sh
+  /home/openproject_deps.sh && /home/openproject_migrate.sh && /home/openproject_compile.sh
 fi

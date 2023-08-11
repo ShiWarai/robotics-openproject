@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Save DB
+./run.sh
 ./save_db.sh
 # Delete all project data
 docker container rm -f $(docker ps -aq -f label=com.docker.compose.project=robotics-openproject)
