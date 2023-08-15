@@ -2,7 +2,7 @@
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 
-if ! [[ $* == *-start* ]]; then # First start
+if [[ $* == *-setup* ]] || ! (docker ps -aq -f label=com.docker.compose.project=robotics-openproject | grep -q .); then # First start
   docker-compose --env-file docker.env -f docker-compose.yml -p robotics-openproject up -d
   utils-scripts/restore_db.sh
 else
