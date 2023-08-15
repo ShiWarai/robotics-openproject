@@ -6,10 +6,10 @@ services:
     container_name: robotics_openproject_backend
     build: ./docker/backend
     volumes:
-      - gems:/usr/local/lib/
       - builds:/root
       - sources:/robotics-openproject
     environment:
+      HTTPS_ENABLE: ${HTTPS_ENABLE}
       DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
@@ -81,6 +81,8 @@ services:
       POSTGRES_DB: "openproject"
       POSTGRES_USER: "openproject"
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}" ]
       interval: 5s
@@ -94,8 +96,8 @@ volumes:
   sources:
     name: robotics_openproject_sources
     external: false
-  gems:
-    name: robotics_openproject_gems
+  db_data:
+    name: robotics_openproject_db_data
     external: false
 
 networks:
