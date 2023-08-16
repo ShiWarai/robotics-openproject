@@ -15,5 +15,5 @@ else
   exit 1
 fi
 
-echo -e "${GREEN}Saved"
+echo -e "${GREEN}Restored"
 exit 0
