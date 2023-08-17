@@ -8,7 +8,7 @@ if [ ! -d ".git" ] || [ $FORCE_UPDATE -eq 1 ]; then # Install
 #    rm -rf /robotics-openproject
 #  fi
 
-  git clone https://github.com/ShiWarai/robotics-openproject.git --branch dev /robotics-openproject
+  git clone https://github.com/ShiWarai/robotics-openproject.git --branch stable /robotics-openproject
   mv /home/configuration.yml /robotics-openproject/config/configuration.yml
   rm -rf /robotics-openproject/tmp/cache
 
