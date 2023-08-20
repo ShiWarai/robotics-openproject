@@ -7,4 +7,4 @@ eval "$(nodenv init -)"
 
 cd /robotics-openproject
 
-RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE RAILS_SERVE_STATIC_FILES=true npm run serve
+RAILS_ENV=production SECRET_KEY_BASE=$SECRET_KEY_BASE RAILS_SERVE_STATIC_FILES=true PUBLIC_HOST=$PUBLIC_HOST npm run serve
