@@ -3,6 +3,7 @@ version: "3.8"
 services:
 
   robotics_openproject_nginx_proxy:
+    container_name: robotics_openproject_nginx_proxy
     image: 'jc21/nginx-proxy-manager:latest'
     restart: unless-stopped
     ports:
@@ -12,7 +13,8 @@ services:
     volumes:
       - ./data:/data
       - ./letsencrypt:/etc/letsencrypt
-    depends_on: robotics_openproject_frontend
+    depends_on:
+      - robotics_openproject_frontend
 
   robotics_openproject_backend:
     container_name: robotics_openproject_backend
@@ -40,7 +42,8 @@ services:
     ports:
       - ${PORT}:4200
     environment:
-      PUBLIC_HOST: https://${HOSTNAME}
+      HOSTNAME: ${HOSTNAME}
+      HTTPS_ENABLE: ${HTTPS_ENABLE}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
