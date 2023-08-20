@@ -87,6 +87,7 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
+            "disableHostCheck": true,
             "browserTarget": "OpenProject:build",
             "proxyConfig": "cli_to_rails_proxy.js"
           },
