@@ -102,8 +102,8 @@ services:
       - '81:81'
       - '443:443'
     volumes:
-      - nginx_data:/data
-      - nginx_data:/etc/letsencrypt
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
     depends_on:
       - robotics_openproject_frontend
 
@@ -116,9 +116,6 @@ volumes:
     external: false
   db_data:
     name: robotics_openproject_db_data
-    external: false
-  nginx_data:
-    name: robotics_openproject_nginx_data
     external: false
 
 networks:
