@@ -2,20 +2,6 @@ version: "3.8"
 
 services:
 
-  robotics_openproject_nginx_proxy:
-    container_name: robotics_openproject_nginx_proxy
-    image: 'jc21/nginx-proxy-manager:latest'
-    restart: unless-stopped
-    ports:
-      - '80:80'
-      - '81:81'
-      - '443:443'
-    volumes:
-      - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
-    depends_on:
-      - robotics_openproject_frontend
-
   robotics_openproject_backend:
     container_name: robotics_openproject_backend
     build: ./docker/backend
@@ -107,6 +93,20 @@ services:
       timeout: 5s
       retries: 10
 
+  robotics_openproject_nginx_proxy:
+    container_name: robotics_openproject_nginx_proxy
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - nginx_data:/data
+      - nginx_data:/etc/letsencrypt
+    depends_on:
+      - robotics_openproject_frontend
+
 volumes:
   builds:
     name: robotics_openproject_builds
@@ -116,6 +116,9 @@ volumes:
     external: false
   db_data:
     name: robotics_openproject_db_data
+    external: false
+  nginx_data:
+    name: robotics_openproject_nginx_data
     external: false
 
 networks:
