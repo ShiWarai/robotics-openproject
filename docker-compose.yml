@@ -28,7 +28,7 @@ services:
     ports:
       - ${PORT}:4200
     environment:
-      HOSTNAME: ${HOSTNAME}
+      HOSTNAME: ${PUBLIC_HOSTNAME}
       HTTPS_ENABLE: ${HTTPS_ENABLE}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
@@ -75,8 +75,6 @@ services:
   robotics_openproject_db:
     container_name: robotics_openproject_db
     image: postgres:13.12
-    ports:
-      - 5432:5432
     restart: always
     networks:
       backend:
