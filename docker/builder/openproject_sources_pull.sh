@@ -15,7 +15,8 @@ if [ ! -d ".git" ] || [ $FORCE_UPDATE -eq 1 ]; then # Install
   updated=1
 elif [ $AUTO_UPDATE -eq 1 ]; then # Update
   git fetch
-  updated=$(git pull)
+  git reset --hard origin/stable
+  updated=$(git pull --force)
 else
   updated="Already up to date."
 fi
