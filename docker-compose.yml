@@ -28,6 +28,8 @@ services:
     ports:
       - ${PORT}:4200
     environment:
+      HOSTNAME: ${PUBLIC_HOSTNAME}
+      HTTPS_ENABLE: ${HTTPS_ENABLE}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
     networks:
       backend:
@@ -61,6 +63,8 @@ services:
     environment:
       DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      AUTO_UPDATE: ${AUTO_UPDATE}
+      FORCE_UPDATE: ${FORCE_UPDATE}
     networks:
       backend:
         ipv4_address: 172.20.0.10
@@ -70,9 +74,7 @@ services:
   
   robotics_openproject_db:
     container_name: robotics_openproject_db
-    image: postgres:12.11
-    ports:
-      - 5432:5432
+    image: postgres:13.12
     restart: always
     networks:
       backend:
@@ -88,6 +90,20 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  robotics_openproject_nginx_proxy:
+    container_name: robotics_openproject_nginx_proxy
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    depends_on:
+      - robotics_openproject_frontend
 
 volumes:
   builds:
