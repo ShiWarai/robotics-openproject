@@ -5,6 +5,7 @@ services:
   robotics_openproject_backend:
     container_name: robotics_openproject_backend
     build: ./docker/backend
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -22,6 +23,7 @@ services:
   robotics_openproject_frontend:
     container_name: robotics_openproject_frontend
     build: ./docker/frontend
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -41,6 +43,7 @@ services:
   robotics_openproject_worker:
     container_name: robotics_openproject_worker
     build: ./docker/worker
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -57,6 +60,7 @@ services:
   robotics_openproject_builder:
     container_name: robotics_openproject_builder
     build: ./docker/builder
+    restart: no
     volumes:
       - builds:/root:rw
       - sources:/robotics-openproject:rw
