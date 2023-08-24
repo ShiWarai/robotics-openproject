@@ -14,7 +14,7 @@ elif [[ $* == *-update* ]]; then
     # Stop old containers
     docker stop $(docker ps -aq --filter name=robotics_openproject_backend --filter name=robotics_openproject_frontend --filter name=robotics_openproject_worker)
     # Run builder
-    AUTO_UPDATE=1 FORCE_UPDATE=0 docker-compose --env-file docker.env -f docker-compose.yml -p robotics-openproject up -d
+    AUTO_UPDATE=1 FORCE_UPDATE=0 docker-compose --env-file docker.env -f docker-compose.yml -p robotics-openproject up -d --build
 
     # Restore dumps
     if ! utils-scripts/restore_db.sh; then

@@ -2,7 +2,9 @@
 
 cd /robotics-openproject
 
-updated=0
+updated="Already up to date."
+previous_hash=1
+new_hash=0
 if [ ! -d ".git" ] || [ $FORCE_UPDATE -eq 1 ]; then # Install
 #  if [ $FORCE_UPDATE -eq 1 ]; then
 #    rm -rf /robotics-openproject
@@ -14,16 +16,15 @@ if [ ! -d ".git" ] || [ $FORCE_UPDATE -eq 1 ]; then # Install
 
   updated=1
 elif [ $AUTO_UPDATE -eq 1 ]; then # Update
+  previous_hash=$(git rev-parse HEAD)
   git restore .
-  get switch $GIT_BRANCH
+  git checkout $GIT_BRANCH
   git fetch
-  # git reset --hard origin/$GIT_BRANCH
   updated=$(git pull --force)
-else
-  updated="Already up to date."
+  new_hash=$(git rev-parse HEAD)
 fi
 
 rm -rf /robotics-openproject/tmp/pids
-if [ "$updated" != "Already up to date." ]; then
+if [ "$updated" != "Already up to date." ] || [ "$previous_hash" != "$new_hash" ]; then
   /home/openproject_deps.sh && /home/openproject_migrate.sh && /home/openproject_compile.sh
 fi
