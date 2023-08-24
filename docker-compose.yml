@@ -68,6 +68,7 @@ services:
       DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       AUTO_UPDATE: ${AUTO_UPDATE}
+      GIT_BRANCH: ${GIT_BRANCH}
       FORCE_UPDATE: ${FORCE_UPDATE}
     networks:
       backend:

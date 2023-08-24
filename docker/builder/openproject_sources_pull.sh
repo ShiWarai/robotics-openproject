@@ -8,14 +8,16 @@ if [ ! -d ".git" ] || [ $FORCE_UPDATE -eq 1 ]; then # Install
 #    rm -rf /robotics-openproject
 #  fi
 
-  git clone https://github.com/ShiWarai/robotics-openproject.git --branch stable /robotics-openproject
+  git clone https://github.com/ShiWarai/robotics-openproject.git --branch $GIT_BRANCH /robotics-openproject
   mv /home/configuration.yml /robotics-openproject/config/configuration.yml
   rm -rf /robotics-openproject/tmp/cache
 
   updated=1
 elif [ $AUTO_UPDATE -eq 1 ]; then # Update
+  git restore .
+  get switch $GIT_BRANCH
   git fetch
-  git reset --hard origin/stable
+  # git reset --hard origin/$GIT_BRANCH
   updated=$(git pull --force)
 else
   updated="Already up to date."
