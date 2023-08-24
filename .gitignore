@@ -150,3 +150,6 @@ acme.json
 
 # Dumps
 /dumps/*
+
+# Proxy data
+/proxy/*

@@ -105,8 +105,8 @@ services:
       - '81:81'
       - '443:443'
     volumes:
-      - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
+      - ./proxy/data:/data
+      - ./proxy/letsencrypt:/etc/letsencrypt
     depends_on:
       - robotics_openproject_frontend
 
