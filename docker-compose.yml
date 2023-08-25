@@ -5,6 +5,7 @@ services:
   robotics_openproject_backend:
     container_name: robotics_openproject_backend
     build: ./docker/backend
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -22,6 +23,7 @@ services:
   robotics_openproject_frontend:
     container_name: robotics_openproject_frontend
     build: ./docker/frontend
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -41,6 +43,7 @@ services:
   robotics_openproject_worker:
     container_name: robotics_openproject_worker
     build: ./docker/worker
+    restart: unless-stopped
     volumes:
       - builds:/root
       - sources:/robotics-openproject
@@ -57,6 +60,7 @@ services:
   robotics_openproject_builder:
     container_name: robotics_openproject_builder
     build: ./docker/builder
+    restart: no
     volumes:
       - builds:/root:rw
       - sources:/robotics-openproject:rw
@@ -64,6 +68,7 @@ services:
       DB_URL: postgresql://openproject:${DB_PASSWORD}@172.20.0.2/openproject
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       AUTO_UPDATE: ${AUTO_UPDATE}
+      GIT_BRANCH: ${GIT_BRANCH}
       FORCE_UPDATE: ${FORCE_UPDATE}
     networks:
       backend:
@@ -100,8 +105,8 @@ services:
       - '81:81'
       - '443:443'
     volumes:
-      - ./data:/data
-      - ./letsencrypt:/etc/letsencrypt
+      - ./proxy/data:/data
+      - ./proxy/letsencrypt:/etc/letsencrypt
     depends_on:
       - robotics_openproject_frontend
 
