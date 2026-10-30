@@ -79,7 +79,7 @@ services:
   
   robotics_openproject_db:
     container_name: robotics_openproject_db
-    image: postgres:13.12
+    image: postgres:17
     restart: always
     networks:
       backend:
