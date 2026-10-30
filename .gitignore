@@ -147,3 +147,10 @@ acme.json
 
 # Generated seeders crowdin source file
 **/config/locales/en.seeders.yml
+
+# robotics-openproject deployment
+!/files/delete.me
+/docker.env
+docker/builder/configuration.yml
+/dumps/*
+/proxy/*
