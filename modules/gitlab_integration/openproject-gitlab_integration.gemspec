@@ -1,5 +1,6 @@
-# encoding: UTF-8
-# 
+# frozen_string_literal: true
+
+#
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) 2023 Ben Tey
@@ -10,7 +11,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,15 +32,16 @@
 
 Gem::Specification.new do |s|
   s.name        = "openproject-gitlab_integration"
-  s.version     = '2.0.9'
-  s.authors     = "Ben Tey"
-  s.email       = "ben.tey@outlook.com"
-  s.homepage    = "https://github.com/btey/openproject-gitlab-integration"
-  s.summary     = 'OpenProject GitLab Integration'
-  s.description = 'Integrates OpenProject and GitLab for a better workflow'
-  s.license     = 'GPLv3'
+  s.version     = "3.0.0"
+  s.authors     = "OpenProject GmbH, Ben Tey"
+  s.email       = "info@openproject.com"
+  s.homepage    = "https://www.openproject.org/docs/system-admin-guide/integrations/gitlab-integration/"
+  s.summary     = "OpenProject GitLab Integration"
+  s.description = "Integrates OpenProject and GitLab for a better workflow"
+  s.license     = "GPLv3"
 
-  s.files = Dir["{app,config,db,frontend,lib}/**/*"] + %w(README.md)
+  s.files = Dir["{app,config,db,frontend,lib}/**/*"] + %w[README.md]
 
   s.add_dependency "openproject-webhooks"
+  s.metadata["rubygems_mfa_required"] = "true"
 end

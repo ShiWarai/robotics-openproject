@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +28,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'fog/aws'
-require 'carrierwave'
-require 'carrierwave/storage/fog'
+require "fog/aws"
+require "carrierwave"
+require "carrierwave/storage/fog"
 
 module CarrierWave
   module Configuration
@@ -37,13 +39,16 @@ module CarrierWave
                             public: false)
 
       # Ensure that the provider AWS is uppercased
-      provider = credentials[:provider] || 'AWS'
-      if [:aws, 'aws'].include? provider
-        credentials[:provider] = 'AWS'
+      provider = credentials[:provider] || "AWS"
+      if [:aws, "aws"].include? provider
+        credentials[:provider] = "AWS"
       end
 
+      # make sure larger attachments are uploaded via multi-part to support
+      # files bigger than 4GB (most likely backups) being uploaded from workers
+      credentials = { max_put_chunk_size: 100.megabytes }.merge(credentials)
+
       CarrierWave.configure do |config|
-        config.fog_provider    = 'fog/aws'
         config.fog_credentials = credentials
         config.fog_directory   = directory
         config.fog_public      = public
@@ -53,6 +58,18 @@ module CarrierWave
     end
   end
 end
+
+# CW 2.0 changed the default cache_storage from :file to nil.
+# Restore :file to keep Attachment.clean_cached_files! working.
+CarrierWave.configure do |config|
+  config.cache_storage = :file
+end
+
+# Keep CarrierWave's workfile staging dir on the same filesystem as FileUploader.cache_dir
+# (Dir.tmpdir/op_uploaded_files) and as tempfiles created elsewhere (e.g. BackupJob), so that
+# moving a freshly created large file into the cache (see FogFileUploader#move_to_cache) is a
+# fast rename instead of a full copy across filesystems.
+CarrierWave.tmp_path = File.join(Dir.tmpdir, "carrierwave")
 
 unless OpenProject::Configuration.fog_credentials.empty?
   CarrierWave::Configuration.configure_fog!

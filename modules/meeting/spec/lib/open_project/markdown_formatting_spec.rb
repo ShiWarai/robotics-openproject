@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +28,10 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe OpenProject::TextFormatting,
-               'Meeting links' do
+               "Meeting links" do
   include ActionView::Helpers::UrlHelper # soft-dependency
   include ActionView::Context
   include OpenProject::StaticRouting::UrlHelpers
@@ -43,7 +45,7 @@ RSpec.describe OpenProject::TextFormatting,
   end
 
   shared_let(:meeting) do
-    create(:meeting, project:, title: 'Monthly coordination')
+    create(:meeting, project:, title: "Monthly coordination")
   end
 
   subject do
@@ -64,9 +66,9 @@ RSpec.describe OpenProject::TextFormatting,
     TEXT
   end
 
-  context 'when visible' do
-    let(:role) { create(:role, permissions: %i[view_meetings view_project]) }
-    let(:user) { create(:user, member_in_project: project, member_through_role: role) }
+  context "when visible" do
+    let(:role) { create(:project_role, permissions: %i[view_meetings view_project]) }
+    let(:user) { create(:user, member_with_roles: { project => role }) }
 
     let(:expected) do
       <<~HTML
@@ -80,18 +82,20 @@ RSpec.describe OpenProject::TextFormatting,
 
     let(:meeting_link) do
       link_to(
-        'Monthly coordination',
-        { controller: '/meetings', action: 'show', id: meeting.id, only_path: true },
-        class: 'meeting op-uc-link'
+        "Monthly coordination",
+        { controller: "/meetings", action: "show", project_id: project.id, id: meeting.id, only_path: true },
+        class: "meeting op-uc-link",
+        aria: { label: "Monthly coordination: A dynamic link to a meeting placed using a macro." },
+        target: "_top"
       )
     end
 
-    it 'renders the links' do
+    it "renders the links" do
       expect(subject).to be_html_eql(expected)
     end
   end
 
-  context 'when not visible' do
+  context "when not visible" do
     let(:user) { create(:user) }
 
     let(:expected) do
@@ -104,7 +108,7 @@ RSpec.describe OpenProject::TextFormatting,
       HTML
     end
 
-    it 'renders the raw text' do
+    it "renders the raw text" do
       expect(subject).to be_html_eql(expected)
     end
   end

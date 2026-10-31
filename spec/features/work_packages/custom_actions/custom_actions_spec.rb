@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,42 +28,29 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Custom actions',
-               js: true,
-               with_cuprite: true,
-               with_ee: %i[custom_actions] do
+RSpec.describe "Custom actions", :js, with_ee: %i[custom_actions] do
   shared_let(:admin) { create(:admin) }
 
-  let(:permissions) { %i(view_work_packages edit_work_packages move_work_packages work_package_assigned) }
-  let(:role) { create(:role, permissions:) }
-  let!(:other_role) { create(:role, permissions:) }
-  let(:user) do
-    user = create(:user,
-                  firstname: 'A',
-                  lastname: 'User')
-
-    create(:member,
-           project:,
-           roles: [role],
-           user:)
-
-    create(:member,
-           project: other_project,
-           roles: [role],
-           user:)
-    user
-  end
-  let!(:other_member_user) do
+  shared_let(:permissions) { %i(view_work_packages edit_work_packages move_work_packages work_package_assigned) }
+  shared_let(:role) { create(:project_role, permissions:) }
+  shared_let(:other_role) { create(:project_role, permissions:) }
+  shared_let(:project) { create(:project, name: "This project") }
+  shared_let(:other_project) { create(:project, name: "Other project") }
+  shared_let(:user) do
     create(:user,
-           firstname: 'Other member',
-           lastname: 'User',
-           member_in_project: project,
-           member_through_role: role)
+           firstname: "A",
+           lastname: "User",
+           member_with_roles: { project => [role], other_project => [role] })
   end
-  let(:project) { create(:project, name: 'This project') }
-  let(:other_project) { create(:project, name: 'Other project') }
+  shared_let(:other_member_user) do
+    create(:user,
+           firstname: "Other member",
+           lastname: "User",
+           member_with_roles: { project => role })
+  end
+
   let!(:work_package) do
     create(:work_package,
            project:,
@@ -72,26 +61,26 @@ RSpec.describe 'Custom actions',
 
   let(:wp_page) { Pages::FullWorkPackage.new(work_package) }
   let(:default_priority) do
-    create(:default_priority, name: 'Normal')
+    create(:default_priority, name: "Normal")
   end
   let!(:immediate_priority) do
     create(:issue_priority,
-           name: 'At once',
+           name: "At once",
            position: IssuePriority.maximum(:position) + 1)
   end
   let(:default_status) do
-    create(:default_status, name: 'Default status')
+    create(:default_status, name: "Default status")
   end
   let(:closed_status) do
-    create(:closed_status, name: 'Closed')
+    create(:closed_status, name: "Closed")
   end
   let(:rejected_status) do
-    create(:closed_status, name: 'Rejected')
+    create(:closed_status, name: "Rejected")
   end
   let(:other_type) do
     type = create(:type)
 
-    other_project.types << type
+    other_project.project_types.create!(type:)
 
     type
   end
@@ -122,12 +111,12 @@ RSpec.describe 'Custom actions',
     cf = create(:list_wp_custom_field, multi_value: true)
 
     project.work_package_custom_fields = [cf]
-    work_package.type.custom_fields = [cf]
+    work_package.type.default_variant.custom_fields = [cf]
 
     cf
   end
   let!(:int_custom_field) do
-    create(:int_wp_custom_field)
+    create(:integer_wp_custom_field)
   end
   let(:selected_list_custom_field_options) do
     [list_custom_field.custom_options.first, list_custom_field.custom_options.last]
@@ -136,31 +125,41 @@ RSpec.describe 'Custom actions',
     cf = create(:date_wp_custom_field)
 
     other_project.work_package_custom_fields = [cf]
-    other_type.custom_fields = [cf]
+    other_type.default_variant.custom_fields = [cf]
 
     cf
   end
+  let!(:multi_user_custom_field) do
+    create(:multi_user_wp_custom_field).tap do |cf|
+      project.work_package_custom_fields << cf
+      work_package.type.default_variant.custom_fields << cf
+    end
+  end
   let(:index_ca_page) { Pages::Admin::CustomActions::Index.new }
+  let(:activity_tab) { Components::WorkPackages::Activities.new(work_package) }
 
   before do
     login_as admin
   end
 
-  it 'viewing workflow buttons' do
+  # this big spec just has a different expectation when primerized_work_package_activities is enabled for the very last part
+  # where the a different expectation banner would be expected
+  # IMO not worth the extra computation time for the intermediate state when the feature flag is active
+  it "viewing workflow buttons" do
     # create custom action 'Unassign'
     index_ca_page.visit!
 
     new_ca_page = index_ca_page.new
 
-    new_ca_page.set_name('Unassign')
-    new_ca_page.set_description('Removes the assignee')
-    new_ca_page.add_action('Assignee', '-')
-    new_ca_page.expect_action('assigned_to', nil)
+    new_ca_page.set_name("Unassign")
+    new_ca_page.set_description("Removes the assignee")
+    new_ca_page.add_action("Assignee", "-")
+    new_ca_page.expect_action("assigned_to", nil)
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign')
+    index_ca_page.expect_listed("Unassign")
 
     unassign = CustomAction.last
     expect(unassign.actions.length).to eq(1)
@@ -170,22 +169,22 @@ RSpec.describe 'Custom actions',
 
     new_ca_page = index_ca_page.new
 
-    new_ca_page.set_name('Close')
+    new_ca_page.set_name("Close")
 
-    new_ca_page.add_action('Status', 'Close')
-    new_ca_page.expect_action('status', closed_status.id)
+    new_ca_page.add_action("Status", "Close")
+    new_ca_page.expect_action("status", closed_status.id)
 
-    new_ca_page.set_condition('Role', role.name)
+    new_ca_page.set_condition("Role", role.name)
     new_ca_page.expect_selected_option role.name
 
-    new_ca_page.set_condition('Status', [default_status.name, rejected_status.name])
+    new_ca_page.set_condition("Status", [default_status.name, rejected_status.name])
     new_ca_page.expect_selected_option default_status.name
     new_ca_page.expect_selected_option rejected_status.name
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close')
+    index_ca_page.expect_listed("Unassign", "Close")
 
     close = CustomAction.last
     expect(close.actions.length).to eq(1)
@@ -194,22 +193,22 @@ RSpec.describe 'Custom actions',
     # create custom action 'Escalate'
 
     new_ca_page = index_ca_page.new
-    new_ca_page.set_name('Escalate')
-    new_ca_page.add_action('Priority', immediate_priority.name)
-    new_ca_page.expect_action('priority', immediate_priority.id)
+    new_ca_page.set_name("Escalate")
+    new_ca_page.add_action("Priority", immediate_priority.name)
+    new_ca_page.expect_action("priority", immediate_priority.id)
 
-    new_ca_page.add_action('Notify', other_member_user.name)
+    new_ca_page.add_action("Notify", other_member_user.name)
 
     new_ca_page.expect_selected_option other_member_user.name
     new_ca_page.add_action(list_custom_field.name, selected_list_custom_field_options.map(&:name))
 
-    new_ca_page.expect_selected_option 'A'
-    new_ca_page.expect_selected_option 'G'
+    new_ca_page.expect_selected_option "A"
+    new_ca_page.expect_selected_option "G"
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close', 'Escalate')
+    index_ca_page.expect_listed("Unassign", "Close", "Escalate")
 
     escalate = CustomAction.last
     expect(escalate.actions.length).to eq(3)
@@ -219,28 +218,28 @@ RSpec.describe 'Custom actions',
 
     new_ca_page = index_ca_page.new
 
-    new_ca_page.set_name('Reset')
+    new_ca_page.set_name("Reset")
 
-    new_ca_page.add_action('Priority', default_priority.name)
-    new_ca_page.expect_action('priority', default_priority.id)
+    new_ca_page.add_action("Priority", default_priority.name)
+    new_ca_page.expect_action("priority", default_priority.id)
 
-    new_ca_page.add_action('Status', default_status.name)
-    new_ca_page.expect_action('status', default_status.id)
+    new_ca_page.add_action("Status", default_status.name)
+    new_ca_page.expect_action("status", default_status.id)
 
-    new_ca_page.add_action('Assignee', user.name)
-    new_ca_page.expect_action('assigned_to', user.id)
+    new_ca_page.add_action("Assignee", user.name)
+    new_ca_page.expect_action("assigned_to", user.id)
 
     # This custom field is not applicable
-    new_ca_page.add_action(int_custom_field.name, '1')
-    new_ca_page.expect_action(int_custom_field.attribute_name, '1')
+    new_ca_page.add_action(int_custom_field.name, "1")
+    new_ca_page.expect_action(int_custom_field.attribute_name, "1")
 
-    new_ca_page.set_condition('Status', closed_status.name)
+    new_ca_page.set_condition("Status", closed_status.name)
     new_ca_page.expect_selected_option closed_status.name
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close', 'Escalate', 'Reset')
+    index_ca_page.expect_listed("Unassign", "Close", "Escalate", "Reset")
 
     reset = CustomAction.last
     expect(reset.actions.length).to eq(4)
@@ -250,17 +249,17 @@ RSpec.describe 'Custom actions',
 
     new_ca_page = index_ca_page.new
 
-    new_ca_page.set_name('Other roles action')
+    new_ca_page.set_name("Other roles action")
 
-    new_ca_page.add_action('Status', default_status.name)
-    new_ca_page.expect_action('status', default_status.id)
+    new_ca_page.add_action("Status", default_status.name)
+    new_ca_page.expect_action("status", default_status.id)
 
-    new_ca_page.set_condition('Role', other_role.name)
+    new_ca_page.set_condition("Role", other_role.name)
     new_ca_page.expect_selected_option other_role.name
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close', 'Escalate', 'Reset', 'Other roles action')
+    index_ca_page.expect_listed("Unassign", "Close", "Escalate", "Reset", "Other roles action")
 
     other_roles_action = CustomAction.last
     expect(other_roles_action.actions.length).to eq(1)
@@ -271,36 +270,36 @@ RSpec.describe 'Custom actions',
     new_ca_page = index_ca_page.new
 
     retry_block do
-      new_ca_page.set_name('Move project')
+      new_ca_page.set_name("Move project")
       # Add date custom action which has a different admin layout
 
       ignore_ferrum_javascript_error do
-        select date_custom_field.name, from: 'Add action'
+        select date_custom_field.name, from: "Add action"
       end
 
       ignore_ferrum_javascript_error do
-        select 'on', from: date_custom_field.name
+        select "on", from: date_custom_field.name
       end
 
       date = (Date.current + 5.days)
       find("#custom_action_actions_custom_field_#{date_custom_field.id}_visible").click
-      datepicker = Components::Datepicker.new 'body'
+      datepicker = Components::Datepicker.new "body"
       datepicker.set_date date
 
-      new_ca_page.add_action('Type', other_type.name)
-      new_ca_page.expect_action('type', other_type.id)
+      new_ca_page.add_action("Type", other_type.name)
+      new_ca_page.expect_action("type", other_type.id)
 
-      new_ca_page.add_action('Project', other_project.name)
-      new_ca_page.expect_action('project', other_project.id)
+      new_ca_page.add_action("Project", other_project.name)
+      new_ca_page.expect_action("project", other_project.id)
 
-      new_ca_page.set_condition('Project', project.name)
+      new_ca_page.set_condition("Project", project.name)
       new_ca_page.expect_selected_option project.name
     end
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close', 'Escalate', 'Reset', 'Other roles action', 'Move project')
+    index_ca_page.expect_listed("Unassign", "Close", "Escalate", "Reset", "Other roles action", "Move project")
 
     move_project = CustomAction.last
     expect(move_project.actions.length).to eq(3)
@@ -311,41 +310,40 @@ RSpec.describe 'Custom actions',
 
     wp_page.visit!
 
-    wp_page.expect_custom_action('Unassign')
-    wp_page.expect_custom_action('Close')
-    wp_page.expect_custom_action('Escalate')
-    wp_page.expect_custom_action('Move project')
-    wp_page.expect_no_custom_action('Reset')
-    wp_page.expect_no_custom_action('Other roles action')
-    wp_page.expect_custom_action_order('Unassign', 'Close', 'Escalate', 'Move project')
+    wp_page.expect_custom_action("Unassign")
+    wp_page.expect_custom_action("Close")
+    wp_page.expect_custom_action("Escalate")
+    wp_page.expect_custom_action("Move project")
+    wp_page.expect_no_custom_action("Reset")
+    wp_page.expect_no_custom_action("Other roles action")
+    wp_page.expect_custom_action_order("Unassign", "Close", "Escalate", "Move project")
 
-    within('.custom-actions') do
+    within(".custom-actions") do
       # When hovering over the button, the description is displayed
-      button = find('.custom-action--button', text: 'Unassign')
-      expect(button['title'])
-        .to eql 'Removes the assignee'
+      expect(page)
+        .to have_button("Unassign", title: "Removes the assignee")
     end
 
-    wp_page.click_custom_action('Unassign')
-    wp_page.expect_attributes assignee: '-'
+    wp_page.click_custom_action("Unassign")
+    wp_page.expect_attributes assignee: "-"
+    activity_tab.expect_journal_details_header(text: user.name)
 
-    wp_page.click_custom_action('Escalate')
+    wp_page.click_custom_action("Escalate")
     wp_page.expect_attributes priority: immediate_priority.name,
                               status: default_status.name,
-                              assignee: '-',
+                              assignee: "-",
                               "customField#{list_custom_field.id}" => selected_list_custom_field_options.map(&:name).join("\n")
 
-    expect(page)
-      .to have_selector('.work-package-details-activities-activity-contents a.user-mention', text: other_member_user.name)
+    activity_tab.expect_journal_mention(text: other_member_user.name)
 
-    wp_page.click_custom_action('Close')
+    wp_page.click_custom_action("Close")
     wp_page.expect_attributes status: closed_status.name,
                               priority: immediate_priority.name
 
-    wp_page.expect_custom_action('Reset')
-    wp_page.expect_no_custom_action('Close')
+    wp_page.expect_custom_action("Reset")
+    wp_page.expect_no_custom_action("Close")
 
-    wp_page.click_custom_action('Reset')
+    wp_page.click_custom_action("Reset")
 
     wp_page.expect_attributes priority: default_priority.name,
                               status: default_status.name,
@@ -357,130 +355,155 @@ RSpec.describe 'Custom actions',
 
     index_ca_page.visit!
 
-    edit_ca_page = index_ca_page.edit('Reset')
+    edit_ca_page = index_ca_page.edit("Reset")
 
     retry_block do
-      edit_ca_page.set_name 'Reject'
-      edit_ca_page.remove_action 'Priority'
-      edit_ca_page.set_action 'Assignee', '-'
-      edit_ca_page.expect_action 'assigned_to', nil
+      edit_ca_page.set_name "Reject"
+      edit_ca_page.remove_action "Priority"
+      edit_ca_page.set_action "Assignee", "-"
+      edit_ca_page.expect_action "assigned_to", nil
 
-      edit_ca_page.set_action 'Status', rejected_status.name
-      edit_ca_page.expect_action 'status', rejected_status.id
+      edit_ca_page.set_action "Status", rejected_status.name
+      edit_ca_page.expect_action "status", rejected_status.id
 
-      edit_ca_page.set_condition 'Status', default_status.name
+      edit_ca_page.set_condition "Status", default_status.name
       edit_ca_page.expect_selected_option default_status.name
     end
 
     edit_ca_page.save
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign', 'Close', 'Escalate', 'Reject')
+    index_ca_page.expect_listed("Unassign", "Close", "Escalate", "Reject")
 
-    reset = CustomAction.find_by(name: 'Reject')
+    reset = CustomAction.find_by(name: "Reject")
     expect(reset.actions.length).to eq(3)
     expect(reset.conditions.length).to eq(1)
 
-    index_ca_page.move_top 'Move project'
-    index_ca_page.move_bottom 'Escalate'
-    index_ca_page.move_up 'Close'
-    index_ca_page.move_down 'Unassign'
+    index_ca_page.move_top "Move project"
+    index_ca_page.move_bottom "Escalate"
+    index_ca_page.move_up "Close"
+    index_ca_page.move_down "Unassign"
 
     # Check the altered button
     login_as(user)
 
     wp_page.visit!
 
-    wp_page.expect_custom_action('Unassign')
-    wp_page.expect_custom_action('Close')
-    wp_page.expect_custom_action('Escalate')
-    wp_page.expect_custom_action('Move project')
-    wp_page.expect_custom_action('Reject')
-    wp_page.expect_no_custom_action('Reset')
-    wp_page.expect_custom_action_order('Move project', 'Close', 'Reject', 'Unassign', 'Escalate')
+    wp_page.expect_custom_action("Unassign")
+    wp_page.expect_custom_action("Close")
+    wp_page.expect_custom_action("Escalate")
+    wp_page.expect_custom_action("Move project")
+    wp_page.expect_custom_action("Reject")
+    wp_page.expect_no_custom_action("Reset")
+    wp_page.expect_custom_action_order("Move project", "Close", "Reject", "Unassign", "Escalate")
 
-    wp_page.click_custom_action('Reject')
-    wp_page.expect_attributes assignee: '-',
+    wp_page.click_custom_action("Reject")
+    wp_page.expect_attributes assignee: "-",
                               status: rejected_status.name,
                               priority: default_priority.name
 
-    wp_page.expect_custom_action('Close')
-    wp_page.expect_no_custom_action('Reject')
+    wp_page.expect_custom_action("Close")
+    wp_page.expect_no_custom_action("Reject")
 
     # Delete 'Reject' from list of actions
     login_as(admin)
 
     index_ca_page.visit!
 
-    index_ca_page.delete('Unassign')
+    index_ca_page.delete("Unassign")
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Close', 'Escalate', 'Reject')
+    index_ca_page.expect_listed("Close", "Escalate", "Reject")
 
     login_as(user)
 
     wp_page.visit!
 
-    wp_page.expect_no_custom_action('Unassign')
-    wp_page.expect_custom_action('Close')
-    wp_page.expect_custom_action('Escalate')
-    wp_page.expect_no_custom_action('Reject')
+    wp_page.expect_no_custom_action("Unassign")
+    wp_page.expect_custom_action("Close")
+    wp_page.expect_custom_action("Escalate")
+    wp_page.expect_no_custom_action("Reject")
 
     # Move project
-    wp_page.click_custom_action('Move project')
+    wp_page.click_custom_action("Move project")
 
-    wp_page.expect_attributes assignee: '-',
+    wp_page.expect_attributes assignee: "-",
                               status: rejected_status.name,
                               type: other_type.name.upcase,
-                              "customField#{date_custom_field.id}" => (Date.today + 5.days).strftime('%m/%d/%Y')
+                              "customField#{date_custom_field.id}" => (Date.today + 5.days).strftime("%m/%d/%Y")
     expect(page)
-      .to have_content(I18n.t('js.project.click_to_switch_to_project', projectname: other_project.name))
+      .to have_content(I18n.t("js.project.click_to_switch_to_project", projectname: other_project.name))
 
     ## Bump the lockVersion and by that force a conflict.
     work_package.reload.touch
 
-    wp_page.click_custom_action('Escalate', expect_success: false)
+    wp_page.click_custom_action("Escalate", expect_success: false)
 
-    wp_page.expect_toast type: :error, message: I18n.t('api_v3.errors.code_409')
+    wp_page.expect_conflict_error_banner
   end
 
-  it 'editing a current date custom action (Regression #30949)' do
+  it "editing a current date custom action (Regression #30949)" do
     # create custom action 'Unassign'
     index_ca_page.visit!
 
     new_ca_page = index_ca_page.new
 
-    new_ca_page.set_name('Current date')
-    new_ca_page.set_description('Sets the current date')
-    new_ca_page.add_action('Date', 'Current date')
+    new_ca_page.set_name("Current date")
+    new_ca_page.set_description("Sets the current date")
+    new_ca_page.add_action("Date", "Current date")
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Current date')
+    index_ca_page.expect_listed("Current date")
 
     date_action = CustomAction.last
     expect(date_action.actions.length).to eq(1)
     expect(date_action.conditions.length).to eq(0)
 
-    edit_page = index_ca_page.edit('Current date')
-    expect(page).to have_select('custom_action_actions_date', selected: 'Current date')
+    index_ca_page.edit("Current date")
+    expect(page).to have_select("custom_action_actions_date", selected: "Current date")
   end
 
-  it 'disables the custom action button and editing other fields when submiting the custom action' do
+  it "editing a status custom action (Regression #61888)" do
     # create custom action 'Unassign'
     index_ca_page.visit!
 
     new_ca_page = index_ca_page.new
-    new_ca_page.set_name('Unassign')
-    new_ca_page.set_description('Removes the assignee')
-    new_ca_page.add_action('Assignee', '-')
-    new_ca_page.expect_action('assigned_to', nil)
+
+    new_ca_page.set_name("Status")
+    new_ca_page.set_description("Sets some status")
+    new_ca_page.add_action("Status", "Close")
 
     new_ca_page.create
 
     index_ca_page.expect_current_path
-    index_ca_page.expect_listed('Unassign')
+    index_ca_page.expect_listed("Status")
+
+    date_action = CustomAction.last
+    expect(date_action.actions.length).to eq(1)
+    expect(date_action.actions.first.value_objects).to contain_exactly(label: "Closed", value: closed_status.id)
+
+    edit_page = index_ca_page.edit("Status")
+    page.within "#custom-actions-form--actions" do
+      edit_page.expect_selected_option "Close"
+    end
+  end
+
+  it "disables the custom action button and editing other fields when submitting the custom action" do
+    # create custom action 'Unassign'
+    index_ca_page.visit!
+
+    new_ca_page = index_ca_page.new
+    new_ca_page.set_name("Unassign")
+    new_ca_page.set_description("Removes the assignee")
+    new_ca_page.add_action("Assignee", "-")
+    new_ca_page.expect_action("assigned_to", nil)
+
+    new_ca_page.create
+
+    index_ca_page.expect_current_path
+    index_ca_page.expect_listed("Unassign")
 
     unassign = CustomAction.last
     expect(unassign.actions.length).to eq(1)
@@ -491,12 +514,102 @@ RSpec.describe 'Custom actions',
     wp_page.visit!
 
     wp_page.ensure_page_loaded
+    wait_for_network_idle
+    wp_page.expect_custom_action("Unassign")
+
     # Stop sending ajax requests in order to test disabled fields upon submit
     wp_page.disable_ajax_requests
 
-    wp_page.click_custom_action('Unassign', expect_success: false)
-    wp_page.expect_custom_action_disabled('Unassign')
+    wp_page.click_custom_action("Unassign", expect_success: false)
+    wp_page.expect_custom_action_disabled("Unassign")
     find('[data-field-name="estimatedTime"]').click
-    expect(page).to have_selector("#wp-#{work_package.id}-inline-edit--field-estimatedTime[disabled]")
+    expect(page).to have_css("#wp-#{work_package.id}-inline-edit--field-estimatedTime[disabled]")
+  end
+
+  context "with baseline enabled" do
+    let(:wp_table) { Pages::WorkPackagesTable.new(project) }
+    let(:query) do
+      create(:query,
+             name: "Timestamps Query",
+             project:,
+             user:,
+             timestamps: ["P-1d", "PT0S"])
+    end
+
+    before do
+      create(:custom_action,
+             actions: [CustomActions::Actions::AssignedTo.new(value: nil)],
+             name: "Unassign")
+    end
+
+    it "executes the custom action (Regression#49588)" do
+      login_as(user)
+      wp_table.visit_query(query)
+      wp_page = wp_table.open_full_screen_by_link(work_package)
+
+      wp_page.ensure_page_loaded
+
+      wp_page.click_custom_action("Unassign", expect_success: true)
+    end
+  end
+
+  context "with a multi_user field (Bug#64981)" do
+    it "saves when a user is assigned to the custom field" do
+      index_ca_page.visit!
+
+      new_ca_page = index_ca_page.new
+      new_ca_page.set_name("MultiUser")
+      new_ca_page.set_description("Multiple User Custom Field Test")
+      new_ca_page.add_action(multi_user_custom_field.name, other_member_user.name)
+      new_ca_page.expect_action(multi_user_custom_field.name, [other_member_user.name])
+
+      new_ca_page.create
+
+      index_ca_page.expect_current_path
+      index_ca_page.expect_listed("MultiUser")
+
+      edit_ca_page = index_ca_page.edit("MultiUser")
+      edit_ca_page.expect_action(multi_user_custom_field.name, [other_member_user.name])
+    end
+  end
+
+  context "when staying on the page for multiple changes (Bug#OP-19472)",
+          with_settings: { work_packages_identifier: "semantic" } do
+    let!(:unassign_ca) do
+      create(:custom_action,
+             actions: [CustomActions::Actions::AssignedTo.new(nil)],
+             name: "Unassign")
+    end
+
+    let!(:responsible_ca) do
+      create(:member,
+             principal: admin,
+             project: project,
+             roles: [role])
+      create(:custom_action,
+             actions: [CustomActions::Actions::Responsible.new("current_user")],
+             name: "Be responsible")
+    end
+
+    before do
+      # This is done to fix the id that breaks because the wp is created outside of the
+      # semantic identifier scope.
+      previous_identifier = project.identifier
+      project.update!(identifier: "RENAMED")
+      project.handle_semantic_rename(previous_identifier)
+    end
+
+    it "works when clicking two buttons" do
+      wp_page.visit!
+
+      wp_page.click_custom_action(unassign_ca.name, expect_success: true)
+
+      wp_page.click_custom_action(responsible_ca.name, expect_success: true)
+
+      wp_page.expect_attributes(
+        assignee: "-",
+        responsible: admin.name
+      )
+    end
   end
 end

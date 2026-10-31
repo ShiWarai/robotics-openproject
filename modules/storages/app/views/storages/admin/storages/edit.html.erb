@@ -1,74 +1,43 @@
-<!-- Standard Ruby view, please see the controller for comments -->
+<%#-- copyright
+OpenProject is an open source project management software.
+Copyright (C) the OpenProject GmbH
 
-<!-- We want to hide client_secret from the user while allowing the user to edit the other attributes -->
-<% html_title t(:label_administration), t("project_module_storages"), t('label_edit_x', x: @object.name) %>
-<% local_assigns[:additional_breadcrumb] = @object.name %>
-<%= toolbar title: t('label_edit_x', x: @object.name) %>
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License version 3.
 
-<%= labelled_tabular_form_for @object, url: admin_settings_storage_path(@object), as: :storages_storage do |f| -%>
-  <%= render partial: 'form', locals: { f: f } %>
-  <%= styled_button_tag t(:button_save), class: "-highlight -with-icon icon-checkmark" %>
-<% end %>
+OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+Copyright (C) 2006-2013 Jean-Philippe Lang
+Copyright (C) 2010-2013 the ChiliProject Team
 
-<% if @object.oauth_application %>
-  <%= render(AttributeGroups::AttributeGroupComponent.new) do |component| %>
-    <% component.with_header(title: "OpenProject #{t(:'storages.label_oauth_application_details')}") %>
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
 
-    <% component.with_attributes([
-      { key: "OpenProject #{Storages::Admin::LABEL_OAUTH_CLIENT_ID}", value: @object.oauth_application.uid },
-      { key: "OpenProject #{Storages::Admin::LABEL_OAUTH_CLIENT_SECRET}", value: "●●●●●●●●●●●●●●●●" },
-    ]) %>
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    <%= link_to(t("storages.buttons.replace_openproject_oauth"),
-                replace_oauth_application_admin_settings_storage_path(@object),
-                method: :delete,
-                data: { confirm: t(:'storages.confirm_replace_oauth_application') },
-                class: 'button -with-icon icon-reload') %>
-  <% end %>
-<% end %>
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-<%= render(AttributeGroups::AttributeGroupComponent.new) do |component| %>
-  <% component.with_header(title: "#{t("storages.provider_types.#{@object.short_provider_type}.name")} #{t(:'storages.label_oauth_client_details')}") %>
+See COPYRIGHT and LICENSE files for more details.
 
-  <% if @object.oauth_client %>
-    <% component.with_attributes([
-      { key: "#{t("storages.provider_types.#{@object.short_provider_type}.name")} #{Storages::Admin::LABEL_OAUTH_CLIENT_ID}",
-        value: @object.oauth_client.client_id },
-      { key: "#{t("storages.provider_types.#{@object.short_provider_type}.name")} #{Storages::Admin::LABEL_OAUTH_CLIENT_SECRET}",
-        value: short_secret(@object.oauth_client.client_secret) },
-    ]) %>
+++#%>
 
-    <%= link_to(t("storages.buttons.replace_provider_type_oauth", provider_type: t("storages.provider_types.#{@object.short_provider_type}.name")),
-                new_admin_settings_storage_oauth_client_path(@object),
-                data: { confirm: t(:'storages.confirm_replace_oauth_client') },
-                class: 'button -with-icon icon-reload') %>
-  <% else %>
-    <%= link_to(t("js.label_create"), new_admin_settings_storage_oauth_client_path(@object), class: 'button -with-icon icon-add') %>
-  <% end %>
-<% end %>
+<% html_title t(:label_administration), t(:project_module_storages), t(:label_edit_x, x: @storage.name) %>
 
-<% if OpenProject::FeatureDecisions.automatically_managed_project_folders_active? %>
-  <%= render(AttributeGroups::AttributeGroupComponent.new) do |component| %>
-    <% component.with_header(title: t("storages.page_titles.managed_project_folders.title")) %>
+<%= content_tag("turbo-frame", id: "page-content") do %>
+  <%= render(Storages::Admin::EditFormHeaderComponent.new(storage: @storage, selected: :edit)) %>
 
-    <% if @object.automatic_management_unspecified? %>
-      <%= link_to(t("storages.buttons.configure"), new_admin_settings_storage_automatically_managed_project_folders_path(@object), class: 'button -with-icon icon-add') %>
-    <% else %>
-      <% component.with_attribute(
-        key: t(:"storages.label_managed_project_folders.automatically_managed_folders"),
-        value: @object.automatically_managed? ? t(:"storages.label_active") : t(:"storages.label_inactive")
-      ) %>
-
-      <% if @object.automatically_managed? %>
-        <% component.with_attribute(
-          key: t(:"storages.label_managed_project_folders.application_password"),
-          value: "●●●●●●●●●●●●●●●●"
-        ) %>
-      <% end %>
-
-      <%= link_to(t("storages.buttons.edit_automatically_managed_project_folders"),
-                  edit_admin_settings_storage_automatically_managed_project_folders_path(@object),
-                  class: 'button -with-icon icon-edit') %>
+  <%= render(Primer::Alpha::Layout.new(stacking_breakpoint: :lg)) do |component| %>
+    <% component.with_main do %>
+      <%= render(Storages::Admin::StorageViewComponent.new(@storage, wizard: @wizard)) %>
+    <% end %>
+    <% component.with_sidebar(col_placement: :end, row_placement: :end) do %>
+      <%= render(Storages::Admin::SidePanelComponent.new(storage: @storage)) %>
     <% end %>
   <% end %>
 <% end %>

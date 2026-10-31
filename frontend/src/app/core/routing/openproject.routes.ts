@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,50 +21,32 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  StateDeclaration,
-  StateService,
-  Transition,
-  TransitionService,
-  UIRouter,
-} from '@uirouter/core';
-import {
-  IToast,
-  ToastService,
-} from 'core-app/shared/components/toaster/toast.service';
+import { isEqual } from 'lodash-es';
+import { StateDeclaration, StateService, Transition, TransitionService, UIRouter } from '@uirouter/core';
+import { IToast, ToastService } from 'core-app/shared/components/toaster/toast.service';
 import { CurrentProjectService } from 'core-app/core/current-project/current-project.service';
 import { Injector } from '@angular/core';
 import { FirstRouteService } from 'core-app/core/routing/first-route-service';
-import {
-  Ng2StateDeclaration,
-  StatesModule,
-} from '@uirouter/angular';
-import {
-  appBaseSelector,
-  ApplicationBaseComponent,
-} from 'core-app/core/routing/base/application-base.component';
+import { Ng2StateDeclaration, StatesModule } from '@uirouter/angular';
+import { appBaseSelector, ApplicationBaseComponent } from 'core-app/core/routing/base/application-base.component';
 import { BackRoutingService } from 'core-app/features/work-packages/components/back-routing/back-routing.service';
-import { MY_ACCOUNT_LAZY_ROUTES } from 'core-app/features/user-preferences/user-preferences.lazy-routes';
-import { IAN_LAZY_ROUTES } from 'core-app/features/in-app-notifications/in-app-notifications.lazy-routes';
 import { StateObject } from '@uirouter/core/lib/state/stateObject';
 import {
   mobileGuardActivated,
   redirectToMobileAlternative,
 } from 'core-app/shared/helpers/routing/mobile-guard.helper';
-import { TEAM_PLANNER_LAZY_ROUTES } from 'core-app/features/team-planner/team-planner/team-planner.lazy-routes';
-import { CALENDAR_LAZY_ROUTES } from 'core-app/features/calendar/calendar.lazy-routes';
+
+interface RouteStateData {
+  bodyClasses?:string[]|string|null;
+  menuItem?:string;
+}
 
 export const OPENPROJECT_ROUTES:Ng2StateDeclaration[] = [
-  {
-    name: 'new_project.**',
-    url: '/projects/new',
-    loadChildren: () => import('../../features/projects/openproject-projects.module').then((m) => m.OpenprojectProjectsModule),
-  },
   {
     name: 'root',
     abstract: true,
@@ -91,57 +73,11 @@ export const OPENPROJECT_ROUTES:Ng2StateDeclaration[] = [
     },
   },
   {
-    name: 'boards.**',
-    parent: 'optional_project',
-    url: '/boards',
-    loadChildren: () => import('../../features/boards/openproject-boards.module').then((m) => m.OpenprojectBoardsModule),
-  },
-  {
     name: 'bim.**',
     parent: 'optional_project',
     url: '/bcf',
     loadChildren: () => import('../../features/bim/ifc_models/openproject-ifc-models.module').then((m) => m.OpenprojectIFCModelsModule),
   },
-  {
-    name: 'backlogs.**',
-    parent: 'optional_project',
-    url: '/backlogs',
-    loadChildren: () => import('../../features/backlogs/openproject-backlogs.module').then((m) => m.OpenprojectBacklogsModule),
-  },
-  {
-    name: 'backlogs_sprint.**',
-    parent: 'optional_project',
-    url: '/sprints',
-    loadChildren: () => import('../../features/backlogs/openproject-backlogs.module').then((m) => m.OpenprojectBacklogsModule),
-  },
-  {
-    name: 'reporting.**',
-    parent: 'optional_project',
-    url: '/cost_reports',
-    loadChildren: () => import('../../features/reporting/openproject-reporting.module').then((m) => m.OpenprojectReportingModule),
-  },
-  {
-    name: 'job-statuses.**',
-    parent: 'optional_project',
-    url: '/job_statuses',
-    loadChildren: () => import('../../features/job-status/openproject-job-status.module').then((m) => m.OpenProjectJobStatusModule),
-  },
-  {
-    name: 'project_settings.**',
-    parent: 'optional_project',
-    url: '/settings/general',
-    loadChildren: () => import('../../features/projects/openproject-projects.module').then((m) => m.OpenprojectProjectsModule),
-  },
-  {
-    name: 'project_copy.**',
-    parent: 'optional_project',
-    url: '/copy',
-    loadChildren: () => import('../../features/projects/openproject-projects.module').then((m) => m.OpenprojectProjectsModule),
-  },
-  ...MY_ACCOUNT_LAZY_ROUTES,
-  ...IAN_LAZY_ROUTES,
-  ...TEAM_PLANNER_LAZY_ROUTES,
-  ...CALENDAR_LAZY_ROUTES,
 ];
 
 /**
@@ -167,7 +103,7 @@ export function updateMenuItem(menuItemClass:string|undefined, action:'add'|'rem
     return;
   }
 
-  const menuItem = jQuery(`#main-menu .${menuItemClass}`)[0];
+  const menuItem = document.querySelector(`#main-menu .${menuItemClass}`);
 
   if (!menuItem) {
     return;
@@ -199,7 +135,7 @@ export function uiRouterConfiguration(uiRouter:UIRouter, injector:Injector, modu
       raw: true,
       dynamic: true,
       is: (val:unknown) => typeof (val) === 'string',
-      equals: (a:any, b:any) => _.isEqual(a, b),
+      equals: (a:unknown, b:unknown) => isEqual(a, b),
     },
   );
 
@@ -212,7 +148,7 @@ export function uiRouterConfiguration(uiRouter:UIRouter, injector:Injector, modu
       raw: true,
       dynamic: true,
       is: (val:unknown) => typeof (val) === 'string',
-      equals: (a:unknown, b:unknown) => _.isEqual(a, b),
+      equals: (a:unknown, b:unknown) => isEqual(a, b),
     },
   );
 }
@@ -224,13 +160,25 @@ export function initializeUiRouterListeners(injector:Injector) {
   const currentProject:CurrentProjectService = injector.get(CurrentProjectService);
   const firstRoute:FirstRouteService = injector.get(FirstRouteService);
   const backRoutingService:BackRoutingService = injector.get(BackRoutingService);
+  const uiRouter = injector.get(UIRouter);
 
   // Check whether we are running within our complete app, or only within some other bootstrapped
   // component
-  const wpBase = document.querySelector(appBaseSelector);
+  let openprojectBaseApp = document.querySelector(appBaseSelector);
+
+  // Connect ui router to turbo drive
+  document.addEventListener('turbo:load', () => {
+    // Re-find the current app-base
+    openprojectBaseApp = document.querySelector(appBaseSelector);
+    uiRouter.urlService.sync();
+
+    // Re-apply the body classes if the turbo load event is on the same page (e.g. when creating a child from the relations tab)
+    if (stateService.href(uiRouter.globals.current) === window.location.pathname + window.location.search) {
+      bodyClass((uiRouter.globals.current?.data as RouteStateData|undefined)?.bodyClasses, 'add');
+    }
+  });
 
   // Uncomment to trace route changes
-  // const uiRouter = injector.get(UIRouter);
   // uiRouter.trace.enable();
 
   // For some pages it makes no sense to display them on mobile (e.g. the split screen).
@@ -249,17 +197,21 @@ export function initializeUiRouterListeners(injector:Injector) {
   // however the second parameter has the currently (e.g., parent) entering state chain.
   $transitions.onEnter({}, (transition:Transition, state:StateDeclaration) => {
     // Add body class when entering this state
-    bodyClass(_.get(state, 'data.bodyClasses'), 'add');
-    if (transition.from().data && _.get(state, 'data.menuItem') !== transition.from().data.menuItem) {
-      updateMenuItem(_.get(state, 'data.menuItem'), 'add');
+    const stateData = state?.data as RouteStateData|undefined;
+    const fromData = transition.from().data as RouteStateData|undefined;
+    bodyClass(stateData?.bodyClasses, 'add');
+    if (fromData && stateData?.menuItem !== fromData.menuItem) {
+      updateMenuItem(stateData?.menuItem, 'add');
     }
   });
 
   $transitions.onExit({}, (transition:Transition, state:StateDeclaration) => {
     // Remove body class when leaving this state
-    bodyClass(_.get(state, 'data.bodyClasses'), 'remove');
-    if (transition.to().data && _.get(state, 'data.menuItem') !== transition.to().data.menuItem) {
-      updateMenuItem(_.get(state, 'data.menuItem'), 'remove');
+    const stateData = state?.data as RouteStateData|undefined;
+    const toData = transition.to().data as RouteStateData|undefined;
+    bodyClass(stateData?.bodyClasses, 'remove');
+    if (toData && stateData?.menuItem !== toData.menuItem) {
+      updateMenuItem(stateData?.menuItem, 'remove');
     }
   });
 
@@ -282,12 +234,12 @@ export function initializeUiRouterListeners(injector:Injector) {
     const profiler:{ pageTransition:() => void }|undefined = window.MiniProfiler;
     profiler?.pageTransition();
 
-    const toStateObject:StateObject|undefined = toState.$$state && toState.$$state();
+    const toStateObject:StateObject|undefined = toState.$$state?.();
     const hasProjectRoutes = toStateObject?.includes?.root;
     const projectIdentifier = toParams.projectPath as string || currentProject.identifier;
     if (hasProjectRoutes && !toParams.projects && projectIdentifier) {
-      const newParams = _.clone(toParams);
-      _.assign(newParams, { projectPath: projectIdentifier, projects: 'projects' });
+      const newParams = { ...toParams };
+      Object.assign(newParams, { projectPath: projectIdentifier, projects: 'projects' });
       return $state.target(toState, newParams, { location: 'replace' });
     }
 
@@ -299,7 +251,7 @@ export function initializeUiRouterListeners(injector:Injector) {
     // The FirstRoute service remembers the first angular route we went to
     // but for pages without any angular routes, this will stay empty.
     // So we also allow routes to happen after some delay
-    if (wpBase === null) {
+    if (openprojectBaseApp === null) {
       // Get the current path and compare
       const path = window.location.pathname;
       const pathWithSearch = path + window.location.search;
@@ -313,7 +265,7 @@ export function initializeUiRouterListeners(injector:Injector) {
 
     // Remove and add any body class definitions for entering
     // and exiting states.
-    bodyClass(_.get(toState, 'data.bodyClasses'), 'add');
+    bodyClass((toState?.data as RouteStateData|undefined)?.bodyClasses, 'add');
 
     // We need to distinguish between actions that should run on the initial page load
     // (ie. openining a new tab in the details view should focus on the element in the table)
@@ -329,6 +281,9 @@ export function initializeUiRouterListeners(injector:Injector) {
     if (toParams.flash_message) {
       toastService.add(toParams.flash_message as IToast);
     }
+
+    // Reset the page state on navigation
+    window.OpenProject.pageState = 'pristine';
 
     return true;
   });

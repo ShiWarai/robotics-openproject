@@ -1,26 +1,29 @@
-#English strings go here
+---
 da:
   js:
     team_planner:
-      add_existing: 'Add existing'
-      add_existing_title: 'Add existing work packages'
-      create_label: 'Team planner'
-      create_title: 'Create new team planner'
-      unsaved_title: 'Unnamed team planner'
-      no_data: 'Add assignees to set up your team planner.'
-      add_assignee: 'Add assignee'
-      remove_assignee: 'Remove assignee'
-      two_weeks: '2-week'
-      one_week: '1-week'
-      work_week: 'Work week'
-      today: 'Today'
-      drag_here_to_remove: 'Drag here to remove assignee and start and end dates.'
-      cannot_drag_here: 'Cannot remove the work package due to permissions or editing restrictions.'
-      cannot_drag_to_non_working_day: 'This work package cannot start/finish on a non-working day.'
-      quick_add:
-        empty_state: 'Use the search field to find work packages and drag them to the planner to assign it to someone and define start and end dates.'
-        search_placeholder: 'Search...'
+      add_assignee: Tildelt
+      add_existing: Tilføj eksisterende
+      add_existing_title: Tilføj eksisterende arbejdspakker
+      cannot_drag_here: Arbejdspakken kan ikke flyttes på grund af tilladelser eller begrænsninger for redigering.
+      cannot_drag_to_non_working_day: Arbejdspakken kan ikke starte eller slutte på en arbejdsfri dag.
+      create_label: Teamplanlægger
+      create_title: Opret ny teamplanlægger
+      drag_here_to_remove: Træk hertil for at fjerne tildelt samt start- og slutdato.
+      eight_weeks: 8 uger
+      four_weeks: 4 uger
+      label_team_planner_plural: Teamplanlæggere
       modify:
         errors:
-          permission_denied: 'You do not have the necessary permissions to modify this.'
-          fallback: 'This work package cannot be edited.'
+          fallback: Arbejdspakken kan ikke redigeres.
+          permission_denied: Du har ikke de nødvendige tilladelser til at ændre dette.
+      no_data: Tilføj personer, der skal have opgaver, for at sætte teamplanlæggeren op.
+      one_week: 1 uge
+      quick_add:
+        empty_state: Brug søgefeltet til at finde arbejdspakker, og træk dem til planlæggeren for at tildele dem til nogen og angive start- og slutdato.
+        search_placeholder: Søg ...
+      remove_assignee: Fjern tildelt
+      today: I dag
+      two_weeks: 2 uger
+      unsaved_title: Unavngivet teamplanlægger
+      work_week: Arbejdsuge

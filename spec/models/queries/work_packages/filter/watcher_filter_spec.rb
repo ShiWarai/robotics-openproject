@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,17 +28,42 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
   let(:user) { build_stubbed(:user) }
+  let(:pemissions) { [:view_work_package_watchers] }
 
-  it_behaves_like 'basic query filter' do
+  describe "#autocomplete_options" do
+    let(:project) { create(:project) }
+    let(:instance) { described_class.create!(context: build_stubbed(:query, project:)) }
+
+    context "with the :view_work_package_watchers permission" do
+      current_user { create(:user, member_with_permissions: { project => [:view_work_package_watchers] }) }
+
+      it "restricts the candidates to users of the project" do
+        expect(instance.autocomplete_options[:filters])
+          .to contain_exactly({ name: "type", operator: "=", values: %w[User] },
+                              { name: "member", operator: "=", values: [project.id.to_s] })
+      end
+    end
+
+    context "without the :view_work_package_watchers permission" do
+      current_user { create(:user, member_with_permissions: { project => [:view_work_packages] }) }
+
+      it "falls back to the list input, where the me value is the only candidate" do
+        expect(instance.autocomplete_options)
+          .to be_empty
+      end
+    end
+  end
+
+  it_behaves_like "basic query filter" do
     let(:type) { :list }
     let(:class_key) { :watcher_id }
 
     let(:principal_loader) do
-      loader = double('principal_loader')
+      loader = double("principal_loader")
       allow(loader)
         .to receive(:user_values)
         .and_return([])
@@ -51,23 +78,15 @@ RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
         .and_return(principal_loader)
     end
 
-    describe '#available?' do
-      it 'is true if the user is logged in' do
-        allow(User)
-          .to receive_message_chain(:current, :logged?)
-          .and_return true
+    describe "#available?" do
+      it "is true if the user is logged in" do
+        allow(User.current).to receive(:logged?).and_return true
 
         expect(instance).to be_available
       end
 
-      it 'is true if the user is allowed to see watchers and if there are users' do
-        allow(User)
-          .to receive_message_chain(:current, :logged?)
-          .and_return false
-
-        allow(User)
-          .to receive_message_chain(:current, :allowed_to?)
-          .and_return true
+      it "is true if the user is allowed to see watchers and if there are users" do
+        allow(User.current).to receive(:logged?).and_return true
 
         allow(principal_loader)
           .to receive(:user_values)
@@ -76,14 +95,8 @@ RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
         expect(instance).to be_available
       end
 
-      it 'is false if the user is allowed to see watchers but there are no users' do
-        allow(User)
-          .to receive_message_chain(:current, :logged?)
-          .and_return false
-
-        allow(User)
-          .to receive_message_chain(:current, :allowed_to?)
-          .and_return true
+      it "is false if the user is allowed to see watchers but there are no users" do
+        allow(User.current).to receive(:logged?).and_return false
 
         allow(principal_loader)
           .to receive(:user_values)
@@ -92,14 +105,9 @@ RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
         expect(instance).not_to be_available
       end
 
-      it 'is false if the user is not allowed to see watchers but there are users' do
-        allow(User)
-          .to receive_message_chain(:current, :logged?)
-          .and_return false
-
-        allow(User)
-          .to receive_message_chain(:current, :allowed_to?)
-          .and_return false
+      it "is false if the user is not allowed to see watchers but there are users" do
+        allow(User.current).to receive(:logged?).and_return false
+        mock_permissions_for(User.current, &:forbid_everything)
 
         allow(principal_loader)
           .to receive(:user_values)
@@ -109,47 +117,38 @@ RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
       end
     end
 
-    describe '#allowed_values' do
-      context 'contains the me value if the user is logged in' do
+    describe "#allowed_values" do
+      context "contains the me value if the user is logged in" do
         before do
-          allow(User)
-            .to receive_message_chain(:current, :logged?)
-            .and_return true
+          allow(User.current).to receive(:logged?).and_return true
 
           expect(instance.allowed_values)
-            .to match_array [[I18n.t(:label_me), 'me']]
+            .to contain_exactly([I18n.t(:label_me), "me"])
         end
       end
 
-      context 'contains the user values loaded if the user is allowed to see them' do
+      context "contains the user values loaded if the user is allowed to see them" do
         before do
-          allow(User)
-            .to receive_message_chain(:current, :logged?)
-            .and_return true
-
-          allow(User)
-            .to receive_message_chain(:current, :allowed_to?)
-            .and_return true
+          allow(User.current).to receive(:logged?).and_return true
 
           allow(principal_loader)
             .to receive(:user_values)
             .and_return([nil, user.id.to_s])
 
           expect(instance.allowed_values)
-            .to match_array [[I18n.t(:label_me), 'me'],
-                             [nil, user.id.to_s]]
+            .to contain_exactly([I18n.t(:label_me), "me"], [nil, user.id.to_s])
         end
       end
     end
 
-    describe '#ar_object_filter?' do
-      it 'is true' do
+    describe "#ar_object_filter?" do
+      it "is true" do
         expect(instance)
           .to be_ar_object_filter
       end
     end
 
-    describe '#value_objects' do
+    describe "#value_objects" do
       let(:user1) { build_stubbed(:user) }
 
       before do
@@ -161,9 +160,9 @@ RSpec.describe Queries::WorkPackages::Filter::WatcherFilter do
         instance.values = [user1.id.to_s]
       end
 
-      it 'returns an array of users' do
+      it "returns an array of users" do
         expect(instance.value_objects)
-          .to match_array([user1])
+          .to contain_exactly(user1)
       end
     end
   end

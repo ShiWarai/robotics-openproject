@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,34 +28,32 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe ApplicationHelper do
-  describe '.link_to_if_authorized' do
+  describe ".link_to_if_authorized" do
     let(:project) { create(:valid_project) }
     let(:project_member) do
       create(:user,
-             member_in_project: project,
-             member_through_role: create(:role,
-                                         permissions: %i[view_work_packages edit_work_packages
-                                                         browse_repository view_changesets view_wiki_pages]))
+             member_with_permissions: { project => %i[view_work_packages edit_work_packages
+                                                      browse_repository view_changesets view_wiki_pages] })
     end
     let(:issue) do
       create(:work_package,
              project:,
              author: project_member,
-             type: project.types.first)
+             type: project.enabled_types.first)
     end
 
-    context 'if user is authorized' do
+    context "if user is authorized" do
       before do
         expect(self).to receive(:authorize_for).and_return(true)
-        @response = link_to_if_authorized('link_content', {
-                                            controller: 'work_packages',
-                                            action: 'show',
+        @response = link_to_if_authorized("link_content", {
+                                            controller: "work_packages",
+                                            action: "show",
                                             id: issue
                                           },
-                                          class: 'fancy_css_class')
+                                          class: "fancy_css_class")
       end
 
       subject { @response }
@@ -63,15 +63,15 @@ RSpec.describe ApplicationHelper do
       it { is_expected.to match /fancy_css_class/ }
     end
 
-    context 'if user is unauthorized' do
+    context "if user is unauthorized" do
       before do
         expect(self).to receive(:authorize_for).and_return(false)
-        @response = link_to_if_authorized('link_content', {
-                                            controller: 'work_packages',
-                                            action: 'show',
+        @response = link_to_if_authorized("link_content", {
+                                            controller: "work_packages",
+                                            action: "show",
                                             id: issue
                                           },
-                                          class: 'fancy_css_class')
+                                          class: "fancy_css_class")
       end
 
       subject { @response }
@@ -79,12 +79,12 @@ RSpec.describe ApplicationHelper do
       it { is_expected.to be_nil }
     end
 
-    context 'allow using the :controller and :action for the target link' do
+    context "allow using the :controller and :action for the target link" do
       before do
         expect(self).to receive(:authorize_for).and_return(true)
-        @response = link_to_if_authorized('By controller/action',
-                                          controller: 'work_packages',
-                                          action: 'show',
+        @response = link_to_if_authorized("By controller/action",
+                                          controller: "work_packages",
+                                          action: "show",
                                           id: issue.id)
       end
 
@@ -94,10 +94,10 @@ RSpec.describe ApplicationHelper do
     end
   end
 
-  describe 'other_formats_links' do
-    context 'link given' do
+  describe "other_formats_links" do
+    context "link given" do
       before do
-        @links = other_formats_links { |f| f.link_to 'Atom', url: { controller: :projects, action: :index } }
+        @links = other_formats_links { |f| f.link_to "Atom", url: { controller: :projects, action: :index } }
       end
 
       it {
@@ -105,29 +105,29 @@ RSpec.describe ApplicationHelper do
       }
     end
 
-    context 'link given but disabled' do
+    context "link given but disabled" do
       before do
         allow(Setting).to receive(:feeds_enabled?).and_return(false)
-        @links = other_formats_links { |f| f.link_to 'Atom', url: { controller: :projects, action: :index } }
+        @links = other_formats_links { |f| f.link_to "Atom", url: { controller: :projects, action: :index } }
       end
 
       it { expect(@links).to be_nil }
     end
   end
 
-  describe 'time_tag' do
+  describe "time_tag" do
     around do |example|
       I18n.with_locale(:en) { example.run }
     end
 
     subject { time_tag(time) }
 
-    context 'with project' do
+    context "with project" do
       before do
         @project = build(:project)
       end
 
-      context 'right now' do
+      context "right now" do
         let(:time) { Time.now }
 
         it { is_expected.to match /^<a/ }
@@ -135,7 +135,7 @@ RSpec.describe ApplicationHelper do
         it { is_expected.to be_html_safe }
       end
 
-      context 'some time ago' do
+      context "some time ago" do
         let(:time) do
           Timecop.travel(2.weeks.ago) do
             Time.now
@@ -148,8 +148,8 @@ RSpec.describe ApplicationHelper do
       end
     end
 
-    context 'without project' do
-      context 'right now' do
+    context "without project" do
+      context "right now" do
         let(:time) { Time.now }
 
         it { is_expected.to match /^<time/ }
@@ -158,7 +158,7 @@ RSpec.describe ApplicationHelper do
         it { is_expected.to be_html_safe }
       end
 
-      context 'some time ago' do
+      context "some time ago" do
         let(:time) do
           Timecop.travel(1.week.ago) do
             Time.now
@@ -173,20 +173,78 @@ RSpec.describe ApplicationHelper do
     end
   end
 
-  describe '.authoring_at' do
-    it 'escapes html from author name' do
-      created = '2023-06-02'
-      author = create(:user, firstname: '<b>Hello</b>', lastname: 'world')
+  describe ".authoring_at" do
+    it "escapes html from author name" do
+      created = "2023-06-02"
+      author = build(:user, firstname: "<b>Hello</b>", lastname: "world")
+      author.save! validate: false
+
+      esc_name = "&lt;b&gt;Hello&lt;/b&gt; world"
+
+      exp_str = <<-HTML.squish
+        Added by
+        <a title="User #{esc_name}" data-hover-card-url="/users/#{author.id}/hover_card"
+           data-hover-card-trigger-target="trigger" href="/users/#{author.id}">#{esc_name}</a>
+        on 2023-06-02
+      HTML
+
       expect(authoring_at(created, author))
-        .to eq("Added by <a href=\"/users/#{author.id}\">&lt;b&gt;Hello&lt;/b&gt; world</a> at 2023-06-02")
+        .to eq(exp_str)
     end
   end
 
-  describe '.all_lang_options_for_select' do
+  describe "#lang_options_for_select" do
+    before do
+      allow(Redmine::I18n)
+        .to receive(:all_languages)
+        .and_return %w[en de es ja zh-CN]
+    end
+
+    context "with all available languages" do
+      it "returns options for all languages" do
+        expect(lang_options_for_select).to eq [
+          ["(auto)", ""],
+          ["Deutsch", "de", { lang: "de" }],
+          ["English", "en", { lang: "en" }],
+          ["Español", "es", { lang: "es" }],
+          ["日本語", "ja", { lang: "ja" }],
+          ["简体中文", "zh-CN", { lang: "zh-CN" }]
+        ]
+      end
+    end
+
+    context "with some available languages", with_settings: { available_languages: %w[en es ja] } do
+      it "returns options for available languages" do
+        expect(lang_options_for_select).to eq [
+          ["English", "en", { lang: "en" }],
+          ["Español", "es", { lang: "es" }],
+          ["日本語", "ja", { lang: "ja" }]
+        ]
+      end
+    end
+
+    context "when blank is true (default)" do
+      it "returns auto option if all languages available" do
+        expect(lang_options_for_select).to start_with ["(auto)", ""]
+      end
+
+      it "does not return auto option if some languages available", with_settings: { available_languages: %w[en] } do
+        expect(lang_options_for_select).not_to start_with ["(auto)", ""]
+      end
+    end
+
+    context "when blank is false" do
+      it "does not return auto option" do
+        expect(lang_options_for_select(false)).not_to start_with ["(auto)", ""]
+      end
+    end
+  end
+
+  describe "#all_lang_options_for_select" do
     it 'has all languages translated ("English" should appear only once)' do
       impostor_locales =
         all_lang_options_for_select
-          .reject { |_lang, locale| locale == 'en' }
+          .reject { |_lang, locale| locale == "en" }
           .select { |lang, _locale| lang == "English" }
           .map { |_lang, locale| locale }
       expect(impostor_locales.count).to eq(0), <<~ERR
@@ -203,7 +261,7 @@ RSpec.describe ApplicationHelper do
       ERR
     end
 
-    it 'has distinct languages translation' do
+    it "has distinct languages translation" do
       duplicate_langs =
         all_lang_options_for_select
           .map { |lang, _locale| lang }
@@ -229,6 +287,56 @@ RSpec.describe ApplicationHelper do
           - commit the additional translation file generated in
             "config/locales/generated/*.yml".
       ERR
+    end
+  end
+
+  describe "#back_url_to_current_page" do
+    context "when back_url param is provided" do
+      it "returns the provided back_url" do
+        allow(helper).to receive(:params).and_return(ActionController::Parameters.new(back_url: "/work_packages"))
+
+        expect(helper.back_url_to_current_page).to eq("/work_packages")
+      end
+    end
+
+    context "when back_url param is missing" do
+      it "returns nil" do
+        allow(helper)
+          .to(
+            receive_messages(
+              params: ActionController::Parameters.new,
+              request: instance_double(ActionDispatch::Request, get?: true, url: "http://test.host/")
+            )
+          )
+
+        expect(helper.back_url_to_current_page).to be_nil
+      end
+    end
+  end
+
+  describe "#link_to_content_update" do
+    let(:options) { { controller: "work_packages", action: "show", id: 10 } }
+
+    subject { link_to_content_update("Пакет работ", options, html_options) }
+
+    context "without html_options" do
+      let(:html_options) { {} }
+
+      it "renders with 'target=\"_top\"'" do
+        expect(subject).to be_html_eql %{
+          <a target="_top" href="/work_packages/10">Пакет работ</a>
+        }
+      end
+    end
+
+    context "with html_options" do
+      let(:html_options) { { aria: { label: "Работайте усердно!", current: "page" } } }
+
+      it "renders with 'target=\"_top\"'" do
+        expect(subject).to be_html_eql %{
+          <a target="_top" aria-label="Работайте усердно!" aria-current="page" href="/work_packages/10">Пакет работ</a>
+        }
+      end
     end
   end
 end

@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,36 +29,56 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Projects global menu item', :js, :with_cuprite do
-  let(:user) { create(:user) }
+RSpec.describe "Projects global menu item", :js do
+  shared_let(:user) { create(:user) }
+  shared_let(:admin) { create(:admin) }
+
+  current_user { user }
 
   before do
-    login_as user
     visit root_path
   end
 
-  it 'navigates to the projects#index page' do
-    within '#main-menu' do
-      click_link text: 'Projects'
+  it "navigates to the projects#index page" do
+    within "#main-menu" do
+      click_link text: "Projects"
     end
 
     expect(page).to have_current_path(projects_path)
   end
 
-  context 'when navigated to the projects#index page' do
+  context "when navigated to the projects#index page" do
     before do
-      within '#main-menu' do
-        click_link text: 'Projects'
+      within "#main-menu" do
+        click_link text: "Projects"
+        wait_for_network_idle
       end
     end
 
-    it 'renders the preset filters' do
-      within '#main-menu' do
-        expect(page).to have_link text: I18n.t(:label_all_projects)
-        expect(page).to have_link text: I18n.t(:label_public_projects)
-        expect(page).to have_link text: I18n.t(:label_archived_projects)
+    it "renders the preset filters" do
+      within "#main-menu" do
+        expect(page).to have_link text: I18n.t("projects.lists.active")
+        expect(page).to have_link text: I18n.t("projects.lists.my")
+        expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.on_track")
+        expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.off_track")
+        expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.at_risk")
+      end
+    end
+
+    context "with an admin user" do
+      current_user { admin }
+
+      it "renders the archived filter as well" do
+        within "#main-menu" do
+          expect(page).to have_link text: I18n.t("projects.lists.active")
+          expect(page).to have_link text: I18n.t("projects.lists.my")
+          expect(page).to have_link text: I18n.t("projects.lists.archived")
+          expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.on_track")
+          expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.off_track")
+          expect(page).to have_link text: I18n.t("activerecord.attributes.project.status_codes.at_risk")
+        end
       end
     end
   end

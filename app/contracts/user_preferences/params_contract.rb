@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,10 +30,6 @@
 
 module UserPreferences
   class ParamsContract < ::ParamsContract
-    include RequiresEnterpriseGuard
-    self.enterprise_action = :date_alerts
-    self.enterprise_condition = ->(*) { date_alerts_set? }
-
     DATE_ALERT_DURATIONS = [nil, 0, 1, 3, 7].freeze
     DATE_ALERT_OVERDUE_DURATIONS = [nil, 1, 3, 7].freeze
 
@@ -74,12 +72,6 @@ module UserPreferences
       NotificationSetting.email_settings.any? do |setting|
         notification_setting[setting] == true
       end
-    end
-
-    ##
-    # Check if the given notification hash has date alert related settings set
-    def date_alerts_set?
-      (NotificationSetting.date_alert_settings & notifications.flat_map(&:keys)).any?
     end
 
     def global_notifications

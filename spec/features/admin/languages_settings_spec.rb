@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,38 +28,40 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Languages settings page', cuprite: true, js: true do
+RSpec.describe "Languages settings page", :js do
   current_user { create(:admin) }
 
   let(:languages_page) { Pages::Admin::SystemSettings::Languages.new }
 
-  context 'when available languages setting is writable' do
+  context "when available languages setting is writable" do
     before do
-      Setting.default_language = 'fr'
+      Setting.default_language = "fr"
       Setting.available_languages = %w[de en]
     end
 
-    it 'adds default language to available languages when saving' do
+    it "adds default language to available languages when saving" do
       languages_page.visit!
 
-      expect(languages_page).to have_field('available_languages_de', checked: true)
-      expect(languages_page).to have_field('available_languages_en', checked: true)
-      expect(languages_page).to have_field('available_languages_fr', checked: true, disabled: true)
-      expect(languages_page).to have_field('available_languages_ja', checked: false)
+      within_fieldset "Available languages" do
+        expect(languages_page).to have_checked_field("Deutsch") # 🇩🇪
+        expect(languages_page).to have_checked_field("English")
+        expect(languages_page).to have_checked_field("Français", disabled: true) # 🇫🇷
+        expect(languages_page).to have_unchecked_field("日本語") # 🇯🇵
+      end
 
       expect { languages_page.save }
-        .to change { Setting.find_by(name: 'available_languages').value }
+        .to change { Setting.find_by(name: "available_languages").value.sort }
         .from(%w[de en])
         .to(%w[de en fr])
     end
   end
 
-  context 'when available languages setting is not writable (set by env var)', :settings_reset do
-    it 'disables the save button and does not change the available languages setting', with_env: {
-      OPENPROJECT_AVAILABLE__LANGUAGES: 'de en',
-      OPENPROJECT_DEFAULT_LANGUAGE: 'fr'
+  context "when available languages setting is not writable (set by env var)", :settings_reset do
+    it "disables the save button and does not change the available languages setting", with_env: {
+      OPENPROJECT_AVAILABLE__LANGUAGES: "de en",
+      OPENPROJECT_DEFAULT_LANGUAGE: "fr"
     } do
       reset(:available_languages)
       reset(:default_language)
@@ -65,14 +69,16 @@ RSpec.describe 'Languages settings page', cuprite: true, js: true do
 
       languages_page.visit!
 
-      expect(languages_page).to have_field('available_languages_de', checked: true, disabled: true)
-      expect(languages_page).to have_field('available_languages_en', checked: true, disabled: true)
-      expect(languages_page).to have_field('available_languages_fr', checked: true, disabled: true)
-      expect(languages_page).to have_field('available_languages_ja', checked: false, disabled: true)
+      within_fieldset "Available languages" do
+        expect(languages_page).to have_checked_field("Deutsch", disabled: true) # 🇩🇪
+        expect(languages_page).to have_checked_field("English", disabled: true)
+        expect(languages_page).to have_checked_field("Français", disabled: true) # 🇫🇷
+        expect(languages_page).to have_unchecked_field("日本語", disabled: true) # 🇯🇵
+      end
 
-      expect(page).to have_button('Save', disabled: true)
+      expect(languages_page).to have_button("Save", disabled: true)
 
-      expect(Setting.where(name: 'available_languages')).not_to exist
+      expect(Setting.where(name: "available_languages")).not_to exist
     end
   end
 end

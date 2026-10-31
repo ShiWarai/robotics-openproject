@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,11 +26,11 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'services/base_services/behaves_like_create_service'
+require "spec_helper"
+require "services/base_services/behaves_like_create_service"
 
 RSpec.describe Bim::Bcf::Issues::CreateService, type: :model do
-  it_behaves_like 'BaseServices create service' do
+  it_behaves_like "BaseServices create service" do
     let(:model_class) { Bim::Bcf::Issue }
     let(:factory) { :bcf_issue }
     let(:work_package) { build_stubbed(:work_package) }
@@ -42,11 +42,91 @@ RSpec.describe Bim::Bcf::Issues::CreateService, type: :model do
         .and_return(wp_call)
     end
 
-    context 'when WP service call fails' do
+    context "when WP service call fails" do
       let(:wp_call) { ServiceResult.failure(result: work_package) }
 
-      it 'returns with that call immediately' do
+      it "returns with that call immediately" do
         expect(subject).to eq wp_call
+      end
+    end
+  end
+
+  describe "resolving work packages from reference_links" do
+    include API::V3::Utilities::PathHelper
+
+    let(:project) { create(:project, enabled_module_names: %i[bim work_package_tracking]) }
+    let(:user) do
+      create(:user,
+             member_with_permissions: { project => %i[manage_bcf
+                                                      view_linked_issues
+                                                      view_work_packages
+                                                      edit_work_packages] })
+    end
+    let(:work_package) { create(:work_package, project:) }
+    let(:instance) { described_class.new(user:) }
+
+    subject(:service_call) { instance.call(reference_links:) }
+
+    context "with a link containing the numeric id" do
+      let(:reference_links) { [api_v3_paths.work_package(work_package.id)] }
+
+      it "links the topic to the referenced work package" do
+        expect(service_call).to be_success
+        expect(service_call.result.work_package).to eq work_package
+      end
+    end
+
+    # An instance can start out in semantic mode and later switch to classic.
+    # When it does, existing work packages keep their semantic identifiers, so a
+    # BCF issue that references one must still import. We look identifiers up by
+    # their shape, not by the current setting, which makes this work.
+    context "with a link containing a semantic identifier allocated under semantic mode" do
+      it "still links the topic to the referenced work package after switching to classic mode" do
+        with_settings(work_packages_identifier: "semantic")
+        project = create(:project, identifier: "SEMID", enabled_module_names: %i[bim work_package_tracking])
+        work_package = create(:work_package, project:)
+        permissions = %i[manage_bcf view_linked_issues view_work_packages edit_work_packages]
+        user = create(:user, member_with_permissions: { project => permissions })
+        expect(work_package.identifier).to start_with("SEMID-")
+
+        with_settings(work_packages_identifier: "classic")
+        result = described_class.new(user:).call(reference_links: [api_v3_paths.work_package(work_package.identifier)])
+
+        expect(result).to be_success
+        expect(result.result.work_package).to eq work_package
+      end
+    end
+
+    context "with semantic work package identifiers",
+            with_settings: { work_packages_identifier: "semantic" } do
+      let(:project) { create(:project, identifier: "SEMID", enabled_module_names: %i[bim work_package_tracking]) }
+
+      context "with a link containing the semantic identifier" do
+        let(:reference_links) { [api_v3_paths.work_package(work_package.display_id)] }
+
+        it "links the topic to the referenced work package" do
+          expect(work_package.display_id).to start_with "SEMID-"
+          expect(service_call).to be_success
+          expect(service_call.result.work_package).to eq work_package
+        end
+      end
+
+      context "with a link containing the numeric id" do
+        let(:reference_links) { [api_v3_paths.work_package(work_package.id)] }
+
+        it "links the topic to the referenced work package" do
+          expect(service_call).to be_success
+          expect(service_call.result.work_package).to eq work_package
+        end
+      end
+
+      context "with a link to an unknown semantic identifier" do
+        let(:reference_links) { [api_v3_paths.work_package("SEMID-9999")] }
+
+        it "fails with a not found error" do
+          expect(service_call).to be_failure
+          expect(service_call.errors.symbols_for(:base)).to include :error_not_found
+        end
       end
     end
   end

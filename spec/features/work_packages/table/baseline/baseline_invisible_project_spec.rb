@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,21 +28,20 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'baseline with a work package moved to an invisible project',
-               js: true,
-               with_settings: { date_format: '%Y-%m-%d' } do
+RSpec.describe "baseline with a work package moved to an invisible project", :js,
+               with_settings: { date_format: "%Y-%m-%d" } do
   shared_let(:type_bug) { create(:type_bug) }
   shared_let(:visible_project) { create(:project, types: [type_bug]) }
   shared_let(:private_project) { create(:project, types: [type_bug]) }
 
   shared_let(:user) do
     create(:user,
-           firstname: 'Itsa',
-           lastname: 'Me',
-           member_in_project: visible_project,
-           member_with_permissions: %i[view_work_packages edit_work_packages work_package_assigned assign_versions])
+           firstname: "Itsa",
+           lastname: "Me",
+           member_with_permissions: { visible_project => %i[view_work_packages edit_work_packages work_package_assigned
+                                                            assign_versions] })
   end
 
   shared_let(:wp_bug) do
@@ -50,17 +51,19 @@ RSpec.describe 'baseline with a work package moved to an invisible project',
              type: type_bug,
              assigned_to: user,
              responsible: user,
-             subject: 'WP in public project',
-             start_date: '2023-05-01',
-             due_date: '2023-05-02')
+             subject: "WP in public project",
+             start_date: "2023-05-01",
+             due_date: "2023-05-02")
     end
 
     Timecop.travel(1.hour.ago) do
       WorkPackages::UpdateService
         .new(user: User.system, model: wp)
         .call(
-          subject: 'Moved to private project',
-          project: private_project
+          subject: "Moved to private project",
+          project: private_project,
+          assigned_to: nil,
+          responsible: nil
         )
         .on_failure { |result| raise result.message }
         .result
@@ -69,7 +72,7 @@ RSpec.describe 'baseline with a work package moved to an invisible project',
 
   shared_let(:query) do
     query = create(:query,
-                   name: 'Global query changes since yesterday',
+                   name: "Global query changes since yesterday",
                    project: nil,
                    user:)
 
@@ -86,17 +89,17 @@ RSpec.describe 'baseline with a work package moved to an invisible project',
 
   current_user { user }
 
-  describe 'with feature enabled', with_ee: %i[baseline_comparison], with_flag: { show_changes: true } do
-    it 'shows the item with all values removed' do
+  describe "with EE active", with_ee: %i[baseline_comparison] do
+    it "shows the item with all values removed" do
       wp_table.visit_query(query)
 
       baseline.expect_active
       baseline.expect_removed wp_bug
 
       baseline.expect_changed_attributes wp_bug,
-                                         subject: ['WP in public project', ''],
-                                         startDate: ['2023-05-01', ''],
-                                         dueDate: ['2023-05-02', '']
+                                         subject: ["WP in public project", ""],
+                                         startDate: ["2023-05-01", ""],
+                                         dueDate: ["2023-05-02", ""]
     end
   end
 end

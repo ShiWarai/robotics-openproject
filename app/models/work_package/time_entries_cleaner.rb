@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -38,17 +40,17 @@ module WorkPackage::TimeEntriesCleaner
 
     def cleanup_time_entries_before_destruction_of(work_packages,
                                                    user,
-                                                   to_do = { action: 'destroy' })
+                                                   to_do = { action: "destroy" })
       return false unless to_do.present?
 
       case to_do[:action]
-      when 'destroy'
+      when "destroy"
         true
         # nothing to do
-      when 'nullify'
+      when "nullify"
         work_packages = Array(work_packages)
-        WorkPackage.update_time_entries(work_packages, 'work_package_id = NULL')
-      when 'reassign'
+        WorkPackage.update_time_entries(work_packages, "work_package_id = NULL")
+      when "reassign"
         reassign_time_entries_before_destruction_of(work_packages, user, to_do[:reassign_to_id])
       else
         false
@@ -56,24 +58,24 @@ module WorkPackage::TimeEntriesCleaner
     end
 
     def update_time_entries(work_packages, action)
-      TimeEntry.where(['work_package_id IN (?)', work_packages.map(&:id)]).update_all(action)
+      TimeEntry.where(["entity_type = ? AND entity_id IN (?)", "WorkPackage", work_packages.map(&:id)]).update_all(action)
     end
 
-    def reassign_time_entries_before_destruction_of(work_packages, user, ids)
+    def reassign_time_entries_before_destruction_of(work_packages, user, reassign_to_id)
       work_packages = Array(work_packages)
       reassign_to = WorkPackage
                     .joins(:project)
                     .merge(Project.allowed_to(user, :edit_time_entries))
-                    .find_by(id: ids)
+                    .find_by_display_id(reassign_to_id)
 
       if reassign_to.nil?
         work_packages.each do |wp|
-          wp.errors.add(:base, :is_not_a_valid_target_for_time_entries, id: ids)
+          wp.errors.add(:base, :is_not_a_valid_target_for_time_entries, id: reassign_to_id)
         end
 
         false
       else
-        condition = "work_package_id = #{reassign_to.id}, project_id = #{reassign_to.project_id}"
+        condition = "entity_type = 'WorkPackage', entity_id = #{reassign_to.id}, project_id = #{reassign_to.project_id}"
         WorkPackage.update_time_entries(work_packages, condition)
       end
     end

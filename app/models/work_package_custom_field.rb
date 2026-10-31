@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,26 +29,24 @@
 #++
 
 class WorkPackageCustomField < CustomField
-  has_and_belongs_to_many :projects,
+  has_and_belongs_to_many :projects, # rubocop:disable Rails/HasAndBelongsToMany
                           join_table: "#{table_name_prefix}custom_fields_projects#{table_name_suffix}",
-                          foreign_key: 'custom_field_id'
-  has_and_belongs_to_many :types,
+                          foreign_key: "custom_field_id"
+  has_and_belongs_to_many :type_variants, # rubocop:disable Rails/HasAndBelongsToMany
                           join_table: "#{table_name_prefix}custom_fields_types#{table_name_suffix}",
-                          foreign_key: 'custom_field_id'
+                          foreign_key: "custom_field_id",
+                          association_foreign_key: "type_variant_id"
   has_many :work_packages,
            through: :custom_values,
            source: :customized,
            source_type: "WorkPackage"
 
-  scope :visible_by_user, ->(user) {
-    if user.allowed_to_globally?(:select_custom_fields)
-      all
-    else
-      where(projects: { id: Project.visible(user) })
-        .where(types: { id: Type.enabled_in(Project.visible(user)) })
-        .or(where(is_for_all: true).references(:projects, :types))
-        .includes(:projects, :types)
-    end
+  scopes :visible,
+         :on_visible_type_and_project
+
+  scope :usable_as_custom_action, -> {
+    where.not(field_format: %w[hierarchy weighted_item_list])
+         .order(:name)
   }
 
   def self.summable
@@ -57,7 +57,15 @@ class WorkPackageCustomField < CustomField
     %w[int float].include?(field_format)
   end
 
+  def visible?(usr = User.current, project: nil)
+    self.class.visible(usr, project:).exists?(id: id)
+  end
+
   def type_name
     :label_work_package_plural
+  end
+
+  def to_s
+    "#{name} #{field_format}"
   end
 end

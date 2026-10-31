@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@
 // See docs/COPYRIGHT.rdoc for more details.
 //++
 
-import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnInit, inject, ChangeDetectionStrategy } from '@angular/core';
 import { WorkPackageResource } from "core-app/features/hal/resources/work-package-resource";
 import { HalResourceService } from "core-app/features/hal/services/hal-resource.service";
 import { CollectionResource } from "core-app/features/hal/resources/collection-resource";
@@ -38,19 +38,19 @@ import {ApiV3Service} from "core-app/core/apiv3/api-v3.service";
 @Component({
   selector: 'tab-mrs',
   templateUrl: './tab-mrs.template.html',
-  host: { class: 'op-mrs' }
+  host: { class: 'op-mrs' },
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class TabMrsComponent implements OnInit {
+  readonly I18n = inject(I18nService);
+  readonly apiV3Service = inject(ApiV3Service);
+  readonly halResourceService = inject(HalResourceService);
+  readonly changeDetector = inject(ChangeDetectorRef);
+
   @Input() public workPackage:WorkPackageResource;
 
   public mergeRequests:IGitlabMergeRequestResource[] = [];
-
-  constructor(
-    readonly I18n:I18nService,
-    readonly apiV3Service:ApiV3Service,
-    readonly halResourceService:HalResourceService,
-    readonly changeDetector:ChangeDetectorRef,
-  ) {}
 
   ngOnInit(): void {
     const basePath = this.apiV3Service.work_packages.id(this.workPackage.id as string).path;
@@ -65,6 +65,6 @@ export class TabMrsComponent implements OnInit {
   }
 
   public getEmptyText() {
-    return this.I18n.t('js.gitlab_integration.tab_mrs.empty',{ wp_id: this.workPackage.id });
+    return this.I18n.t('js.gitlab_integration.tab_mrs.empty',{ wp_id: this.workPackage.displayId });
   }
 }

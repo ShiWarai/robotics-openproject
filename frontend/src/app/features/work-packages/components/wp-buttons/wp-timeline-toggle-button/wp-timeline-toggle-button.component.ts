@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,14 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit,
-} from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { WorkPackageViewTimelineService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-timeline.service';
 import { TimelineZoomLevel } from 'core-app/features/hal/resources/query-resource';
@@ -45,8 +43,13 @@ export interface TimelineButtonText extends ButtonControllerText {
   styleUrls: ['./wp-timeline-toggle-button.sass'],
   selector: 'wp-timeline-toggle-button',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class WorkPackageTimelineButtonComponent extends AbstractWorkPackageButtonComponent implements OnInit {
+  readonly I18n:I18nService;
+  readonly cdRef = inject(ChangeDetectorRef);
+  wpTableTimeline = inject(WorkPackageViewTimelineService);
+
   public buttonId = 'work-packages-timeline-toggle-button';
 
   public iconClass = 'icon-view-timeline';
@@ -67,17 +70,19 @@ export class WorkPackageTimelineButtonComponent extends AbstractWorkPackageButto
 
   public isMinLevel = false;
 
-  constructor(readonly I18n:I18nService,
-    readonly cdRef:ChangeDetectorRef,
-    public wpTableTimeline:WorkPackageViewTimelineService) {
+  constructor() {
+    const I18n = inject(I18nService);
+
     super(I18n);
+    this.I18n = I18n;
 
-    this.activateLabel = I18n.t('js.timelines.button_activate');
-    this.deactivateLabel = I18n.t('js.timelines.button_deactivate');
 
-    this.text.zoomIn = I18n.t('js.timelines.zoom.in');
-    this.text.zoomOut = I18n.t('js.timelines.zoom.out');
-    this.text.zoomAuto = I18n.t('js.timelines.zoom.auto');
+    this.activateLabel = I18n.t('js.gantt_chart.button_activate');
+    this.deactivateLabel = I18n.t('js.gantt_chart.button_deactivate');
+
+    this.text.zoomIn = I18n.t('js.gantt_chart.zoom.in');
+    this.text.zoomOut = I18n.t('js.gantt_chart.zoom.out');
+    this.text.zoomAuto = I18n.t('js.gantt_chart.zoom.auto');
   }
 
   ngOnInit():void {

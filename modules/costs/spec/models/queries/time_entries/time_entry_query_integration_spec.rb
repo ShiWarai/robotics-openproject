@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,32 +26,42 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe Queries::TimeEntries::TimeEntryQuery, 'integration' do
+RSpec.describe Queries::TimeEntries::TimeEntryQuery, "integration" do
   let(:instance) { described_class.new(user:) }
 
   before do
     login_as(user)
   end
 
-  context 'when using ongoing filter' do
+  context "when using ongoing filter" do
     let(:project) { create(:project, enabled_module_names: %w[costs]) }
-    let(:user) { create(:user, member_in_project: project, member_with_permissions: %i[log_own_time]) }
-    let(:other_user) { create(:user, member_in_project: project, member_with_permissions: %i[log_own_time]) }
+    let(:user) { create(:user, member_with_permissions: { project => %i[log_own_time view_own_time_entries] }) }
+    let(:work_package) { create(:work_package, project:) }
+    let(:other_user) { create(:user, member_with_permissions: { project => %i[log_own_time view_own_time_entries] }) }
+    let(:other_work_package) { create(:work_package, project:) }
 
-    let!(:user_timer) { create(:time_entry, user:, project:, ongoing: true) }
-    let!(:other_user_timer) { create(:time_entry, user: other_user, project:, ongoing: true) }
+    let!(:user_timer) { create(:time_entry, user:, entity: work_package, ongoing: true) }
+    let!(:other_user_timer) { create(:time_entry, user: other_user, entity: other_work_package, ongoing: true) }
 
-    describe '#results' do
+    describe "#results" do
       subject { instance.results }
 
       before do
-        instance.where('ongoing', '=', ['t'])
+        instance.where("ongoing", "=", ["t"])
       end
 
-      it 'only returns the users own time entries' do
+      it "only returns the users own time entries" do
         expect(subject).to contain_exactly(user_timer)
+      end
+
+      context "when user has log_time and view_time_entries permission" do
+        let(:user) { create(:user, member_with_permissions: { project => %i[log_time view_time_entries] }) }
+
+        it "still returns the users own time entries" do
+          expect(subject).to contain_exactly(user_timer)
+        end
       end
     end
   end

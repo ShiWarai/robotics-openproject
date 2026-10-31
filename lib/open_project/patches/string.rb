@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -42,12 +42,12 @@ module OpenProject
           s.gsub!(%r{^((\d+)\s*(h|hours?))?\s*((\d+)\s*(m|min)?)?$}) { |m| $1 || $4 ? ($2.to_i + ($5.to_i / 60.0)) : m[0] }
         end
         # 2,5 => 2.5
-        s.gsub!(',', '.')
-        begin; Kernel.Float(s); rescue StandardError; nil; end
+        s.tr!(",", ".")
+        Kernel.Float(s, exception: false)
       end
 
       def with_leading_slash
-        starts_with?('/') ? self : "/#{self}"
+        starts_with?("/") ? self : "/#{self}"
       end
     end
   end

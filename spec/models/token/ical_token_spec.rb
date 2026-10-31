@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,20 +28,20 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Token::ICal do
   let(:user) { create(:user) }
   let(:project) { create(:project) }
   let(:query) { create(:query, project:) }
-  let(:name) { 'unique_name' }
+  let(:name) { "unique_name" }
 
-  it 'inherits from Token::HashedToken' do
+  it "inherits from Token::HashedToken" do
     expect(described_class).to be < Token::HashedToken
   end
 
-  describe 'in contrast to HashedToken' do
-    it 'needs to be assigned to a query with a name' do
+  describe "in contrast to HashedToken" do
+    it "needs to be assigned to a query with a name" do
       # ical tokens are only valid for a specific query (scoped to a query)
       # thus an ical_token cannot be created without such an assignment
       ical_token1 = described_class.create(user:)
@@ -70,14 +72,14 @@ RSpec.describe Token::ICal do
       )
     end
 
-    it 'a user can have N ical tokens per query with different names' do
+    it "a user can have N ical tokens per query with different names" do
       # Every time an ical url is generated, a new ical token will be generated for this url as well
       # the existing ical tokens (and thus urls) should still be valid
       # until the user decides to revert all existing ical tokens of a query
       # therefore a user needs to be allowed to have N ical tokens per query
       ical_token1 = described_class.create(
         user:,
-        ical_token_query_assignment_attributes: { query:, name: "#{name}_1" }
+        ical_token_query_assignment_attributes: { query:, name: "#{name}it" }
       )
       ical_token2 = described_class.create(
         user:,
@@ -104,14 +106,14 @@ RSpec.describe Token::ICal do
       )
     end
 
-    it 'a user cannot have N ical tokens per query with the same name' do
+    it "a user cannot have N ical tokens per query with the same name" do
       ical_token1 = described_class.create(
         user:,
-        ical_token_query_assignment_attributes: { query:, name: "#{name}_1" }
+        ical_token_query_assignment_attributes: { query:, name: "#{name}it" }
       )
       ical_token2 = described_class.create(
         user:,
-        ical_token_query_assignment_attributes: { query:, name: "#{name}_1" }
+        ical_token_query_assignment_attributes: { query:, name: "#{name}it" }
       )
 
       expect(ical_token2.errors["ical_token_query_assignment.name"].first).to eq(
@@ -128,7 +130,7 @@ RSpec.describe Token::ICal do
 
       ical_token3 = described_class.create(
         user:,
-        ical_token_query_assignment_attributes: { query: query2, name: "#{name}_1" }
+        ical_token_query_assignment_attributes: { query: query2, name: "#{name}it" }
       )
 
       expect(described_class.where(user_id: user.id)).to contain_exactly(
@@ -136,8 +138,8 @@ RSpec.describe Token::ICal do
       )
     end
 
-    describe '#create_and_return_value method' do
-      it 'expects the query and token name and returns a token value' do
+    describe "#create_and_return_value method" do
+      it "expects the query and token name and returns a token value" do
         ical_token1_value = nil
 
         expect do
@@ -150,15 +152,13 @@ RSpec.describe Token::ICal do
 
         ical_token1 = described_class.where(user_id: user.id).last
 
-        # rubocop:disable Rails/DynamicFindBy
         expect(described_class.find_by_plaintext_value(ical_token1_value)).to eq ical_token1
-        # rubocop:enable Rails/DynamicFindBy
 
         expect(ical_token1.query).to eq query
         expect(ical_token1.ical_token_query_assignment.name).to eq name
       end
 
-      it 'does not return a token value if token was not successfully persisted' do
+      it "does not return a token value if token was not successfully persisted" do
         ical_token1_value = nil
         ical_token2_value = nil
 
@@ -183,15 +183,13 @@ RSpec.describe Token::ICal do
 
         ical_token1 = described_class.where(user_id: user.id).last
 
-        # rubocop:disable Rails/DynamicFindBy
         expect(described_class.find_by_plaintext_value(ical_token1_value)).to eq ical_token1
-        # rubocop:enable Rails/DynamicFindBy
       end
     end
 
-    describe 'dependent destroyed' do
-      context 'when associated query is destroyed' do
-        it 'the ical_token is destroyed as well' do
+    describe "dependent destroyed" do
+      context "when associated query is destroyed" do
+        it "the ical_token is destroyed as well" do
           described_class.create(
             user:,
             ical_token_query_assignment_attributes: { query:, name: }
@@ -205,8 +203,8 @@ RSpec.describe Token::ICal do
         end
       end
 
-      context 'when associated user is destroyed' do
-        it 'the ical_token is destroyed as well' do
+      context "when associated user is destroyed" do
+        it "the ical_token is destroyed as well" do
           described_class.create(
             user:,
             ical_token_query_assignment_attributes: { query:, name: }
@@ -220,8 +218,8 @@ RSpec.describe Token::ICal do
         end
       end
 
-      context 'when ical_token is destroyed' do
-        it 'the ical_token_query_assignment is destroyed as well' do
+      context "when ical_token is destroyed" do
+        it "the ical_token_query_assignment is destroyed as well" do
           ical_token = described_class.create(
             user:,
             ical_token_query_assignment_attributes: { query:, name: }
@@ -236,7 +234,7 @@ RSpec.describe Token::ICal do
     end
   end
 
-  describe 'behaves like Token::HashedToken if created with query assignment' do
+  describe "behaves like Token::HashedToken if created with query assignment" do
     subject do
       described_class.new(
         user:,
@@ -245,23 +243,23 @@ RSpec.describe Token::ICal do
     end
 
     # TODO: following code is copy pasted from hashed_token_spec
-    # in order to make sure the token behaves in the same way in it's basics
-    # cheching for inheritance does not safely check if the basic behaviour is the same
+    # in order to make sure the token behaves in the same way in its basic
+    # checking for inheritance does not safely check if the basic behaviour is the same
     # is there a better way of reusing the specs from hashed_token_spec?
-    describe 'token value' do
-      it 'is generated on a new instance' do
+    describe "token value" do
+      it "is generated on a new instance" do
         expect(subject.value).to be_present
       end
 
-      it 'provides the generated plain value on a new instance' do
+      it "provides the generated plain value on a new instance" do
         expect(subject.valid_plaintext?(subject.plain_value)).to be true
       end
 
-      it 'hashes the plain value to value' do
+      it "hashes the plain value to value" do
         expect(subject.value).not_to eq(subject.plain_value)
       end
 
-      it 'does not keep the value when finding it' do
+      it "does not keep the value when finding it" do
         subject.save!
 
         instance = described_class.where(user:).last
@@ -269,16 +267,14 @@ RSpec.describe Token::ICal do
       end
     end
 
-    describe '#find_by_plaintext_value' do
+    describe "#find_by_plaintext_value" do
       before do
         subject.save!
       end
 
-      it 'finds using the plaintext value' do
-        # rubocop:disable Rails/DynamicFindBy
+      it "finds using the plaintext value" do
         expect(described_class.find_by_plaintext_value(subject.plain_value)).to eq subject
-        expect(described_class.find_by_plaintext_value('foobar')).to be_nil
-        # rubocop:enable Rails/DynamicFindBy
+        expect(described_class.find_by_plaintext_value("foobar")).to be_nil
       end
     end
   end

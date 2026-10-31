@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,38 +29,37 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Global menu item for boards', :js, :with_cuprite do
-  let(:boards_label) { I18n.t('boards.label_boards') }
+RSpec.describe "Global menu item for boards", :js do
+  shared_let(:project) { create(:project) }
+  let(:boards_label) { I18n.t("boards.label_boards") }
 
   before do
     login_as current_user
     visit root_path
   end
 
-  context 'with more global index pages active', with_flag: { more_global_index_pages: true } do
-    context 'with permissions' do
-      let(:current_user) { create(:admin) }
+  context "with permissions" do
+    let(:current_user) { create(:admin) }
 
-      it "sends the user to the boards overview when clicked" do
-        within '#main-menu' do
-          click_on boards_label
-        end
-
-        expect(page).to have_current_path(boards_all_path)
-        expect(page).to have_content(boards_label)
-        expect(page).to have_content(I18n.t(:no_results_title_text))
+    it "sends the user to the boards overview when clicked" do
+      within "#main-menu" do
+        click_on boards_label
       end
+
+      expect(page).to have_current_path(work_package_boards_path)
+      expect(page).to have_content(boards_label)
+      expect(page).to have_content(I18n.t(:no_results_title_text))
     end
+  end
 
-    context 'without permissions' do
-      let(:current_user) { create(:user) }
+  context "without permissions" do
+    let(:current_user) { create(:user) }
 
-      it 'is not rendered' do
-        within '#main-menu' do
-          expect(page).not_to have_content(boards_label)
-        end
+    it "is not rendered" do
+      within "#main-menu" do
+        expect(page).to have_no_content(boards_label)
       end
     end
   end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -38,6 +40,10 @@ module Queries
           ::Queries::Register.filters[self]
         end
 
+        def excluded_filters
+          ::Queries::Register.excluded_filters[self]
+        end
+
         def find_registered_filter(key)
           registered_filters.detect do |f|
             f.key === key.to_sym
@@ -53,6 +59,13 @@ module Queries
         end
 
         initialized_filters.select(&:available?)
+      end
+
+      def available_advanced_filters
+        available_filters.reject do |filter|
+          # Skip the name filter as we have it present as a permanent filter with a text input.
+          filter.is_a?(::Queries::Projects::Filters::NameAndIdentifierFilter)
+        end
       end
 
       def filter_for(key, no_memoization: false)

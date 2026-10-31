@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -43,6 +45,7 @@ module API
           delegate :project_id,
                    :project,
                    :type,
+                   :type_variant,
                    :id,
                    :milestone?,
                    :available_custom_fields,
@@ -53,7 +56,10 @@ module API
                    :assignable_categories,
                    :assignable_priorities,
                    :assignable_versions,
+                   :assignable_target_versions,
+                   :assignable_observed_in_versions,
                    :assignable_budgets,
+                   :assignable_project_phases,
                    to: :contract
 
           def no_caching?

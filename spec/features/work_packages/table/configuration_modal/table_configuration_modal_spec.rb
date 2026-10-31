@@ -1,6 +1,8 @@
-require 'spec_helper'
+# frozen_string_literal: true
 
-RSpec.describe 'Work Package table configuration modal', js: true do
+require "spec_helper"
+
+RSpec.describe "Work Package table configuration modal", :js do
   let(:user) { create(:admin) }
 
   let(:project) { create(:project) }
@@ -11,7 +13,7 @@ RSpec.describe 'Work Package table configuration modal', js: true do
 
   let!(:query) do
     query              = build(:query, user:, project:)
-    query.column_names = ['subject', 'done_ratio']
+    query.column_names = ["subject", "done_ratio"]
 
     query.save!
     query
@@ -24,14 +26,14 @@ RSpec.describe 'Work Package table configuration modal', js: true do
     wp_table.expect_work_package_listed wp_1
   end
 
-  it 'focuses on the columns tab when opened through header' do
+  it "focuses on the columns tab when opened through header" do
     # Open header dropdown
-    find('.work-package-table--container th #subject').click
+    find(".work-package-table--container th #subject").click
 
     # Open insert columns entry
-    find('#column-context-menu .menu-item', text: 'Insert columns').click
+    find("#column-context-menu .menu-item", text: "Insert columns").click
 
     # Expect active tab is columns
-    expect(page).to have_selector('.op-tab-row--link_selected', text: 'COLUMNS')
+    expect(page).to have_css(".op-tab-row--link_selected", text: "COLUMNS")
   end
 end

@@ -34,14 +34,28 @@ bg:
           name: Тъмно сиво
         item_13:
           name: Черно
-      document_categories:
+      project_phase_colors:
         item_0:
-          name: Документация
+          name: PM2 Orange
         item_1:
-          name: Спецификации
+          name: PM2 Red
         item_2:
-          name: Други
-      roles:
+          name: PM2 Magenta
+        item_3:
+          name: PM2 Green Yellow
+      project_query_roles:
+        item_0:
+          name: Project query viewer
+        item_1:
+          name: Project query editor
+      work_package_roles:
+        item_0:
+          name: Work package editor
+        item_1:
+          name: Work package commenter
+        item_2:
+          name: Work package viewer
+      project_roles:
         item_0:
           name: Не е член
         item_1:
@@ -52,9 +66,33 @@ bg:
           name: Четящ
         item_4:
           name: Администратор на проект
-        item_5:
+      global_roles:
+        item_0:
           name: Staff and projects manager
+        item_1:
+          name: Standard global role
+      ai_text_transform_actions:
+        item_0:
+          label: Fix grammar
+        item_1:
+          label: Make concise
+        item_2:
+          label: Translate to English
+        item_3:
+          label: Sort into template
     standard:
+      project_phases:
+        item_0:
+          name: Initiating
+        item_1:
+          name: Планиране
+          start_gate: Ready for Planning
+        item_2:
+          name: Executing
+          start_gate: Ready for Executing
+        item_3:
+          name: Closing
+          start_gate: Ready for Closing
       priorities:
         item_0:
           name: Нисък
@@ -64,99 +102,44 @@ bg:
           name: Висок
         item_3:
           name: Незабавно
-      statuses:
+      departments:
         item_0:
-          name: Нов
+          name: Marketing & Communications
         item_1:
-          name: В процес на специфициране
+          name: Public Relations
         item_2:
-          name: Определен
+          name: Design & Content
         item_3:
-          name: Потвърден
+          name: Events & Operations
         item_4:
-          name: Да бъде планирано
+          name: Web & IT
         item_5:
-          name: Планиран
+          name: Finance & Administration
         item_6:
-          name: В изпълнение
-        item_7:
-          name: Разработен
-        item_8:
-          name: В процес на тестване
-        item_9:
-          name: Тестван
-        item_10:
-          name: Неуспешен тест
-        item_11:
-          name: Затворен
-        item_12:
-          name: Задържан
-        item_13:
-          name: Отхвърлен
-      time_entry_activities:
-        item_0:
-          name: Управление
-        item_1:
-          name: Спецификации
-        item_2:
-          name: Разработване
-        item_3:
-          name: Тестване
-        item_4:
-          name: Поддръжка
-        item_5:
-          name: Други
-      types:
-        item_0:
-          name: Задачата
-        item_1:
-          name: Етап
-        item_2:
-          name: Фаза
-        item_3:
-          name: Функция
-        item_4:
-          name: Със сериозно значение
-        item_5:
-          name: Потребителска история
-        item_6:
-          name: Грешка
-      welcome:
-        title: Welcome to OpenProject!
-        text: |
-          Select one of the demo projects to get started with some demo data we have prepared for you.
-
-          * [Demo project]({{opSetting:base_url}}/projects/demo-project): to get an overview about classical project management.
-          * [Scrum project]({{opSetting:base_url}}/projects/your-scrum-project): to learn about Agile and Scrum project management.
-
-          Also, you can create a blank [new project]({{opSetting:base_url}}/projects/new).
-
-          Never stop collaborating. With open source and open mind.
-
-          You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).
+          name: Quality Assurance
       projects:
         demo-project:
           name: Demo project
-          status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
+          status_explanation: Всички задачи са по график. Участниците си знаят задачите. Системата е напълно настроена.
           description: This is a short summary of the goals of this demo project.
           news:
             item_0:
-              title: Welcome to your demo project
+              title: Добре дошли във вашия демонстрационен проект
               summary: |
-                We are glad you joined.
-                In this module you can communicate project news to your team members.
-              description: The actual news
+                Радваме се, че се присъединихте.
+                В този модул можете да съобщавате новини за проекта на членовете на вашия екип.
+              description: Актуалните новини
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: Категория 1 (да се промени в настройките на проекта)
           queries:
             item_0:
-              name: Project plan
+              name: План на проекта
             item_1:
-              name: Milestones
+              name: Етапи
             item_2:
-              name: Tasks
+              name: Задачи
             item_3:
-              name: Team planner
+              name: Екипен плановик
           boards:
             kanban:
               name: Kanban board
@@ -177,7 +160,7 @@ bg:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: Добре дошли
               item_1:
                 options:
                   name: Първи стъпки
@@ -202,7 +185,7 @@ bg:
                   name: Работни пакети
               item_6:
                 options:
-                  name: Milestones
+                  name: Етапи
           work_packages:
             item_0:
               subject: Start of project
@@ -223,8 +206,10 @@ bg:
                 item_2:
                   subject: Setup conference website
             item_2:
-              subject: Conference
+              subject: Test and quality-check the conference website
             item_3:
+              subject: Conference
+            item_4:
               subject: Follow-up tasks
               children:
                 item_0:
@@ -236,18 +221,33 @@ bg:
                     *   [ ] Snacks
                     *   [ ] Music
                     *   [ ] Even more beer
-            item_4:
+            item_5:
               subject: End of project
+          wiki: |
+            _In this wiki you can collaboratively create and edit pages and sub-pages to create a project wiki._
+
+            **You can:**
+
+            * Insert text and images, also with copy and paste from other documents
+            * Create a page hierarchy with parent pages
+            * Include wiki pages to the project menu
+            * Use macros to include, e.g. table of contents, work package lists, or Gantt charts
+            * Include wiki pages in other text fields, e.g. project overview page
+            * Include links to other documents
+            * View the change history
+            * View as Markdown
+
+            More information: [https://www.openproject.org/docs/user-guide/wiki/](https://www.openproject.org/docs/user-guide/wiki/)
         scrum-project:
           name: Scrum project
-          status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
+          status_explanation: Всички задачи са по график. Участниците си знаят задачите. Системата е напълно настроена.
           description: This is a short summary of the goals of this demo Scrum project.
           news:
             item_0:
               title: Welcome to your Scrum demo project
               summary: |
-                We are glad you joined.
-                In this module you can communicate project news to your team members.
+                Радваме се, че се присъединихте.
+                В този модул можете да съобщавате новини за проекта на членовете на вашия екип.
           versions:
             item_0:
               name: Bug Backlog
@@ -306,16 +306,16 @@ bg:
             item_3:
               name: Sprint 2
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: Категория 1 (да се промени в настройките на проекта)
           queries:
             item_0:
-              name: Project plan
+              name: План на проекта
             item_1:
               name: Натрупване на продукти
             item_2:
               name: Sprint 1
             item_3:
-              name: Tasks
+              name: Задачи
           boards:
             kanban:
               name: Kanban board
@@ -334,14 +334,12 @@ bg:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: Добре дошли
               item_1:
                 options:
                   name: Първи стъпки
                   text: |
                     We are glad you joined! We suggest to try a few things to get started in OpenProject.
-
-                    Discover the most important features with our [Guided Tour]({{opSetting:base_url}}/projects/your-scrum-project/backlogs?start_scrum_onboarding_tour=true).
 
                     _Try the following steps:_
 
@@ -360,7 +358,7 @@ bg:
                   name: Работни пакети
               item_6:
                 options:
-                  name: Project plan
+                  name: План на проекта
           work_packages:
             item_0:
               subject: New login screen
@@ -458,3 +456,92 @@ bg:
             * Time boxed (3 h).
             * After Sprint Review, will be moderated by Scrum Master.
             * The team discusses the sprint: what went well, what needs to be improved to be more productive for the next sprint or even have more fun.
+      statuses:
+        item_0:
+          name: Нов
+        item_1:
+          name: В процес на специфициране
+        item_2:
+          name: Определен
+        item_3:
+          name: Потвърден
+        item_4:
+          name: Да бъде планирано
+        item_5:
+          name: Планиран
+        item_6:
+          name: В изпълнение
+        item_7:
+          name: Разработен
+        item_8:
+          name: В процес на тестване
+        item_9:
+          name: Тестван
+        item_10:
+          name: Неуспешен тест
+        item_11:
+          name: Затворен
+        item_12:
+          name: Задържан
+        item_13:
+          name: Отхвърлен
+      time_entry_activities:
+        item_0:
+          name: Управление
+        item_1:
+          name: Спецификации
+        item_2:
+          name: Разработване
+        item_3:
+          name: Тестване
+        item_4:
+          name: Поддръжка
+        item_5:
+          name: Други
+      types:
+        item_0:
+          name: Задачата
+        item_1:
+          name: Етап
+        item_2:
+          name: Summary task
+        item_3:
+          name: Функция
+        item_4:
+          name: Със сериозно значение
+        item_5:
+          name: Потребителска история
+        item_6:
+          name: Грешка
+      global_queries:
+        item_0:
+          name: 'Epic children: User stories and bugs'
+        item_1:
+          name: 'User story children: Tasks'
+      type_configuration:
+        item_0:
+          form_configuration:
+            item_0:
+              group_name: User stories and bugs
+        item_1:
+          form_configuration:
+            item_0:
+              group_name: Tasks
+      welcome:
+        title: Welcome to OpenProject!
+        text: |
+          OpenProject is the leading open source project management software. It supports classic, agile as well as hybrid project management and gives you full control over your data.
+
+          Core features and use cases:
+
+          * [Project Portfolio Management](https://www.openproject.org/collaboration-software-features/project-portfolio-management/)
+          * [Project Planning and Scheduling](https://www.openproject.org/collaboration-software-features/project-planning-scheduling/)
+          * [Task Management and Issue Tracking](https://www.openproject.org/collaboration-software-features/task-management/)
+          * [Agile Boards (Scrum and Kanban)](https://www.openproject.org/collaboration-software-features/agile-project-management/)
+          * [Requirements Management and Release Planning](https://www.openproject.org/collaboration-software-features/product-development/)
+          * [Time and Cost Tracking, Budgets](https://www.openproject.org/collaboration-software-features/time-tracking/)
+          * [Team Collaboration and Documentation](https://www.openproject.org/collaboration-software-features/team-collaboration/)
+
+          Welcome to the future of project management.
+
+          For Admins: You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).

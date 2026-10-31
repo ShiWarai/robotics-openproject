@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,13 +21,13 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable, Injector } from '@angular/core';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { Injectable, Injector, inject } from '@angular/core';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { BcfApiService } from 'core-app/features/bim/bcf/api/bcf-api.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
 import { BcfViewpointPaths } from 'core-app/features/bim/bcf/api/viewpoints/bcf-viewpoint.paths';
@@ -42,20 +42,20 @@ import { HalResource } from 'core-app/features/hal/resources/hal-resource';
 
 @Injectable()
 export class ViewpointsService {
-  topicUUID:string|number;
+  readonly injector = inject(Injector);
 
-  @InjectField() bcfApi:BcfApiService;
+  topicUUID:string|number|null = null;
 
-  @InjectField() viewerBridge:ViewerBridgeService;
+  @LazyInject() bcfApi:BcfApiService;
 
-  @InjectField() apiV3Service:ApiV3Service;
+  @LazyInject() viewerBridge:ViewerBridgeService;
 
-  constructor(readonly injector:Injector) { }
+  @LazyInject() apiV3Service:ApiV3Service;
 
   public getViewPointResource(workPackage:WorkPackageResource, index:number):BcfViewpointPaths {
-    const viewpointHref = (workPackage.bcfViewpoints as HalResource[])[index].href as string;
+    const viewpointHref = (workPackage.bcfViewpoints as HalResource[])[index].href!;
 
-    return this.bcfApi.parse<BcfViewpointPaths>(viewpointHref);
+    return this.bcfApi.parse<BcfViewpointPaths>(viewpointHref)!;
   }
 
   public getViewPoint$(workPackage:WorkPackageResource, index:number):Observable<BcfViewpointData> {
@@ -70,6 +70,7 @@ export class ViewpointsService {
         map(({ viewpoint, selection, visibility }) => {
           const data = viewpoint as BcfViewpointData;
           data.components = {
+            coloring: [],
             selection: selection.selection,
             visibility: visibility.visibility,
           };
@@ -113,13 +114,17 @@ export class ViewpointsService {
       );
   }
 
+  public resetBcfTopic():void {
+    this.topicUUID = null;
+  }
+
   public setBcfTopic$(workPackage:WorkPackageResource):Observable<string|number> {
-    if (this.topicUUID) {
+    if (this.topicUUID !== null) {
       return of(this.topicUUID);
     }
     const topicHref = (workPackage.bcfTopic as HalResource)?.href;
     const topicUUID$ = topicHref
-      ? of(this.bcfApi.parse<BcfViewpointPaths>(topicHref).id)
+      ? of(this.bcfApi.parse<BcfViewpointPaths>(topicHref)!.id)
       : this.createBcfTopic$(workPackage);
 
     return topicUUID$.pipe(

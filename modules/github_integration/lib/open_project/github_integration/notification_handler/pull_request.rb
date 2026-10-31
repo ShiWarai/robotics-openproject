@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -63,7 +65,7 @@ module OpenProject::GithubIntegration
       private
 
       def work_packages_to_comment_on(action, work_packages, already_referenced)
-        if action == 'edited'
+        if action == "edited"
           without_already_referenced(work_packages, already_referenced)
         else
           COMMENT_ACTIONS.include?(action) ? work_packages : []
@@ -71,12 +73,9 @@ module OpenProject::GithubIntegration
       end
 
       def already_referenced_work_packages(payload)
-        pull_request = GithubPullRequest
-          .where(github_id: payload.pull_request.id)
-          .or(GithubPullRequest.where(github_html_url: payload.pull_request.html_url))
-          .take
+        pull_request = GithubPullRequest.find_by(github_html_url: payload.pull_request.html_url)
 
-        pull_request&.work_packages.to_a || []
+        pull_request&.work_packages.to_a
       end
 
       def upsert_pull_request(payload, work_packages)
@@ -85,8 +84,8 @@ module OpenProject::GithubIntegration
       end
 
       def journal_entry(pull_request, payload)
-        angular_component_tag 'macro',
-                              class: 'github_pull_request',
+        angular_component_tag "macro",
+                              class: "github_pull_request",
                               inputs: {
                                 pullRequestId: pull_request.id,
                                 pullRequestState: pull_request_state(payload)
@@ -95,16 +94,16 @@ module OpenProject::GithubIntegration
 
       def pull_request_state(payload)
         key = {
-          'opened' => 'opened',
-          'reopened' => 'opened',
-          'closed' => 'closed',
-          'edited' => 'referenced',
-          'referenced' => 'referenced',
-          'ready_for_review' => 'ready_for_review'
+          "opened" => "opened",
+          "reopened" => "opened",
+          "closed" => "closed",
+          "edited" => "referenced",
+          "referenced" => "referenced",
+          "ready_for_review" => "ready_for_review"
         }[payload.action]
 
-        return 'merged' if key == 'closed' && payload.pull_request.merged
-        return 'draft' if key == 'open' && payload.pull_request.draft
+        return "merged" if key == "closed" && payload.pull_request.merged
+        return "draft" if key == "open" && payload.pull_request.draft
 
         key
       end

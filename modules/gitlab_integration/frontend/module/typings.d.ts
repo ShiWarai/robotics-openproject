@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -33,7 +33,27 @@ import { HalResourceClass } from 'core-app/modules/hal/resources/hal-resource';
 export interface ISnippet {
   id:string;
   name:string;
-  textToCopy:()=>string
+  multiline?:boolean;
+  text:()=>string;
+}
+
+export interface IGitlabIssueResource extends HalResourceClass {
+  body?:{
+    format?:string;
+    raw?:string;
+    html?:string;
+  },
+  createdAt?:string;
+  gitlabUpdatedAt?:string;
+  htmlUrl?:string;
+  id?:number;
+  labels?:string[];
+  number?:number;
+  repository?:string;
+  state?:string;
+  title?:string;
+  updatedAt?:string;
+  gitlabUser?:IGitlabUserResource;
 }
 
 export interface IGitlabMergeRequestResource extends HalResourceClass {
@@ -74,4 +94,7 @@ export interface IGitlabPipelineResource {
   name:string;
   startedAt:string;
   status:string;
+  ci_details:string[];
+  username:string;
+  commitId:string;
 }

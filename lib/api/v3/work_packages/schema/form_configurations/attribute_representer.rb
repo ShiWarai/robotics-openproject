@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -61,6 +61,12 @@ module API
             end
 
             def convert_property(attribute)
+              # The deprecated single version attribute persisted in form
+              # configurations is superseded by targetVersions, which the
+              # work package UI reads and writes instead.
+              # TODO(COMMS-878): Remove this when form config gets adapted to target_versions
+              attribute = "target_versions" if attribute == "version"
+
               ::API::Utilities::PropertyNameConverter.from_ar_name(attribute)
             end
           end

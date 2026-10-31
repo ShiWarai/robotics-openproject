@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +26,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe Projects::Activity, 'costs' do
+RSpec.describe Projects::Activity, "costs" do
   shared_let(:project) do
     create(:project, :updated_a_long_time_ago)
   end
@@ -54,32 +54,32 @@ RSpec.describe Projects::Activity, 'costs' do
     Project.with_latest_activity.find(project.id).latest_activity_at
   end
 
-  describe '.with_latest_activity' do
-    it 'set project.latest_activity_at to the latest updated budget time' do
-      budget.update(updated_at: initial_time - 10.seconds)
-      budget2.update(updated_at: initial_time - 20.seconds)
+  describe ".with_latest_activity" do
+    it "set project.latest_activity_at to the latest updated budget time" do
+      budget.update_columns(updated_at: initial_time - 10.seconds)
+      budget2.update_columns(updated_at: initial_time - 20.seconds)
 
       # there is a loss of precision for timestamps stored in database
-      expect(latest_activity).to be_within(0.00001).of(budget.updated_at)
+      expect(latest_activity).to equal_time_without_usec(budget.updated_at)
     end
 
-    it 'takes the time stamp of the latest activity across models' do
-      work_package.update(updated_at: initial_time - 10.seconds)
-      budget.update(updated_at: initial_time - 20.seconds)
+    it "takes the time stamp of the latest activity across models" do
+      work_package.update_columns(updated_at: initial_time - 10.seconds)
+      budget.update_columns(updated_at: initial_time - 20.seconds)
 
       # Order:
       # work_package
       # budget
 
-      expect(latest_activity).to be_within(0.00001).of(work_package.updated_at)
+      expect(latest_activity).to equal_time_without_usec(work_package.updated_at)
 
-      work_package.update(updated_at: budget.updated_at - 10.seconds)
+      work_package.update_columns(updated_at: budget.updated_at - 10.seconds)
 
       # Order:
       # budget
       # work_package
 
-      expect(latest_activity).to be_within(0.00001).of(budget.updated_at)
+      expect(latest_activity).to equal_time_without_usec(budget.updated_at)
     end
   end
 end

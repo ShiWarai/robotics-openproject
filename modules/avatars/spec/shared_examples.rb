@@ -89,8 +89,9 @@ RSpec.shared_examples_for "an action requiring admin" do
     end
   end
 end
+
 RSpec.shared_context "there are users with and without avatars" do
-  let(:base_path) { File.expand_path 'fixtures', __dir__ }
+  let(:base_path) { File.expand_path "fixtures", __dir__ }
   let(:user_without_avatar) { create(:user) }
   let(:user_with_avatar) do
     u = create(:user)
@@ -98,25 +99,26 @@ RSpec.shared_context "there are users with and without avatars" do
     u
   end
   let(:avatar_file) do
-    file = File.new(File.join(base_path, 'valid.jpg'), 'r')
-    testfile = Rack::Test::UploadedFile.new(file.path, 'valid.jpg')
+    file = File.new(File.join(base_path, "valid.jpg"), "r")
+    testfile = Rack::Test::UploadedFile.new(file.path, "valid.jpg")
     allow(testfile).to receive(:tempfile).and_return(file)
     testfile
   end
   let(:large_avatar_file) do
-    file = File.new(File.join(base_path, 'too_big.jpg'), 'r')
-    testfile = Rack::Test::UploadedFile.new(file.path, 'too_big.jpg')
+    file = File.new(File.join(base_path, "too_big.jpg"), "r")
+    testfile = Rack::Test::UploadedFile.new(file.path, "too_big.jpg")
     allow(testfile).to receive(:tempfile).and_return(file)
     testfile
   end
 
   let(:bogus_avatar_file) do
-    file = File.new(File.join(base_path, 'invalid.jpg'), 'r')
-    testfile = Rack::Test::UploadedFile.new(file.path, 'invalid.jpg')
+    file = File.new(File.join(base_path, "invalid.jpg"), "r")
+    testfile = Rack::Test::UploadedFile.new(file.path, "invalid.jpg")
     allow(testfile).to receive(:tempfile).and_return(file)
     testfile
   end
 end
+
 RSpec.shared_examples_for "an action with an invalid user" do
   it do
     do_action
@@ -131,6 +133,7 @@ RSpec.shared_context "an action with stubbed User.find" do
     allow(User).to receive(:find) { |id, _args| id.to_s == "0" ? nil : user }
   end
 end
+
 RSpec.shared_examples_for "an action that deletes the user's avatar" do
   it do
     expect_any_instance_of(Attachment).to receive(:destroy).and_call_original

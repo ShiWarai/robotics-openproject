@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -33,14 +33,14 @@ import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { ApiV3QueryForm } from 'core-app/core/apiv3/endpoints/queries/apiv3-query-form';
 import { Observable } from 'rxjs';
 import { QueryFormResource } from 'core-app/features/hal/resources/query-form-resource';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { CollectionResource } from 'core-app/features/hal/resources/collection-resource';
 import { ApiV3ListParameters, listParamsString } from 'core-app/core/apiv3/paths/apiv3-list-resource.interface';
 import { QueryFiltersService } from 'core-app/features/work-packages/components/wp-query/query-filters.service';
 import { HalPayloadHelper } from 'core-app/features/hal/schemas/hal-payload.helper';
 
 export class ApiV3QueriesPaths extends ApiV3ResourceCollection<QueryResource, ApiV3QueryPaths> {
-  @InjectField() private queryFilters:QueryFiltersService;
+  @LazyInject() private queryFilters:QueryFiltersService;
 
   constructor(protected apiRoot:ApiV3Service,
     protected basePath:string) {
@@ -74,7 +74,11 @@ export class ApiV3QueriesPaths extends ApiV3ResourceCollection<QueryResource, Ap
    * @param queryId
    * @param projectIdentifier
    */
-  public find(queryData:Object, queryId?:string|null, projectIdentifier?:string|null|undefined):Observable<QueryResource> {
+  public find(
+    queryData:object,
+    queryId?:string|null,
+    projectIdentifier?:string|null,
+  ):Observable<QueryResource> {
     let path:string;
 
     if (queryId) {
@@ -93,12 +97,12 @@ export class ApiV3QueriesPaths extends ApiV3ResourceCollection<QueryResource, Ap
    *
    * @param params
    */
-  public parameterised(params:Object):Observable<QueryResource> {
+  public parameterised(params:object):Observable<QueryResource> {
     return this.halResourceService
       .get<QueryResource>(
-      this.default.path,
-      params,
-    );
+        this.default.path,
+        params,
+      );
   }
 
   /**
@@ -107,7 +111,7 @@ export class ApiV3QueriesPaths extends ApiV3ResourceCollection<QueryResource, Ap
    * @param payload Payload object or query HAL resource
    * @param form Form resource, needed when QueryResource is passed
    */
-  public post(payload:QueryResource|Object, form?:QueryFormResource):Observable<QueryResource> {
+  public post(payload:QueryResource|object, form?:QueryFormResource):Observable<QueryResource> {
     if (payload instanceof QueryResource && form) {
       // Extracting requires having the filter schemas loaded as the dependencies
       this.queryFilters.mapSchemasIntoFilters(payload, form);
@@ -116,9 +120,7 @@ export class ApiV3QueriesPaths extends ApiV3ResourceCollection<QueryResource, Ap
 
     return this
       .halResourceService
-      .post<QueryResource>(
-      this.apiRoot.queries.path, payload,
-    );
+      .post<QueryResource>(this.apiRoot.queries.path, payload);
   }
 
   /**

@@ -1,12 +1,14 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -27,14 +29,15 @@
 #++
 
 module Cron
-  class ClearTmpCacheJob < CronJob
-    include ::RakeJob
+  class ClearTmpCacheJob < ApplicationJob
+    include GoodJob::ActiveJobExtensions::Concurrency
 
-    # runs at 02:45 sundays
-    self.cron_expression = '45 2 * * 7'
+    good_job_control_concurrency_with(total_limit: 1)
 
+    ##
+    # Clear the tmp/cache directory in case a file caching is configured
     def perform
-      super 'tmp:cache:clear'
+      FileUtils.rm_rf(Dir["tmp/cache/[^.]*"], verbose: false)
     end
   end
 end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,8 +28,8 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'services/base_services/behaves_like_create_service'
+require "spec_helper"
+require "services/base_services/behaves_like_create_service"
 
 RSpec.describe Members::CreateService, type: :model do
   let(:user1) { build_stubbed(:user) }
@@ -35,8 +37,7 @@ RSpec.describe Members::CreateService, type: :model do
   let(:group) do
     build_stubbed(:group).tap do |g|
       allow(g)
-        .to receive(:user_ids)
-              .and_return([user1.id, user2.id])
+        .to receive_messages(user_ids: [user1.id, user2.id], self_and_descendants: [g])
     end
   end
   let!(:inherited_roles_service) do
@@ -54,7 +55,7 @@ RSpec.describe Members::CreateService, type: :model do
       .to receive(:send)
   end
 
-  it_behaves_like 'BaseServices create service' do
+  it_behaves_like "BaseServices create service" do
     let(:call_attributes) do
       {
         project_id: "1",
@@ -65,8 +66,8 @@ RSpec.describe Members::CreateService, type: :model do
       }
     end
 
-    describe 'if successful' do
-      it 'sends a notification' do
+    describe "if successful" do
+      it "sends a notification" do
         subject
 
         expect(OpenProject::Notifications)
@@ -77,7 +78,7 @@ RSpec.describe Members::CreateService, type: :model do
                       send_notifications: true)
       end
 
-      describe 'for a group' do
+      describe "for a group" do
         let!(:model_instance) { build_stubbed(:member, principal: group) }
 
         it "generates the members and roles for the group's users" do
@@ -98,17 +99,17 @@ RSpec.describe Members::CreateService, type: :model do
       end
     end
 
-    context 'if the SetAttributeService is unsuccessful' do
+    context "if the SetAttributeService is unsuccessful" do
       let(:set_attributes_success) { false }
 
-      it 'sends no notification' do
+      it "sends no notification" do
         subject
 
         expect(OpenProject::Notifications)
           .not_to have_received(:send)
       end
 
-      describe 'for a group' do
+      describe "for a group" do
         let!(:model_instance) { build_stubbed(:member, principal: group) }
 
         it "does not create any inherited roles" do
@@ -120,17 +121,17 @@ RSpec.describe Members::CreateService, type: :model do
       end
     end
 
-    context 'when the member is invalid' do
+    context "when the member is invalid" do
       let(:model_save_result) { false }
 
-      it 'sends no notification' do
+      it "sends no notification" do
         subject
 
         expect(OpenProject::Notifications)
           .not_to have_received(:send)
       end
 
-      context 'for a group' do
+      context "for a group" do
         let!(:model_instance) { build_stubbed(:member, principal: group) }
 
         it "does not create any inherited roles" do

@@ -1,22 +1,37 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  EventEmitter,
-  Injector,
-  Input,
-  Output,
-  SecurityContext,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
+
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injector, Input, OnDestroy, Output, ViewChild, ViewEncapsulation, inject } from '@angular/core';
 import { FullCalendarComponent } from '@fullcalendar/angular';
 import { States } from 'core-app/core/states/states.service';
-import * as moment from 'moment';
-import { Moment } from 'moment';
+import moment, { Moment } from 'moment';
 import { StateService } from '@uirouter/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
-import { DomSanitizer } from '@angular/platform-browser';
 import timeGrid from '@fullcalendar/timegrid';
 import {
   CalendarOptions,
@@ -31,12 +46,10 @@ import {
   SlotLaneContentArg,
 } from '@fullcalendar/core';
 import { ConfigurationService } from 'core-app/core/config/configuration.service';
-import { TimeEntryResource } from 'core-app/features/hal/resources/time-entry-resource';
+import { TimeEntryResource, formatTimeEntryEntityName } from 'core-app/features/hal/resources/time-entry-resource';
 import { CollectionResource } from 'core-app/features/hal/resources/collection-resource';
 import interactionPlugin from '@fullcalendar/interaction';
 import { HalResourceEditingService } from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
-import { TimeEntryEditService } from 'core-app/shared/components/time_entries/edit/edit.service';
-import { TimeEntryCreateService } from 'core-app/shared/components/time_entries/create/create.service';
 import { ColorsService } from 'core-app/shared/components/colors/colors.service';
 import { BrowserDetector } from 'core-app/core/browser/browser-detector.service';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
@@ -44,25 +57,26 @@ import { SchemaCacheService } from 'core-app/core/schemas/schema-cache.service';
 import { FilterOperator } from 'core-app/shared/helpers/api-v3/api-v3-filter-builder';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { HalResourceNotificationService } from 'core-app/features/hal/services/hal-resource-notification.service';
-import idFromLink from 'core-app/features/hal/helpers/id-from-link';
 import { OpCalendarService } from 'core-app/features/calendar/op-calendar.service';
-import { SchemaResource } from 'core-app/features/hal/resources/schema-resource';
-import { IFieldSchema } from 'core-app/shared/components/fields/field.base';
 import { VerboseFormattingArg } from '@fullcalendar/common';
-import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
-import { Subject, firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subject } from 'rxjs';
 import { WeekdayService } from 'core-app/core/days/weekday.service';
 import { IDay } from 'core-app/core/state/days/day.model';
 import { DayResourceService } from 'core-app/core/state/days/day.service';
-
-interface TimeEntrySchema extends SchemaResource {
-  activity:IFieldSchema;
-  workPackage:IFieldSchema;
-  project:IFieldSchema;
-  hours:IFieldSchema;
-  user:IFieldSchema;
-  comment:IFieldSchema;
-}
+import allLocales from '@fullcalendar/core/locales-all';
+import { TurboRequestsService } from 'core-app/core/turbo/turbo-requests.service';
+import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
+import { ensureId, generateId } from 'core-app/shared/helpers/dom-helpers';
+import { target } from 'core-app/shared/helpers/event-helpers';
+import type AnchoredPositionElement from '@openproject/primer-view-components/app/components/primer/anchored_position';
+import { placePopover } from 'core-app/shared/components/anchored-popover/popover-placement';
+import { liveRect } from 'core-app/shared/components/anchored-popover/live-rect';
+import { visibleRect } from 'core-app/shared/components/anchored-popover/visible-rect';
+import type { CaretPlacement } from 'core-app/shared/components/anchored-popover/caret-placement';
+import { timeEntryPopoverHtml, timeEntryPopoverRows } from './te-calendar-popover';
+import type { TimeEntrySchema } from './te-calendar-popover';
+import { render } from 'lit-html';
+import { DialogCloseDetail } from 'core-turbo/dialog-stream-action';
 
 interface CalendarViewEvent {
   el:HTMLElement;
@@ -80,7 +94,15 @@ interface CalendarOptionsWithDayGrid extends CalendarOptions {
   dayGridClassNames:(data:DayCellMountArg) => void;
 }
 // An array of all the days that are displayed. The zero index represents Monday.
-export type DisplayedDays = [boolean, boolean, boolean, boolean, boolean, boolean, boolean];
+export type DisplayedDays = [
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+  boolean,
+];
 
 const TIME_ENTRY_CLASS_NAME = 'te-calendar--time-entry';
 const DAY_SUM_CLASS_NAME = 'te-calendar--day-sum';
@@ -96,12 +118,31 @@ const ADD_ENTRY_PROHIBITED_CLASS_NAME = '-prohibited';
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     OpCalendarService,
-    TimeEntryEditService,
-    TimeEntryCreateService,
     HalResourceEditingService,
+    TurboRequestsService,
+    PathHelperService,
   ],
+  standalone: false,
 })
-export class TimeEntryCalendarComponent {
+export class TimeEntryCalendarComponent implements AfterViewInit, OnDestroy {
+  readonly states = inject(States);
+  readonly apiV3Service = inject(ApiV3Service);
+  readonly $state = inject(StateService);
+  private element = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly i18n = inject(I18nService);
+  readonly injector = inject(Injector);
+  readonly notifications = inject(HalResourceNotificationService);
+  private configuration = inject(ConfigurationService);
+  private timezone = inject(TimezoneService);
+  private schemaCache = inject(SchemaCacheService);
+  private colors = inject(ColorsService);
+  private browserDetector = inject(BrowserDetector);
+  private calendar = inject(OpCalendarService);
+  readonly weekdayService = inject(WeekdayService);
+  readonly dayService = inject(DayResourceService);
+  readonly turboRequests = inject(TurboRequestsService);
+  readonly pathHelper = inject(PathHelperService);
+
   @ViewChild(FullCalendarComponent) ucCalendar:FullCalendarComponent;
 
   @Input() projectIdentifier:string;
@@ -123,7 +164,7 @@ export class TimeEntryCalendarComponent {
 
   public scaleRatio = 1;
 
-  protected memoizedTimeEntries:{ start:Date, end:Date, entries:Promise<CollectionResource<TimeEntryResource>> };
+  protected memoizedTimeEntries:{ start:Moment; end:Moment; entries:Promise<CollectionResource<TimeEntryResource>>; };
 
   public memoizedCreateAllowed = false;
 
@@ -136,11 +177,23 @@ export class TimeEntryCalendarComponent {
 
   public nonWorkingDays:IDay[] = [];
 
+  private closeDialogHandler:EventListener = this.handleDialogClose.bind(this);
+
+  private placeOpenPopover:(() => void)|null = null;
+
+  private closeOpenPopover = () => {
+    this.element.nativeElement.querySelector<HTMLElement>('.te-calendar--popover:popover-open')?.hidePopover();
+  };
+
+  private repositionOpenPopover = () => {
+    this.placeOpenPopover?.();
+  };
+
   public additionalOptions:CalendarOptionsWithDayGrid = {
     editable: false,
+    locales: allLocales,
     locale: this.i18n.locale,
     fixedWeekCount: false,
-    timeZone: this.configuration.isTimezoneSet() ? this.configuration.timezone() : 'local',
     headerToolbar: {
       right: '',
       center: 'title',
@@ -149,6 +202,7 @@ export class TimeEntryCalendarComponent {
     buttonText: { today: this.text.today },
     initialView: 'timeGridWeek',
     firstDay: this.configuration.startOfWeek(),
+    timeZone: this.configuration.isTimezoneSet() ? this.configuration.timezone() : 'local',
     hiddenDays: [],
     // This is a magic number that is derived by trial and error
     contentHeight: 550,
@@ -171,44 +225,37 @@ export class TimeEntryCalendarComponent {
     dayGridClassNames: (data:DayCellContentArg) => this.calendar.applyNonWorkingDay(data, this.nonWorkingDays),
     slotLaneClassNames: (data:SlotLaneContentArg) => this.calendar.applyNonWorkingDay(data, this.nonWorkingDays),
     slotLabelClassNames: (data:SlotLabelContentArg) => this.calendar.applyNonWorkingDay(data, this.nonWorkingDays),
+    dayHeaderContent: (data:DayHeaderContentArg) => this.calendar.dayHeaderContent(data),
   };
 
   private initializeCalendar(displayedDayss:DisplayedDays) {
     void this.weekdayService.loadWeekdays()
       .toPromise()
       .then(async () => {
-        const date = moment(new Date()).toString();
-        await this.requireNonWorkingDays(date);
+        const startOfWeek = moment().startOf('week').format('YYYY-MM-DD');
+        const endOfWeek = moment().endOf('week').format('YYYY-MM-DD');
+        await this.requireNonWorkingDays(startOfWeek, endOfWeek);
         this.additionalOptions.hiddenDays = this.setHiddenDays(displayedDayss);
-        this.calendarOptions$.next(
-          this.additionalOptions,
-        );
+        this.calendarOptions$.next(this.additionalOptions);
       });
   }
 
-  constructor(
-    readonly states:States,
-    readonly apiV3Service:ApiV3Service,
-    readonly $state:StateService,
-    private element:ElementRef,
-    readonly i18n:I18nService,
-    readonly injector:Injector,
-    readonly notifications:HalResourceNotificationService,
-    private sanitizer:DomSanitizer,
-    private configuration:ConfigurationService,
-    private timezone:TimezoneService,
-    private timeEntryEdit:TimeEntryEditService,
-    private timeEntryCreate:TimeEntryCreateService,
-    private schemaCache:SchemaCacheService,
-    private colors:ColorsService,
-    private browserDetector:BrowserDetector,
-    private calendar:OpCalendarService,
-    readonly weekdayService:WeekdayService,
-    readonly dayService:DayResourceService,
-  ) {}
+  ngAfterViewInit():void {
+    document.addEventListener('dialog:close', this.closeDialogHandler);
+    window.addEventListener('resize', this.closeOpenPopover);
+    document.addEventListener('scroll', this.repositionOpenPopover, { capture: true });
+  }
 
-  async requireNonWorkingDays(date:Date|string) {
-    this.nonWorkingDays = await firstValueFrom(this.dayService.requireNonWorkingYear$(date));
+  ngOnDestroy():void {
+    document.removeEventListener('dialog:close', this.closeDialogHandler);
+    window.removeEventListener('resize', this.closeOpenPopover);
+    document.removeEventListener('scroll', this.repositionOpenPopover, { capture: true });
+  }
+
+  async requireNonWorkingDays(start:Date | string, end:Date | string) {
+    this.nonWorkingDays = await firstValueFrom(
+      this.dayService.requireNonWorkingYears$(start, end),
+    );
   }
 
   public calendarEventsFunction(
@@ -216,7 +263,9 @@ export class TimeEntryCalendarComponent {
     successCallback:(events:EventInput[]) => void,
     failureCallback:(error:Error) => void,
   ):void|PromiseLike<EventInput[]> {
-    void this.fetchTimeEntries(fetchInfo.start, fetchInfo.end)
+    const start = moment(fetchInfo.startStr);
+    const end = moment(fetchInfo.endStr);
+    void this.fetchTimeEntries(start, end)
       .then(async (collection) => {
         this.entries.emit(collection);
 
@@ -225,21 +274,21 @@ export class TimeEntryCalendarComponent {
       .catch(failureCallback);
   }
 
-  protected fetchTimeEntries(start:Date, end:Date):Promise<CollectionResource<TimeEntryResource>> {
+  protected fetchTimeEntries(start:Moment, end:Moment):Promise<CollectionResource<TimeEntryResource>> {
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (!this.memoizedTimeEntries
-      || this.memoizedTimeEntries.start.getTime() !== start.getTime()
-      || this.memoizedTimeEntries.end.getTime() !== end.getTime()) {
+      || this.memoizedTimeEntries.start.valueOf() !== start.valueOf()
+      || this.memoizedTimeEntries.end.valueOf() !== end.valueOf()) {
       const promise = firstValueFrom(
         this
-          .apiV3Service
-          .time_entries
-          .list({ filters: this.dmFilters(start, end), pageSize: 500 }),
-      )
-        .then((collection) => {
-          this.memoizedCreateAllowed = !!collection.createTimeEntry;
+        .apiV3Service
+        .time_entries
+        .list({ filters: this.dmFilters(start, end), pageSize: 500 }),
+      ).then((collection) => {
+        this.memoizedCreateAllowed = !!collection.createTimeEntry;
 
-          return collection;
-        });
+        return collection;
+      });
 
       this.memoizedTimeEntries = { start, end, entries: promise };
     }
@@ -247,10 +296,9 @@ export class TimeEntryCalendarComponent {
     return this.memoizedTimeEntries.entries;
   }
 
-  private async buildEntries(entries:TimeEntryResource[], fetchInfo:{ start:Date, end:Date }):Promise<EventInput[]> {
+  private async buildEntries(entries:TimeEntryResource[], fetchInfo:{ start:Date; end:Date }):Promise<EventInput[]> {
     this.setRatio(entries);
-    await this.requireNonWorkingDays(fetchInfo.start);
-    await this.requireNonWorkingDays(fetchInfo.end);
+    await this.requireNonWorkingDays(fetchInfo.start, fetchInfo.end);
     return this.buildTimeEntryEntries(entries)
       .concat(this.buildAuxEntries(entries, fetchInfo));
   }
@@ -274,20 +322,20 @@ export class TimeEntryCalendarComponent {
       // But it will trigger repainting the calendar.
       // Weirdly, this.ucCalendar.getApi().rerender() does not.
       this.ucCalendar.getApi().setOption('slotLabelFormat', (info:VerboseFormattingArg) => {
-        const val = (this.maxHour - info.date.hour) / this.scaleRatio;
-        return val.toString();
-      });
+          const val = (this.maxHour - info.date.hour) / this.scaleRatio;
+          return val.toString();
+        });
     }
   }
 
   private buildTimeEntryEntries(entries:TimeEntryResource[]):EventInput[] {
-    const hoursDistribution:{ [key:string]:Moment } = {};
+    const hoursDistribution:Record<string, Moment> = {};
 
     return entries.map((entry) => {
       let start:Moment;
       let end:Moment;
-      const hours = this.timezone.toHours(entry.hours) * this.scaleRatio;
-      const spentOn = entry.spentOn as string;
+      const hours = this.timezone.toHours(entry.hours as string) * this.scaleRatio;
+      const spentOn = entry.spentOn;
 
       if (hoursDistribution[spentOn]) {
         start = hoursDistribution[spentOn].clone().subtract(hours, 'h');
@@ -303,12 +351,12 @@ export class TimeEntryCalendarComponent {
     });
   }
 
-  private buildAuxEntries(entries:TimeEntryResource[], fetchInfo:{ start:Date, end:Date }):EventInput[] {
+  private buildAuxEntries(entries:TimeEntryResource[], fetchInfo:{ start:Date; end:Date }):EventInput[] {
     const dateSums = this.calculateDateSums(entries);
 
     const calendarEntries:EventInput[] = [];
 
-    for (let m = moment(fetchInfo.start); m.diff(fetchInfo.end, 'days') <= 0; m.add(1, 'days')) {
+    for (let m = moment(this.timezone.formattedISODate(fetchInfo.start)); m.diff(fetchInfo.end, 'days') <= 0; m.add(1, 'days')) {
       const duration = dateSums[m.format('YYYY-MM-DD')] || 0;
 
       calendarEntries.push(this.sumEntry(m, duration));
@@ -321,12 +369,12 @@ export class TimeEntryCalendarComponent {
     return calendarEntries;
   }
 
-  private calculateDateSums(entries:TimeEntryResource[]):{ [p:string]:number } {
-    const dateSums:{ [key:string]:number } = {};
+  private calculateDateSums(entries:TimeEntryResource[]):Record<string, number> {
+    const dateSums:Record<string, number> = {};
 
     entries.forEach((entry) => {
-      const hours = this.timezone.toHours(entry.hours);
-      const spentOn = entry.spentOn as string;
+      const hours = this.timezone.toHours(entry.hours as string);
+      const spentOn = entry.spentOn;
 
       if (dateSums[spentOn]) {
         dateSums[spentOn] += hours;
@@ -364,12 +412,11 @@ export class TimeEntryCalendarComponent {
   protected sumEntry(date:Moment, duration:number):EventInput {
     return {
       start: date.clone().add(this.maxHour - Math.min(duration * this.scaleRatio, this.maxHour - 0.5) - 0.5, 'h').format(),
-      end: date.clone().add(this.maxHour - Math.min(((duration + 0.05) * this.scaleRatio), this.maxHour - 0.5), 'h').format(),
+      end: date.clone().add(this.maxHour - Math.min((duration + 0.05) * this.scaleRatio, this.maxHour - 0.5), 'h').format(),
       classNames: DAY_SUM_CLASS_NAME,
       rendering: 'background' as const,
       startEditable: false,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      sum: this.i18n.t('js.units.hour', { count: this.formatNumber(duration) }),
+      sum: this.i18n.t('js.units.hour_string', { hours: duration.toFixed(2) }),
     };
   }
 
@@ -388,31 +435,28 @@ export class TimeEntryCalendarComponent {
     };
   }
 
-  protected dmFilters(start:Date, end:Date):Array<[string, FilterOperator, string[]]> {
-    const startDate = moment(start).format('YYYY-MM-DD');
-    const endDate = moment(end).subtract(1, 'd').format('YYYY-MM-DD');
-    return [['spentOn', '<>d', [startDate, endDate]] as [string, FilterOperator, string[]],
-      ['user_id', '=', ['me']] as [string, FilterOperator, [string]]];
+  protected dmFilters(start:Moment, end:Moment):[string, FilterOperator, string[]][] {
+    const startDate = start.format('YYYY-MM-DD');
+    const endDate = end.subtract(1, 'd').format('YYYY-MM-DD');
+    return [
+      ['spentOn', '<>d', [startDate, endDate]] as [ string, FilterOperator, string[] ],
+      ['user_id', '=', ['me']] as [string, FilterOperator, [string]],
+    ];
   }
 
   private dispatchEventClick(event:CalendarViewEvent):void {
     if (event.event.extendedProps.entry) {
-      this.editEvent(event.event.extendedProps.entry);
+      this.editEvent(event.event.extendedProps.entry as TimeEntryResource);
     } else if (event.el.classList.contains(ADD_ENTRY_CLASS_NAME) && !event.el.classList.contains(ADD_ENTRY_PROHIBITED_CLASS_NAME)) {
-      this.addEvent(moment(event.event.start));
+      this.addEvent(moment(event.event.startStr));
     }
   }
 
   private editEvent(entry:TimeEntryResource):void {
-    this
-      .timeEntryEdit
-      .edit(entry, { showUserField: false })
-      .then((modificationAction) => {
-        this.updateEventSet(modificationAction.entry, modificationAction.action);
-      })
-      .catch(() => {
-        // do nothing, the user closed without changes
-      });
+    void this.turboRequests.request(
+      `${this.pathHelper.timeEntryEditDialog(entry.id!)}?onlyMe=true`,
+      { method: 'GET' },
+    );
   }
 
   private moveEvent(event:CalendarMoveEvent):void {
@@ -420,25 +464,20 @@ export class TimeEntryCalendarComponent {
 
     // Use end instead of start as when dragging, the event might be too long and would thus be start
     // on the day before by fullcalendar.
-    entry.spentOn = moment(event.event.end).format('YYYY-MM-DD');
+    entry.spentOn = moment(event.event.endStr).format('YYYY-MM-DD');
 
-    void this
-      .schemaCache
-      .ensureLoaded(entry)
-      .then((schema) => {
-        this
-          .apiV3Service
-          .time_entries
-          .id(entry)
-          .patch(entry, schema)
-          .subscribe(
-            (updated) => this.updateEventSet(updated, 'update'),
-            (e) => {
-              this.notifications.handleRawError(e);
-              event.revert();
-            },
-          );
-      });
+    void this.schemaCache.ensureLoaded(entry).then((schema) => {
+      this.apiV3Service.time_entries
+        .id(entry)
+        .patch(entry, schema)
+        .subscribe(
+          (updated) => this.updateEventSet(updated, 'update'),
+          (e) => {
+            this.notifications.handleRawError(e);
+            event.revert();
+          },
+        );
+    });
   }
 
   public addEventToday():void {
@@ -450,18 +489,13 @@ export class TimeEntryCalendarComponent {
       return;
     }
 
-    this
-      .timeEntryCreate
-      .create(date, undefined, { showUserField: false })
-      .then((modificationAction) => {
-        this.updateEventSet(modificationAction.entry, modificationAction.action);
-      })
-      .catch(() => {
-        // do nothing, the user closed without changes
-      });
+    void this.turboRequests.request(
+      `${this.pathHelper.timeEntryDialog()}?date=${date.format('YYYY-MM-DD')}&onlyMe=true`,
+      { method: 'GET' },
+    );
   }
 
-  private updateEventSet(event:TimeEntryResource, action:'update'|'destroy'|'create'|'unchanged'):void {
+  private updateEventSet(event:TimeEntryResource, action:'update' | 'destroy' | 'create' | 'unchanged'):void {
     void this.memoizedTimeEntries.entries.then((collection) => {
       const foundIndex = collection.elements.findIndex((x) => x.id === event.id);
 
@@ -474,11 +508,7 @@ export class TimeEntryCalendarComponent {
           collection.elements.splice(foundIndex, 1);
           break;
         case 'create':
-          void this
-            .apiV3Service
-            .time_entries
-            .cache
-            .updateFor(event);
+          void this.apiV3Service.time_entries.cache.updateFor(event);
 
           collection.elements.push(event);
           break;
@@ -498,7 +528,7 @@ export class TimeEntryCalendarComponent {
       return;
     }
 
-    void this.addTooltip(event);
+    void this.addPopover(event);
     this.prependDuration(event);
     this.appendFadeout(event);
   }
@@ -520,77 +550,112 @@ export class TimeEntryCalendarComponent {
     }
   }
 
-  private async addTooltip(event:CalendarViewEvent):Promise<void> {
+  private async addPopover(event:CalendarViewEvent):Promise<void> {
     if (this.browserDetector.isMobile) {
       return;
     }
 
-    const { entry } = event.event.extendedProps;
+    const entry = event.event.extendedProps.entry as TimeEntryResource;
 
-    const schema = await this.schemaCache.ensureLoaded(entry as TimeEntryResource) as TimeEntrySchema;
+    const schema = (await this.schemaCache.ensureLoaded(entry)) as TimeEntrySchema;
 
-    jQuery(event.el).tooltip({
-      content: this.tooltipContentString(event.event.extendedProps.entry, schema),
-      items: '.fc-event',
-      close() {
-        jQuery('.ui-helper-hidden-accessible').remove();
-      },
-      track: true,
+    const anchorEl = event.el;
+    if (!anchorEl.isConnected) {
+      return;
+    }
+
+    const anchorId = ensureId(anchorEl);
+    anchorEl.role = 'button';
+
+    const popoverId = generateId('popover');
+    const rows = timeEntryPopoverRows(entry, schema, {
+      placeholder: this.i18n.t('js.placeholders.default'),
+      formattedDuration: this.timezone.formattedDuration(entry.hours as string),
     });
+    const draw = (caret:CaretPlacement|null) => render(timeEntryPopoverHtml(popoverId, anchorId, rows, caret), anchorEl);
+    draw(null);
+
+    anchorEl.setAttribute('aria-haspopup', 'true');
+    anchorEl.setAttribute('popovertarget', popoverId);
+
+    const popoverEl = document.getElementById(popoverId) as AnchoredPositionElement;
+    const anchorRect = liveRect(() => visibleRect(anchorEl));
+    popoverEl.anchorElement = anchorRect as unknown as HTMLElement;
+    const place = () => draw(placePopover(popoverEl, anchorRect));
+    popoverEl.addEventListener('toggle', (toggle) => {
+      this.placeOpenPopover = toggle.newState === 'open' ? place : null;
+    });
+    const showPopover = () => {
+      if (popoverEl.matches(':popover-open')) return;
+      popoverEl.showPopover();
+      place();
+    };
+    const hidePopover = () => { popoverEl.hidePopover(); };
+
+    target(anchorEl).on('mouseenter.anchor', showPopover);
+    target(anchorEl).on('focus.anchor', showPopover);
+    target(anchorEl).on('mouseleave.anchor', hidePopover);
+    target(anchorEl).on('blur.anchor', hidePopover);
   }
 
-  private removeTooltip(event:CalendarViewEvent):void {
-    const target = jQuery(event.el);
-
-    if (target.tooltip('instance')) {
-      jQuery(event.el).tooltip('disable');
+  private removePopover(event:CalendarViewEvent):void {
+    const anchorId = event.el.id;
+    const anchorEl = document.getElementById(anchorId);
+    if (!anchorEl) {
+      return;
     }
+
+    target(anchorEl).off('.anchor');
+    anchorEl.removeAttribute('popovertarget');
+    anchorEl.removeAttribute('aria-haspopup');
+    anchorEl.removeAttribute('role');
+    const popoverEl = document.querySelector(`anchored-position[anchor="${anchorId}"]`);
+    if (popoverEl?.matches(':popover-open')) {
+      this.placeOpenPopover = null;
+    }
+    popoverEl?.remove();
   }
 
   private prependDuration(event:CalendarViewEvent):void {
     const timeEntry = event.event.extendedProps.entry as TimeEntryResource;
 
-    if (this.timezone.toHours(timeEntry.hours) < 0.5) {
+    if (this.timezone.toHours(timeEntry.hours as string) < 0.5) {
       return;
     }
 
-    const formattedDuration = this.timezone.formattedDuration(timeEntry.hours);
+    const formattedDuration = this.timezone.formattedDuration(timeEntry.hours as string);
 
-    jQuery(event.el)
-      .find('.fc-event-title')
-      .prepend(`<div class="fc-duration">${formattedDuration}</div>`);
+    event.el
+      .querySelector('.fc-event-title')
+      ?.insertAdjacentHTML('afterbegin', `<div class="fc-duration">${formattedDuration}</div>`);
   }
 
   /* Fade out event text to the bottom to avoid it being cut of weirdly.
-  * Multiline ellipsis with an unknown height is not possible, hence we blur the text.
-  * The gradient needs to take the background color of the element into account (hashed over the event
-  * title) which is why the style is set in code.
-  *
-  * We do not print anything on short entries (< 0.5 hours),
-  * which leads to the fc-short class not being applied by full calendar. For other short events, the css rules
-  * need to deactivate the fc-fadeout.
+   * Multiline ellipsis with an unknown height is not possible, hence we blur the text.
+   * The gradient needs to take the background color of the element into account (hashed over the event
+   * title) which is why the style is set in code.
+   *
+   * We do not print anything on short entries (< 0.5 hours),
+   * which leads to the fc-short class not being applied by full calendar. For other short events, the css rules
+   * need to deactivate the fc-fadeout.
    */
   private appendFadeout(event:CalendarViewEvent):void {
     const timeEntry = event.event.extendedProps.entry as TimeEntryResource;
 
-    if (this.timezone.toHours(timeEntry.hours) < 0.5) {
+    if (this.timezone.toHours(timeEntry.hours as string) < 0.5) {
       return;
     }
 
-    const $element = jQuery(event.el);
-    const fadeout = jQuery('<div class="fc-fadeout"></div>');
+    const element = event.el;
+    const fadeout = document.createElement('div');
+    fadeout.classList.add('fc-fadeout');
 
     const hslaStart = this.colors.toHsla(this.entryName(timeEntry), 0);
     const hslaEnd = this.colors.toHsla(this.entryName(timeEntry), 100);
 
-    fadeout.css('background', `-webkit-linear-gradient(${hslaStart} 0%, ${hslaEnd} 100%`);
+    fadeout.style.backgroundImage = `linear-gradient(${hslaStart} 0%, ${hslaEnd} 100%)`;
 
-    ['-moz-linear-gradient', '-o-linear-gradient', 'linear-gradient', '-ms-linear-gradient'].forEach(((style) => {
-      fadeout.css('background-image', `${style}(${hslaStart} 0%, ${hslaEnd} 100%`);
-    }));
-
-    $element
-      .append(fadeout);
+    element.append(fadeout);
   }
 
   private beforeEventRemove(event:CalendarViewEvent):void {
@@ -598,51 +663,20 @@ export class TimeEntryCalendarComponent {
       return;
     }
 
-    this.removeTooltip(event);
+    this.removePopover(event);
   }
 
   private entryName(entry:TimeEntryResource):string {
     let { name } = entry.project;
-    if (entry.workPackage) {
-      name += ` - ${this.workPackageName(entry)}`;
+    if (entry.entity) {
+      name += ` - ${this.entityName(entry)}`;
     }
 
-    return name || '-';
+    return name ?? '-';
   }
 
-  private workPackageName(entry:TimeEntryResource):string {
-    const workPackage = entry.workPackage as WorkPackageResource;
-    return `#${idFromLink(workPackage.href)}: ${workPackage.name}`;
-  }
-
-  private tooltipContentString(entry:TimeEntryResource, schema:TimeEntrySchema):string {
-    return `
-        <ul class="tooltip--map">
-          <li class="tooltip--map--item">
-            <span class="tooltip--map--key">${schema.project.name}:</span>
-            <span class="tooltip--map--value">${this.sanitizedValue(entry.project.name)}</span>
-          </li>
-          <li class="tooltip--map--item">
-            <span class="tooltip--map--key">${schema.workPackage.name}:</span>
-            <span class="tooltip--map--value">${entry.workPackage ? this.sanitizedValue(this.workPackageName(entry)) : this.i18n.t('js.placeholders.default')}</span>
-          </li>
-          <li class="tooltip--map--item">
-            <span class="tooltip--map--key">${schema.activity.name}:</span>
-            <span class="tooltip--map--value">${this.sanitizedValue(entry.activity.name)}</span>
-          </li>
-          <li class="tooltip--map--item">
-            <span class="tooltip--map--key">${schema.hours.name}:</span>
-            <span class="tooltip--map--value">${this.timezone.formattedDuration(entry.hours)}</span>
-          </li>
-          <li class="tooltip--map--item">
-            <span class="tooltip--map--key">${schema.comment.name}:</span>
-            <span class="tooltip--map--value">${entry.comment.raw || this.i18n.t('js.placeholders.default')}</span>
-          </li>
-        `;
-  }
-
-  private sanitizedValue(value:string):string {
-    return this.sanitizer.sanitize(SecurityContext.HTML, value) || '';
+  private entityName(entry:TimeEntryResource):string {
+    return formatTimeEntryEntityName(entry.entity);
   }
 
   protected formatNumber(value:number):string {
@@ -669,6 +703,19 @@ export class TimeEntryCalendarComponent {
         }
         return null;
       })
-      .filter((value) => value !== null) as number[];
+      .filter((value) => value !== null);
+  }
+
+  private handleDialogClose(event:CustomEvent<DialogCloseDetail>):void {
+    const { detail: { dialog, submitted } } = event;
+    if (dialog.id === 'time-entry-dialog' && submitted) {
+      void this.fetchTimeEntries(
+        this.memoizedTimeEntries.start,
+        this.memoizedTimeEntries.end,
+      ).then((collection) => {
+        this.entries.emit(collection);
+        this.ucCalendar.getApi().refetchEvents();
+      });
+    }
   }
 }

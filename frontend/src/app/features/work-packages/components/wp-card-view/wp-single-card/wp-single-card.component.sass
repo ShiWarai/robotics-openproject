@@ -2,24 +2,36 @@
 @import 'helpers'
 @import '../../app/spot/styles/sass/variables'
 
+// Without this the host is an inline box around block content, and its own
+// box collapses — taking the drop indicator and the drag image snapshot with it.
+:host
+  display: block
+
 .op-wp-single-card
+  // The card background is stated once per state and inherited by everything
+  // that has to sit flush against it — the icon wrappers and the shadow that
+  // fades the inline buttons out over the card.
+  --op-wp-single-card-bg-color: var(--box-list-item-bg-color)
   display: flex
   user-select: none
   // Leave space for the shadow to be displayed
   width: calc(100% - 2px)
-  border: 1px solid var(--widget-box-block-border-color)
+  border: 1px solid var(--box-list-item-border-color)
   border-radius: 2px
   padding: 10px
   position: relative
-  box-shadow: 1px 1px 3px 0px lightgrey
-  background: var(--body-background)
-  font-size: var(--card-font-size)
+  box-shadow: 1px 1px 3px 0px var(--borderColor-default)
+  background: var(--op-wp-single-card-bg-color)
+  color: var(--body-font-color)
+  font-size: var(--body-font-size)
 
   &:hover
+    --op-wp-single-card-bg-color: var(--box-list-item-bg-hover-color)
+
     .op-wp-single-card--inline-buttons
       opacity: 1
       z-index: 2
-      background-image: linear-gradient(to left, rgba($spot-color-basic-white,1), rgba($spot-color-basic-white,0))
+      box-shadow: -4px -4px 10px 4px var(--op-wp-single-card-bg-color)
 
   &_new
     padding-right: 25px
@@ -27,21 +39,21 @@
   &_ghosted
     opacity: 0.5
 
+  // Some state selectors below need to override the base :hover rule above.
+  // Keep them after `&:hover` so equal-specificity selectors (e.g. `&_selected:hover`)
+  // and the closed selector can win via source order.
   &_selected
-    background-color: $spot-color-main-light
-    .op-icon--wrapper
-      background: $spot-color-main-light
+    --op-wp-single-card-bg-color: var(--box-list-item-selected-bg-color)
+    border-color: var(--box-list-item-selected-border-color)
+
     &:hover
-      .op-wp-single-card--inline-buttons
-        background-image: linear-gradient(to left, rgba($spot-color-main-light,1), rgba($spot-color-main-light,0))
+      --op-wp-single-card-bg-color: var(--box-list-item-selected-bg-hover-color)
 
   &_closed:not(&_selected)
-    background-color: $spot-color-basic-gray-6
-    .op-icon--wrapper
-      background: $spot-color-basic-gray-6
+    --op-wp-single-card-bg-color: var(--display-gray-bgColor-muted)
+
     &:hover
-      .op-wp-single-card--inline-buttons
-        background-image: linear-gradient(to left, rgba($spot-color-basic-gray-6,1), rgba($spot-color-basic-gray-6,0))
+      --op-wp-single-card-bg-color: hsl(from var(--display-gray-bgColor-muted) h s calc(l - 3.5))
 
   &_horizontal
     height: 100%
@@ -65,9 +77,12 @@
       flex-grow: 1
       @include text-shortener
 
-  // Style shadow element while dragging
-  wp-single-card:host.gu-transit &
-    @include modifying--placeholder
+  // Keep the picked-up card visible in place, dimmed, rather than leaving a
+  // dashed hole behind — matching the Backlogs list and the WP table row.
+  wp-single-card:host([data-dragging='source']) &
+    --op-wp-single-card-bg-color: var(--bgColor-inset)
+    opacity: 0.4
+    pointer-events: none
 
   &--content
 
@@ -80,13 +95,13 @@
       grid-template-areas: "status id project project project" "subject subject subject subject subject" "image image image image image" "avatar avatar avatar dates dates"
       overflow: hidden
       flex-grow: 1
-      font-size: 14px
+      font-size: var(--body-font-size)
       line-height: 16px
 
     &-project-name
       grid-area: project
       font-style: italic
-      color: $spot-color-basic-gray-3
+      color: var(--fgColor-muted)
       font-size: 12px
       @include text-shortener
     &-type
@@ -99,11 +114,11 @@
       margin-right: auto
       grid-area: avatar
       max-width: 140px
-      color: $spot-color-basic-gray-3
+      color: var(--fgColor-muted)
       font-size: 12px
     &-id
       grid-area: id
-      color: $spot-color-basic-gray-3
+      color: var(--fgColor-muted)
       font-size: 12px
     &-status-baseline
       grid-area: status
@@ -121,20 +136,21 @@
     &-cover-image
       grid-area: image
       max-height: 350px
+      justify-self: center
 
-      @media screen and (max-width: 679px)
+      @media screen and (max-width: $breakpoint-sm)
         max-height: 250px
 
     &-dates
       grid-area: dates
       place-self: center end
       white-space: nowrap
-      color: $spot-color-basic-gray-3
+      color: var(--fgColor-muted)
       font-size: 12px
 
     &-inline-date
       font-size: 12px
-      color: $spot-color-basic-gray-3
+      color: var(--fgColor-muted)
       margin: 0 8px
       white-space: nowrap
 
@@ -158,12 +174,8 @@
     &_closed
       color: $spot-color-basic-gray-2
 
-    .op-wp-single-card_selected &
-      background-color: $spot-color-main-light
-
   &--inline-buttons
     opacity: 0
-    padding-left: 30px
     padding-right: 4px
     white-space: nowrap
 
@@ -172,19 +184,16 @@
     .op-wp-single-card_selected &
       padding-left: 15px
 
-    .op-icon--wrapper:not(&_selected)
-      background: $spot-color-basic-white
+    .op-icon--wrapper
+      background: var(--op-wp-single-card-bg-color)
 
     &.-show
       opacity: 1
 
-    .op-wp-single-card_selected &
-      background-color: $spot-color-main-light
-
   &--inline-cancel-button
-    color: var(--warn)
+    color: var(--fgColor-danger)
 
-  @media only screen and (max-width: 679px)
+  @media only screen and (max-width: $breakpoint-sm)
     &_shrink
       border: none
       box-shadow: none

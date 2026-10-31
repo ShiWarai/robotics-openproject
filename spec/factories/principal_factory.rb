@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,61 +31,87 @@
 FactoryBot.define do
   factory :principal do
     transient do
-      member_in_project { nil }
-      member_in_projects { nil }
-      member_through_role { nil }
-      member_with_permissions { nil }
+      # example:
+      #   member_with_permissions: {
+      #     project => :view_work_packages
+      #     work_package => [:view_work_packages, :edit_work_packages]
+      #   }
+      member_with_permissions { {} }
 
-      global_role { nil }
-      global_permission { nil }
-    end
+      # example:
+      #   member_wih_roles: {
+      #     project => role1,
+      #     work_package => [role2, role3]
+      #   }
+      member_with_roles { {} }
 
-    # prevent forgetting :member_in_project(s) when using :member_through_role
-    # or :member_with_permissions for a better DX
-    after(:build, :create, :stub) do |principal, evaluator|
-      next if %i[member_in_project member_in_projects].any? { |attr| evaluator.overrides?(attr) }
-
-      unusable_attribute = %i[member_through_role member_with_permissions].find { |attr| evaluator.send(attr).present? }
-      next unless unusable_attribute
-
-      raise ArgumentError, "Cannot use :#{unusable_attribute} without :member_in_project or :member_in_projects " \
-                           "for #{principal.class} factory"
+      global_roles { [] }
+      global_permissions { [] }
+      identity_url { nil }
     end
 
     callback(:after_build) do |_principal, evaluator|
       is_build_strategy = evaluator.instance_eval { @build_strategy.is_a? FactoryBot::Strategy::Build }
-      uses_member_association = evaluator.member_in_project || evaluator.member_in_projects
+      uses_member_association = evaluator.member_with_permissions.present? ||
+        evaluator.member_with_roles.present? ||
+        evaluator.global_roles.present? ||
+        evaluator.global_permissions.present?
       if is_build_strategy && uses_member_association
-        raise ArgumentError, "Use create(...) with principals and member_in_project(s) traits."
+        raise ArgumentError,
+              "Use create(...) with principals and member_with_permissions, member_with_roles, global_roles, global_permissions traits."
+      end
+    end
+
+    callback(:after_stub) do |_principal, evaluator|
+      uses_member_association = evaluator.member_with_permissions.present? ||
+        evaluator.member_with_roles.present? ||
+        evaluator.global_roles.present? ||
+        evaluator.global_permissions.present?
+      if uses_member_association
+        raise ArgumentError,
+              "To create memberships, you either need to use create(...) or use the `mock_permissions_for` helper on the stubbed models"
       end
     end
 
     callback(:after_create) do |principal, evaluator|
-      (projects = evaluator.member_in_projects || [])
-      projects << evaluator.member_in_project if evaluator.member_in_project
-      if projects.any?
-        role = evaluator.member_through_role || build(:role,
-                                                      permissions: evaluator.member_with_permissions || %i[
-                                                        view_work_packages edit_work_packages
-                                                      ])
-        projects.compact.each do |project|
-          create(:member,
-                 project:,
-                 principal:,
-                 roles: Array(role))
+      if evaluator.identity_url.present?
+        slug, external_id = evaluator.identity_url.split(":", 2)
+        raise "slug or external_id is blank" if slug.blank? || external_id.blank?
+
+        auth_provider = AuthProvider.find_by(slug:) || create(:oidc_provider, slug:)
+        principal.user_auth_provider_links.create!(auth_provider:, external_id:)
+      end
+      evaluator.member_with_permissions.each do |object, permission_or_permissions|
+        if object.is_a?(Project)
+          role = create(:project_role, permissions: Array(permission_or_permissions))
+          create(:member, principal:, project: object, roles: [role])
+        elsif Member.can_be_member_of?(object)
+          project = object.respond_to?(:project) ? object.project : nil
+          role_factory = :"#{object.model_name.element}_role"
+
+          role = create(role_factory, permissions: Array(permission_or_permissions))
+          create(:member, principal:, entity: object, project:, roles: [role])
         end
       end
-    end
 
-    callback(:after_create) do |principal, evaluator|
-      if evaluator.global_permission || evaluator.global_role
-        permissions = Array(evaluator.global_permission)
-        global_role = evaluator.global_role || create(:global_role, permissions:)
+      evaluator.member_with_roles.each do |object, role_or_roles|
+        case object
+        when Project
+          create(:member, principal:, project: object, roles: Array(role_or_roles))
+        when WorkPackage
+          create(:member, principal:, entity: object, project: object.project, roles: Array(role_or_roles))
+        when ProjectQuery
+          create(:member, principal:, entity: object, project: nil, roles: Array(role_or_roles))
+        end
+      end
 
-        create(:global_member,
-               principal:,
-               roles: [global_role])
+      if evaluator.global_permissions.present?
+        global_role = create(:global_role, permissions: Array(evaluator.global_permissions))
+        create(:global_member, principal:, roles: [global_role])
+      end
 
+      if evaluator.global_roles.present?
+        create(:global_member, principal:, roles: Array(evaluator.global_roles))
       end
     end
   end

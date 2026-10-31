@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -42,13 +42,13 @@ module LdapGroups
       end
 
       def empty_row_message
-        I18n.t 'ldap_groups.synchronized_groups.no_members'
+        I18n.t "ldap_groups.synchronized_groups.no_members"
       end
 
       def headers
         [
-          ['user', { caption: ::LdapGroups::Membership.human_attribute_name('user') }],
-          ['added', { caption: ::LdapGroups::Membership.human_attribute_name('created_at') }]
+          ["user", { caption: ::LdapGroups::Membership.human_attribute_name("user") }],
+          ["added", { caption: ::LdapGroups::Membership.human_attribute_name("created_at") }]
         ]
       end
     end

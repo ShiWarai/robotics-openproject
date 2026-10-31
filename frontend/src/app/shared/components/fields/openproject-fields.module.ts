@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,12 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { APP_INITIALIZER, NgModule } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, NgModule, inject, provideAppInitializer } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OpenprojectModalModule } from 'core-app/shared/components/modal/modal.module';
 import { OpenprojectEditorModule } from 'core-app/shared/components/editor/openproject-editor.module';
@@ -47,7 +47,6 @@ import { WorkPackageEditFieldComponent } from 'core-app/shared/components/fields
 import { EditableAttributeFieldComponent } from 'core-app/shared/components/fields/edit/field/editable-attribute-field.component';
 import { ProjectStatusEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/project-status-edit-field.component';
 import { PlainFormattableEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/plain-formattable-edit-field.component';
-import { TimeEntryWorkPackageEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/te-work-package-edit-field.component';
 import { AttributeValueMacroComponent } from 'core-app/shared/components/fields/macros/attribute-value-macro.component';
 import { AttributeLabelMacroComponent } from 'core-app/shared/components/fields/macros/attribute-label-macro.component';
 import { WorkPackageQuickinfoMacroComponent } from 'core-app/shared/components/fields/macros/work-package-quickinfo-macro.component';
@@ -62,7 +61,10 @@ import { FormattableEditFieldModule } from 'core-app/shared/components/fields/ed
 import { EditFieldControlsModule } from 'core-app/shared/components/fields/edit/field-controls/edit-field-controls.module';
 import { ProjectEditFieldComponent } from './edit/field-types/project-edit-field.component';
 import { HoursDurationEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/hours-duration-edit-field.component';
+import { ProgressPopoverEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/progress-popover-edit-field.component';
+import { OpExclusionInfoComponent } from 'core-app/shared/components/fields/display/info/op-exclusion-info.component';
 import { UserEditFieldComponent } from './edit/field-types/user-edit-field.component';
+import { VersionsEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/versions-edit-field.component';
 import { DaysDurationEditFieldComponent } from 'core-app/shared/components/fields/edit/field-types/days-duration-edit-field.component';
 import { CombinedDateEditFieldComponent } from './edit/field-types/combined-date-edit-field.component';
 import { NgSelectModule } from '@ng-select/ng-select';
@@ -93,24 +95,23 @@ import { FormsModule } from '@angular/forms';
     EditFormPortalComponent,
     EditFormComponent,
     EditableAttributeFieldComponent,
+    DisplayFieldComponent,
   ],
   providers: [
-    {
-      provide: APP_INITIALIZER,
-      useFactory: initializeCoreEditFields,
-      deps: [EditFieldService, SelectAutocompleterRegisterService],
-      multi: true,
-    },
-    {
-      provide: APP_INITIALIZER,
-      useFactory: initializeCoreDisplayFields,
-      deps: [DisplayFieldService],
-      multi: true,
-    },
+    provideAppInitializer(() => {
+      const initializerFn = (initializeCoreEditFields)(inject(EditFieldService), inject(SelectAutocompleterRegisterService));
+      return initializerFn();
+    }),
+    provideAppInitializer(() => {
+      const initializerFn = (initializeCoreDisplayFields)(inject(DisplayFieldService));
+      return initializerFn();
+    }),
   ],
   declarations: [
     EditFormPortalComponent,
     HoursDurationEditFieldComponent,
+    ProgressPopoverEditFieldComponent,
+    OpExclusionInfoComponent,
     DaysDurationEditFieldComponent,
     FloatEditFieldComponent,
     PlainFormattableEditFieldComponent,
@@ -118,8 +119,8 @@ import { FormsModule } from '@angular/forms';
     CombinedDateEditFieldComponent,
     ProjectEditFieldComponent,
     UserEditFieldComponent,
+    VersionsEditFieldComponent,
     WorkPackageEditFieldComponent,
-    TimeEntryWorkPackageEditFieldComponent,
     EditFormComponent,
     DisplayFieldComponent,
     EditableAttributeFieldComponent,
@@ -129,6 +130,7 @@ import { FormsModule } from '@angular/forms';
 
     WorkPackageQuickinfoMacroComponent,
   ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class OpenprojectFieldsModule {
 }

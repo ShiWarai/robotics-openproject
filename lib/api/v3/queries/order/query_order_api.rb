@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -71,6 +71,10 @@ module API
               optional :delta, type: Hash
             end
             patch do
+              authorize_by_policy(:update) do
+                raise API::Errors::NotFound
+              end
+
               params[:delta].each do |work_package_id, new_position|
                 if new_position == -1
                   remove_order(work_package_id)

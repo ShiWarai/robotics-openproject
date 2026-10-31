@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,28 +21,22 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  Input,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Input, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import {
-  QueryColumn,
+  QueryColumn, queryColumnTypes,
   RelationQueryColumn,
   TypeRelationQueryColumn,
 } from 'core-app/features/work-packages/components/wp-query/query-column';
 import { WorkPackageTable } from 'core-app/features/work-packages/components/wp-fast-table/wp-fast-table';
 import {
   QUERY_SORT_BY_ASC,
-  QUERY_SORT_BY_DESC,
+  QUERY_SORT_BY_DESC, QuerySortByDirection,
 } from 'core-app/features/hal/resources/query-sort-by-resource';
 import { WorkPackageViewHierarchiesService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-hierarchy.service';
 import { WorkPackageViewSortByService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-sort-by.service';
@@ -53,10 +47,23 @@ import { UntilDestroyedMixin } from 'core-app/shared/helpers/angular/until-destr
 import { WorkPackageViewBaselineService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-baseline.service';
 
 @Component({
+  // eslint-disable-next-line @angular-eslint/component-selector
   selector: 'sortHeader',
   templateUrl: './sort-header.directive.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
+// eslint-disable-next-line @angular-eslint/component-class-suffix
 export class SortHeaderDirective extends UntilDestroyedMixin implements AfterViewInit {
+  private wpTableHierarchies = inject(WorkPackageViewHierarchiesService);
+  private wpTableSortBy = inject(WorkPackageViewSortByService);
+  private wpTableGroupBy = inject(WorkPackageViewGroupByService);
+  private wpTableBaseline = inject(WorkPackageViewBaselineService);
+  private wpTableRelationColumns = inject(WorkPackageViewRelationColumnsService);
+  private elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  private cdRef = inject(ChangeDetectorRef);
+  private I18n = inject(I18nService);
+
   @Input() headerColumn:QueryColumn;
 
   @Input() locale:string;
@@ -85,20 +92,7 @@ export class SortHeaderDirective extends UntilDestroyedMixin implements AfterVie
 
   baselineIncompatible = false;
 
-  private currentSortDirection:any;
-
-  constructor(
-    private wpTableHierarchies:WorkPackageViewHierarchiesService,
-    private wpTableSortBy:WorkPackageViewSortByService,
-    private wpTableGroupBy:WorkPackageViewGroupByService,
-    private wpTableBaseline:WorkPackageViewBaselineService,
-    private wpTableRelationColumns:WorkPackageViewRelationColumnsService,
-    private elementRef:ElementRef<HTMLElement>,
-    private cdRef:ChangeDetectorRef,
-    private I18n:I18nService,
-  ) {
-    super();
-  }
+  private currentSortDirection:QuerySortByDirection|null;
 
   ngAfterViewInit() {
     setTimeout(() => this.initialize());
@@ -115,7 +109,7 @@ export class SortHeaderDirective extends UntilDestroyedMixin implements AfterVie
       .subscribe(() => {
         const latestSortElement = this.wpTableSortBy.current[0];
 
-        if (!latestSortElement || this.headerColumn.href !== latestSortElement.column.href) {
+        if (this.headerColumn.href !== latestSortElement?.column.href) {
           this.currentSortDirection = null;
         } else {
           this.currentSortDirection = latestSortElement.direction;
@@ -143,6 +137,9 @@ export class SortHeaderDirective extends UntilDestroyedMixin implements AfterVie
     } else if (this.wpTableRelationColumns.relationColumnType(this.headerColumn) === 'ofType') {
       this.columnType = 'relation';
       this.columnName = I18n.t(`js.relation_labels.${(this.headerColumn as RelationQueryColumn).relationType}`);
+    } else if (this.headerColumn._type === queryColumnTypes.RELATION_CHILD) {
+      this.columnType = 'relation';
+      this.columnName = this.headerColumn.name;
     }
 
     if (this.isHierarchyColumn) {
@@ -196,7 +193,7 @@ export class SortHeaderDirective extends UntilDestroyedMixin implements AfterVie
     return this.table && this.table.configuration.hierarchyToggleEnabled;
   }
 
-  toggleHierarchy(evt:JQuery.TriggeredEvent) {
+  toggleHierarchy(evt:Event) {
     if (this.wpTableHierarchies.toggleState()) {
       this.wpTableGroupBy.disable();
     }

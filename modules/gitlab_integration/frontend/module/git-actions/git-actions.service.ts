@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@
 //++
 
 import { Injectable } from '@angular/core';
-import { WorkPackageResource } from "core-app/features/hal/resources/work-package-resource";
+import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
 
 // probably not providable in root when we want to cache the formatter and set custom templates
 @Injectable({
@@ -39,31 +39,25 @@ export class GitActionsService {
     // See https://stackoverflow.com/a/3651867 for how these rules came in.
     // This sanitization tries to be harsher than those rules
     return str
-      .replace(/&/g, 'and ') // & becomes and
-      .replace(/ +/g, '-') // Spaces become dashes
-      .replace(/[\000-\039]/g, '') // ASCII control characters are out
-      .replace(/\177/g, '') // DEL is out
-      .replace(/[#\\\/\?\*\~\^\:\{\}@\.\[\]'"]/g, '') // Some other characters with special rules are out
-      .replace(/^[-]+/g, '') // Dashes at the start are removed
-      .replace(/[-]+$/g, '') // Dashes at the end are removed
-      .replace(/-+/g, '-') // Multiple dashes in a row are deduped
+      .replace(/&/g, "and ") // & becomes and
+      .replace(/\W+/g, "-") // Replace any consecutive non ascii characters by a single dash as they might make trouble in some tools.
+      .replace(/^-/g, "") // Dash at the start is removed
+      .replace(/-$/g, "") // Dash at the end is removed
       .trim();
   }
 
   private formattingInput(workPackage: WorkPackageResource) {
     const type = workPackage.type.name || '';
-    const id = workPackage.id || '';
+    const id = workPackage.displayId;
     const title = workPackage.subject;
-    const url = window.location.origin + workPackage.pathHelper.workPackagePath(id);
+    const url = window.location.origin + workPackage.pathHelper.workPackageShortPath(id);
     const description = '';
 
-    return({
-      id, type, title, url, description
-    });
+    return { id, type, title, url, description };
   }
 
   private sanitizeShellInput(str:string):string {
-    return `${str.replace(/'/g, '\\\'')}`;
+    return str.replace(/'/g, "'\\''");
   }
 
   public branchName(workPackage:WorkPackageResource):string {
@@ -71,19 +65,19 @@ export class GitActionsService {
     return `${this.sanitizeBranchString(type)}/${id}-${this.sanitizeBranchString(title)}`.toLocaleLowerCase();
   }
 
-  public commitMessage(workPackage:WorkPackageResource):string {
+  private commitMessageParts(workPackage:WorkPackageResource):string[] {
     const { title, id, description, url } = this.formattingInput(workPackage);
-    return `[#${id}] ${title}
+    return [`OP#${id} ${title}`, description, url].filter(Boolean);
+  }
 
-${description}
-
-${url}
-`.replace(/\n\n+/g, '\n\n');
+  public commitMessage(workPackage:WorkPackageResource):string {
+    return this.commitMessageParts(workPackage).join("\n\n");
   }
 
   public gitCommand(workPackage:WorkPackageResource):string {
     const branch = this.branchName(workPackage);
-    const commit = this.commitMessage(workPackage);
-    return `git checkout -b '${this.sanitizeShellInput(branch)}' && git commit --allow-empty -m '${this.sanitizeShellInput(commit)}'`;
+    const messageParts = this.commitMessageParts(workPackage);
+    const messages = messageParts.map((part) => `-m '${this.sanitizeShellInput(part)}'`).join(' ');
+    return `git checkout -b '${this.sanitizeShellInput(branch)}' && git commit --allow-empty ${messages}`;
   }
 }

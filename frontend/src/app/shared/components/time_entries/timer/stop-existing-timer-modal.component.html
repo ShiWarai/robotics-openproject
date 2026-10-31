@@ -1,9 +1,9 @@
 <div
   class="spot-modal"
-  data-qa-selector="op-stop-existing-timer-modal"
+  data-test-selector="op-stop-existing-timer-modal"
 >
   <div class="spot-modal--header">
-    <span class="spot-modal--header-title">{{text.title}}</span>
+    <span id="spotModalTitle" class="spot-modal--header-title">{{text.title}}</span>
   </div>
 
   <p
@@ -16,12 +16,9 @@
     <p>
       <strong>{{ text.tracking_time }}: {{ elapsed$ | async }}</strong>
       <br/>
-      <a
-        uiSref="work-packages.show"
-        [uiParams]="{ workPackageId: active.workPackage.id }"
-        (click)="closeMe()"
-      >
-        #{{ active.workPackage.id }}: {{ active.workPackage.name }}
+      <!-- Closing the modal on click would disconnect this anchor mid-dispatch and cancel the navigation. -->
+      <a [href]="PathHelper.workPackagePath(active.entity.id!)">
+        {{ entityName }}
       </a>
     </p>
 
@@ -36,8 +33,8 @@
       ></button>
       <button
         type="button"
-        class="button -highlight spot-action-bar--action"
-        data-qa-selector="op-files-picker-modal--confirm"
+        class="button -primary spot-action-bar--action"
+        data-test-selector="op-files-picker-modal--confirm"
         [textContent]="text.button_stop"
         (click)="saveAndClose()"
       >

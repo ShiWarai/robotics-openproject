@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,9 +29,14 @@
 #++
 
 # Scrolls a native element into view using JS
-def scroll_to_element(element)
+# @param element [Capybara::Node::Element] the element to scroll into view
+# @param block [Symbol] (optional) Defines vertical alignment.
+#   One of `:start`, `:center`, `:end`, or `:nearest`. Defaults to `:start`.
+# @param inline [Symbol] (optional) Defines horizontal alignment.
+#   One of `:start`, `:center`, `:end`, or `:nearest`. Defaults to `:nearest`..
+def scroll_to_element(element, block: :start, inline: :nearest)
   script = <<-JS
-    arguments[0].scrollIntoView(true);
+    arguments[0].scrollIntoView({block: "#{block}", inline: "#{inline}"});
   JS
   if using_cuprite?
     page.driver.execute_script(script, element.native)
@@ -38,11 +45,16 @@ def scroll_to_element(element)
   end
 end
 
-def scroll_to_and_click(element)
+def scroll_to_and_click(element, block: :start, inline: :nearest)
   retry_block do
-    scroll_to_element(element)
+    scroll_to_element(element, block:, inline:)
     element.click
   end
+end
+
+def scroll_to_top
+  top_element = page.find_by_id("content-body")
+  page.execute_script("arguments[0].scrollTo(0, 0);", top_element.native)
 end
 
 def expect_element_in_view(element)

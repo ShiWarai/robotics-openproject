@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -105,9 +105,17 @@ module API::V3::WorkPackages::EagerLoading
     end
 
     def override_attributes(work_package, source)
-      work_package.attributes = source.attributes.except('timestamp')
+      work_package.attributes = source.attributes.except("timestamp", "journal_id")
+      override_target_versions(work_package, source)
       work_package.clear_changes_information
       work_package.readonly!
+    end
+
+    def override_target_versions(work_package, source)
+      return unless work_package.respond_to?(:target_versions)
+
+      work_package.association(:target_versions).loaded!
+      work_package.association(:target_versions).target = source.target_versions.to_a
     end
 
     def set_timestamp_attributes(work_package, source, timestamp)
@@ -157,16 +165,6 @@ module API::V3::WorkPackages::EagerLoading
 
     def timestamp
       new_record? ? @timestamp : Timestamp.parse(__getobj__.timestamp)
-    end
-
-    # Since custom fields are currently never displayed in the attributesByTimestamp,
-    # for which this object is used, simply short circuit the loading of the custom field information.
-    def available_custom_fields
-      WorkPackageCustomField.none
-    end
-
-    def define_all_custom_field_accessors
-      nil
     end
   end
 end

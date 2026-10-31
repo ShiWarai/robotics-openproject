@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,14 +21,14 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { isEqual } from 'lodash-es';
+import { Injectable, inject } from '@angular/core';
 import { QueryResource } from 'core-app/features/hal/resources/query-resource';
-import { IsolatedQuerySpace } from 'core-app/features/work-packages/directives/query-space/isolated-query-space';
 import { States } from 'core-app/core/states/states.service';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { WorkPackageQueryStateService } from './wp-view-base.service';
@@ -39,9 +39,7 @@ import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { WeekdayService } from 'core-app/core/days/weekday.service';
 import { DayResourceService } from 'core-app/core/state/days/day.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
-import { IWorkPackageTimestamp } from 'core-app/features/hal/resources/work-package-timestamp-resource';
-import * as moment from 'moment-timezone';
-import { Moment } from 'moment';
+import moment, { Moment } from 'moment-timezone';
 import { QueryFilterInstanceResource } from 'core-app/features/hal/resources/query-filter-instance-resource';
 
 export const DEFAULT_TIMESTAMP = 'PT0S';
@@ -55,7 +53,7 @@ export const BASELINE_INCOMPATIBLE_FILTERS = [
 export const BASELINE_INCOMPATIBLE_COLUMNS = [
   'category',
   'updatedAt',
-  'estimatedHours',
+  'estimatedTime',
   'remainingTime',
   'spentTime',
   'percentageDone',
@@ -68,17 +66,12 @@ export const BASELINE_INCOMPATIBLE_COLUMNS = [
 
 @Injectable()
 export class WorkPackageViewBaselineService extends WorkPackageQueryStateService<string[]> {
-  constructor(
-    protected readonly states:States,
-    protected readonly querySpace:IsolatedQuerySpace,
-    protected readonly pathHelper:PathHelperService,
-    protected readonly configurationService:ConfigurationService,
-    protected readonly timezoneService:TimezoneService,
-    protected readonly weekdaysService:WeekdayService,
-    protected readonly daysService:DayResourceService,
-  ) {
-    super(querySpace);
-  }
+  protected readonly states = inject(States);
+  protected readonly pathHelper = inject(PathHelperService);
+  protected readonly configurationService = inject(ConfigurationService);
+  protected readonly timezoneService = inject(TimezoneService);
+  protected readonly weekdaysService = inject(WeekdayService);
+  protected readonly daysService = inject(DayResourceService);
 
   public nonWorkingDays:IDay[] = [];
 
@@ -100,6 +93,7 @@ export class WorkPackageViewBaselineService extends WorkPackageQueryStateService
   public yesterdayDate():string {
     return moment().subtract(1, 'days').format('YYYY-MM-DD');
   }
+
   public lastMonthDate():string {
     return moment().subtract(1, 'month').format('YYYY-MM-DD');
   }
@@ -130,7 +124,6 @@ export class WorkPackageViewBaselineService extends WorkPackageQueryStateService
 
   public lastWorkingDate():string {
     const date = moment().subtract(1, 'days');
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (this.isNonWorkingDay(date) || this.weekdaysService.isNonWorkingDay(date)) {
         date.subtract(1, 'days');
@@ -141,10 +134,6 @@ export class WorkPackageViewBaselineService extends WorkPackageQueryStateService
   }
 
   public isActive():boolean {
-    if (!this.configurationService.activeFeatureFlags.includes('showChanges')) {
-      return false;
-    }
-
     return this.current.length >= 1 && this.current[0] !== DEFAULT_TIMESTAMP;
   }
 
@@ -160,7 +149,7 @@ export class WorkPackageViewBaselineService extends WorkPackageQueryStateService
   }
 
   public hasChanged(query:QueryResource) {
-    return !_.isEqual(query.timestamps, this.current);
+    return !isEqual(query.timestamps, this.current);
   }
 
   public applyToQuery(query:QueryResource):boolean {

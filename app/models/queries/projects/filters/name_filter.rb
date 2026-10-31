@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,21 +28,25 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-class Queries::Projects::Filters::NameFilter < Queries::Projects::Filters::ProjectFilter
+class Queries::Projects::Filters::NameFilter < Queries::Projects::Filters::Base
   def type
     :string
   end
 
   def where
     case operator
-    when '='
+    when "="
       ["LOWER(projects.name) IN (?)", sql_value]
-    when '!'
+    when "!"
       ["LOWER(projects.name) NOT IN (?)", sql_value]
-    when '~', '**'
-      ["LOWER(projects.name) LIKE ?", "%#{sql_value}%"]
-    when '!~'
-      ["LOWER(projects.name) NOT LIKE ?", "%#{sql_value}%"]
+    when "~"
+      ["LOWER(projects.name) LIKE ?", sql_value]
+    when "**"
+      terms = values.first.downcase.split
+      conditions = Array.new(terms.size, "LOWER(projects.name) LIKE ?").join(" AND ")
+      [conditions, *terms.map { |t| "%#{t}%" }]
+    when "!~"
+      ["LOWER(projects.name) NOT LIKE ?", sql_value]
     end
   end
 
@@ -56,10 +62,10 @@ class Queries::Projects::Filters::NameFilter < Queries::Projects::Filters::Proje
 
   def sql_value
     case operator
-    when '=', '!'
-      values.map { |val| self.class.connection.quote_string(val.downcase) }.join(',')
-    when '**', '~', '!~'
-      values.first.downcase
+    when "=", "!"
+      values.map(&:downcase)
+    when "**", "~", "!~"
+      "%#{values.first.downcase}%"
     end
   end
 end

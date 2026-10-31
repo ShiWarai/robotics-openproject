@@ -1,12 +1,12 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -30,7 +30,11 @@ module Calendar
   class TableComponent < ::TableComponent
     options :current_project, :current_user
 
-    sortable_columns :name, :project_id, :created_at
+    sortable_columns :name, :project_name, :created_at
+
+    def sortable_columns_correlation
+      super.merge(project_name: "projects.name")
+    end
 
     def initial_sort
       %i[name asc]
@@ -42,9 +46,9 @@ module Calendar
 
     def headers
       @headers ||= [
-        ['name', { caption: I18n.t(:label_name) }],
-        current_project.blank? ? ['project_id', { caption: I18n.t('attributes.project') }] : nil,
-        ['created_at', { caption: I18n.t('attributes.created_at') }]
+        [:name, { caption: I18n.t(:label_name) }],
+        current_project.blank? ? [:project_name, { caption: I18n.t("attributes.project") }] : nil,
+        [:created_at, { caption: I18n.t("attributes.created_at") }]
       ].compact
     end
 

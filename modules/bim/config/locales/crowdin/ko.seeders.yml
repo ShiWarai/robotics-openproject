@@ -13,14 +13,14 @@ ko:
         item_2:
           name: 높음
         item_3:
-          name: Critical
+          name: 심각
       statuses:
         item_0:
           name: 새로 만들기
         item_1:
           name: 진행 중
         item_2:
-          name: Resolved
+          name: 해결됨
         item_3:
           name: 닫음
       time_entry_activities:
@@ -40,14 +40,14 @@ ko:
         item_3:
           name: 이슈
         item_4:
-          name: Remark
+          name: 참고
         item_5:
-          name: Request
+          name: 요청
         item_6:
-          name: Clash
+          name: 충돌
       global_queries:
         item_0:
-          name: 'Embedded table: Children'
+          name: '포함된 테이블: 자식'
       type_configuration:
         item_0:
           form_configuration:
@@ -55,90 +55,90 @@ ko:
               group_name: 하위
       groups:
         item_0:
-          name: Architects
+          name: 아키텍트
         item_1:
-          name: BIM Coordinators
+          name: BIM 코디네이터
         item_2:
-          name: BIM Managers
+          name: BIM 관리자
         item_3:
-          name: BIM Modellers
+          name: BIM 모델러
         item_4:
-          name: Lead BIM Coordinators
+          name: 리드 BIM 코디네이터
         item_5:
-          name: MEP Engineers
+          name: MEP 엔지니어
         item_6:
-          name: Planners
+          name: 플래너
         item_7:
-          name: Structural Engineers
+          name: 구조 엔지니어
       welcome:
-        title: Welcome to OpenProject BIM edition!
+        title: OpenProject BIM 에디션에 오신 것을 환영합니다!
         text: |
-          Checkout the demo projects to get started with some examples.
+          몇 가지 예제로 시작하려면 데모 프로젝트를 확인하세요.
 
-          * [(Demo) Construction project]({{opSetting:base_url}}/projects/demo-construction-project): Planning, BIM process, BCF management, and constructing, all at a glance.
-              * [(Demo) Planning & constructing]({{opSetting:base_url}}/projects/demo-planning-constructing-project): Classical planning and construction management.
-              * [(Demo) Bim project]({{opSetting:base_url}}/projects/demo-bim-project): BIM process and coordination.
-                  * [(Demo) BCF management]({{opSetting:base_url}}/projects/demo-bcf-management-project): BCF management.
+          * [(데모) 건설 프로젝트]({{opSetting:base_url}}/projects/demo-construction-project): 모두 한눈에 볼 수 있는 계획, BIM 프로세스, BCF 관리 및 건설.
+              * [(데모) 계획 및 건설]({{opSetting:base_url}}/projects/demo-planning-constructing-project): 일반적인 계획 및 건설 관리.
+              * [(데모) Bim 프로젝트]({{opSetting:base_url}}/projects/demo-bim-project): BIM 프로세스 및 조정.
+                  * [(데모) BCF 관리]({{opSetting:base_url}}/projects/demo-bcf-management-project): BCF 관리.
 
-          Also, you can create a blank [new project]({{opSetting:base_url}}/projects/new).
+          또한 빈 [새로운 프로젝트]({{opSetting:base_url}}/projects/new)를 생성할 수 있습니다.
 
-          Never stop collaborating. With open source and open mind.
+          협업을 멈추지 마세요. 오픈 소스와 오픈 마인드로 계속하세요.
 
-          You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).
+          이 환영 텍스트는 [여기에서]({{opSetting:base_url}}/admin/settings/general) 변경할 수 있습니다.
       projects:
         demo-construction-project:
-          name: "(Demo) Construction project"
-          status_explanation: All tasks and the sub-projects are on schedule. The people involved know their tasks. The system is completely set up.
-          description: This is a short summary of the goals of this demo construction project.
+          name: "(데모) 건설 프로젝트"
+          status_explanation: 모든 작업 및 하위 프로젝트가 예정대로 진행되고 있습니다. 관련된 사람들이 자신의 작업을 알고 있습니다. 시스템이 완전히 설정되었습니다.
+          description: 이 데모 건설 프로젝트의 목표에 대한 간략한 요약입니다.
           news:
             item_0:
-              title: Welcome to your demo project
+              title: 데모 프로젝트에 오신 것을 환영합니다
               summary: |
-                We are glad you joined.
-                In this module you can communicate project news to your team members.
-              description: The actual news
+                가입해주셔서 감사합니다.
+                이 모듈에서는 팀원에게 프로젝트 뉴스를 전할 수 있습니다.
+              description: 실제 뉴스
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: 카테고리 1(프로젝트 설정에서 변경)
           queries:
             item_0:
-              name: Project plan
+              name: 프로젝트 계획
             item_1:
-              name: Milestones
+              name: 마일스톤
             item_2:
-              name: Tasks
+              name: 작업
             item_3:
               name: 팀 플래너
           boards:
             bcf:
-              name: Simple drag'n drop workflow
+              name: 간단한 드래그 앤 드롭 워크플로
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: 환영합니다
               item_1:
                 options:
                   name: 시작하기
                   text: |
-                    We are glad you joined! We suggest to try a few things to get started in OpenProject.
+                    가입해주셔서 감사합니다! OpenProject에서 시작하려면 몇 가지를 시도해보시기 바랍니다.
 
-                    But before you jump right into it, you should know that this exemplary project is split up into two different projects:
+                    그러나 바로 시작하기 전에 이 예시 프로젝트는 두 가지 서로 다른 프로젝트로 나뉘어져 있음을 고려하셔야 합니다.
 
-                    1.  [Construction project]({{opSetting:base_url}}/projects/demo-planning-constructing-project): Here you will find the classical roles, some workflows and work packages for your construction project.
-                    2.  [Creating BIM Model]({{opSetting:base_url}}/projects/demo-bim-project): This project also offers roles, workflows and work packages but especially in the BIM context.
+                    1.  [건설 프로젝트]({{opSetting:base_url}}/projects/demo-planning-constructing-project): 여기에서 건설 프로젝트에 대한 일반적인 역할, 일부 워크플로 및 작업 패키지를 찾아볼 수 있습니다.
+                    2.  [BIM 모델 만들기]({{opSetting:base_url}}/projects/demo-bim-project): 또한 이 프로젝트는 특히 BIM 컨텍스트에서 역할, 워크플로 및 작업 패키지를 제공합니다.
 
-                    _Try the following steps:_
+                    _다음 단계를 시도해 보세요._
 
-                    1.  _Invite new members to your project_: → Go to [Members]({{opSetting:base_url}}/projects/demo-construction-project/members) in the project navigation.
-                    2.  _View the work in your projects_: → Go to [Work packages]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    3.  _Create a new work package_: → Go to [Work packages → Create]({{opSetting:base_url}}/projects/demo-construction-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11).
-                    4.  _Create and update a Gantt chart_: → Go to [Gantt chart]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    5.  _Activate further modules_: → Go to [Project settings → Modules]({{opSetting:base_url}}/projects/demo-construction-project/settings/modules).
-                    6.  _Check out the tile view to get an overview of your BCF issues:_ → Go to [Work packages]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D)
-                    7.  _Agile working? Check out our brand new boards:_ → Go to [Boards]({{opSetting:base_url}}/projects/demo-construction-project/boards)
+                    1.  _프로젝트에 새 멤버 초대_: → 프로젝트 탐색에서 [멤버]({{opSetting:base_url}}/projects/demo-construction-project/members)로 이동합니다.
+                    2.  _프로젝트에서 작업 보기_: → 프로젝트 탐색에서 [작업 패키지]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    3.  _새 작업 패키지 만들기_: → [작업 패키지 → 만들기]({{opSetting:base_url}}/projects/demo-construction-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11)로 이동합니다.
+                    4.  _Gantt 차트 만들기 및 업데이트_: → 프로젝트 탐색에서 [Gantt 차트]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    5.  _추가 모듈 활성화_: → [프로젝트 설정 → 모듈]({{opSetting:base_url}}/projects/demo-construction-project/settings/modules)로 이동합니다.
+                    6.  _타일 보기를 확인하고 BCF 이슈 개요 확인:_ → [작업 패키지]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D)로 이동합니다.
+                    7.  _애자일하게 작업하려면? 새로운 보드 확인:_ → [보드]({{opSetting:base_url}}/projects/demo-construction-project/boards)로 이동합니다.
 
-                    Here you will find our [User Guides](https://www.openproject.org/docs/user-guide/).
-                    Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
+                    여기에서 [사용자 가이드](https://www.openproject.org/docs/user-guide/)를 확인할 수 있습니다.
+                    질문이 있거나 지원이 필요하면 알려주세요. 연락처: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
                   name: 멤버
@@ -147,53 +147,53 @@ ko:
                   name: 작업 패키지
               item_6:
                 options:
-                  name: Milestones
+                  name: 마일스톤
         demo-planning-constructing-project:
-          name: "(Demo) Planning & constructing"
-          status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
-          description: This is a short summary of the goals of this demo planning and constructing project.
+          name: "(데모) 계획 및 건설"
+          status_explanation: 모든 작업이 예정대로 진행되고 있습니다. 관련된 사람들이 자신의 작업을 알고 있습니다. 시스템이 완전히 설정되었습니다.
+          description: 이 데모 계획 및 건설 프로젝트의 목표에 대한 간략한 요약입니다.
           news:
             item_0:
-              title: Welcome to your demo project
+              title: 데모 프로젝트에 오신 것을 환영합니다
               summary: |
-                We are glad you joined.
-                In this module you can communicate project news to your team members.
-              description: The actual news
+                가입해주셔서 감사합니다.
+                이 모듈에서는 팀원에게 프로젝트 뉴스를 전할 수 있습니다.
+              description: 실제 뉴스
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: 카테고리 1(프로젝트 설정에서 변경)
           queries:
             item_0:
-              name: Project plan
+              name: 프로젝트 계획
             item_1:
-              name: Milestones
+              name: 마일스톤
             item_2:
-              name: Tasks
+              name: 작업
             item_3:
               name: 팀 플래너
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: 환영합니다
               item_1:
                 options:
                   name: 시작하기
                   text: |
-                    We are glad you joined! We suggest to try a few things to get started in OpenProject.
+                    가입해주셔서 감사합니다! OpenProject에서 시작하려면 몇 가지를 시도해보시기 바랍니다.
 
-                    Here you will find the classical roles, some workflows and work packages for your construction project.
+                    여기에서 건설 프로젝트에 대한 일반적인 역할, 일부 워크플로 및 작업 패키지를 찾아볼 수 있습니다.
 
-                    _Try the following steps:_
+                    _다음 단계를 시도해 보세요._
 
-                    1.  _Invite new members to your project:_ → Go to [Members]({{opSetting:base_url}}/projects/demo-planning-constructing-project/members) in the project navigation.
-                    2.  _View the work in your projects:_ → Go to [Work packages]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    3.  _Create a new work package:_ → Go to [Work packages → Create]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11).
-                    4.  _Create and update a Gantt chart:_ → Go to [Gantt chart]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    5.  _Activate further modules:_ → Go to [Project settings → Modules]({{opSetting:base_url}}/projects/demo-planning-constructing-project/settings/modules).
-                    6.  _Working agile? Create a new board:_ → Go to [Boards]({{opSetting:base_url}}/projects/demo-planning-constructing-project/boards)
+                    1.  _프로젝트에 새 멤버 초대:_ → 프로젝트 탐색에서 [멤버]({{opSetting:base_url}}/projects/demo-planning-constructing-project/members)로 이동합니다.
+                    2.  _프로젝트에서 작업 보기:_ → 프로젝트 탐색에서 [작업 패키지]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    3.  _새 작업 패키지 만들기:_ → [작업 패키지 → 만들기]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11)로 이동합니다.
+                    4.  _Gantt 차트 만들기 및 업데이트:_ → 프로젝트 탐색에서 [Gantt 차트]({{opSetting:base_url}}/projects/demo-planning-constructing-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    5.  _추가 모듈 활성화:_ → [프로젝트 설정 → 모듈]({{opSetting:base_url}}/projects/demo-planning-constructing-project/settings/modules)로 이동합니다.
+                    6.  _애자일하게 작업하려면? 새로운 보드 만들기:_ → [보드]({{opSetting:base_url}}/projects/demo-planning-constructing-project/boards)로 이동합니다.
 
-                    Here you will find our [User Guides](https://www.openproject.org/docs/user-guide/).
-                    Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
+                    여기에서 [사용자 가이드](https://www.openproject.org/docs/user-guide/)를 확인할 수 있습니다.
+                    질문이 있거나 지원이 필요하면 알려주세요. 연락처: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
                   name: 멤버
@@ -202,255 +202,255 @@ ko:
                   name: 작업 패키지
               item_6:
                 options:
-                  name: Milestones
+                  name: 마일스톤
           work_packages:
             item_0:
-              subject: Project kick off construction project
+              subject: 프로젝트 킥오프 건설 프로젝트
               description: |-
-                The project kick off initializes the start of the project in your company. Everybody being part of this project should be invited to the kick off for a first briefing.
+                프로젝트 킥오프는 회사에서 프로젝트의 시작을 초기화합니다. 이 프로젝트에 참여하는 모든 사람을 첫 번째 브리핑을 위한 킥오프에 초대해야 합니다.
 
-                The next step could be checking out the timetable and adjusting the appointments, by looking at the [Gantt chart]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D).
+                다음 단계로는 [Gantt 차트]({{opSetting:base_url}}/projects/demo-construction-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D)를 살펴보면서 시간표를 확인하고 약속을 조정할 수 있습니다.
             item_1:
-              subject: Basic evaluation
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 기본 평가
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Gathering first project information
+                  subject: 첫 번째 프로젝트 정보 수집
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Define tasks based on the customer needs
-                    *   Time frame and cost estimation shall be defined
+                    *   고객 요구 사항에 따라 작업 정의
+                    *   시간 프레임 및 비용 추정을 정의해야 합니다.
 
-                    ## Description
+                    ## 설명
 
-                    *   Identify the customer needs by having a workshop with him/ her
-                    *   Each need shall represent a task with its corresponding work packages
-                    *   Derive the cost estimation and time frame
+                    *   고객과의 워크숍을 통해 고객 요구 사항 파악
+                    *   각 요구 사항은 해당 작업 패키지가 있는 작업을 나타냅니다.
+                    *   비용 추정 및 시간 프레임 도출
                 item_1:
-                  subject: Summarize the results
+                  subject: 결과 요약
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Create a useful overview of the results
-                    *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
-                    *   Identify the fundamental boundary conditions of the project
+                    *   결과에 대한 유용한 개요 작성
+                    *   수행한 작업 확인 및 결과 요약
+                    *   고객에게 관련된 모든 결과 전달
+                    *   프로젝트의 기본 경계 조건 파악
 
-                    ## Description
+                    ## 설명
 
-                    *   Each topic gets its own overview which will be used as a catalogue of results
-                    *   This overview informs all participants about the decisions made
+                    *   각 주제에는 결과 카탈로그로 사용될 고유한 개요가 있습니다.
+                    *   이 개요는 모든 참여자에게 결정 사항에 대해 알려줍니다.
                     *   ...
                 item_2:
-                  subject: End of basic evaluation
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: 기본 평가 종료
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_2:
-              subject: Preliminary planning
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 예비 계획
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Developing first draft
+                  subject: 첫 드래프트 개발
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Create a useful overview of the results
-                    *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
-                    *   Identify the fundamental boundary conditions of the project
+                    *   결과에 대한 유용한 개요 작성
+                    *   수행한 작업 확인 및 결과 요약
+                    *   고객에게 관련된 모든 결과 전달
+                    *   프로젝트의 기본 경계 조건 파악
 
-                    ## Description
+                    ## 설명
 
-                    *   Each topic gets its own overview which will be used as a catalogue of results
-                    *   This overview informs all participants about the decisions made
+                    *   각 주제에는 결과 카탈로그로 사용될 고유한 개요가 있습니다.
+                    *   이 개요는 모든 참여자에게 결정 사항에 대해 알려줍니다.
                     *   ...
                 item_1:
-                  subject: Summarize results
+                  subject: 결과 요약
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Create a useful overview of the results
-                    *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
-                    *   Identify the fundamental boundary conditions of the project
+                    *   결과에 대한 유용한 개요 작성
+                    *   수행한 작업 확인 및 결과 요약
+                    *   고객에게 관련된 모든 결과 전달
+                    *   프로젝트의 기본 경계 조건 파악
 
-                    ## Description
+                    ## 설명
 
-                    *   Each topic gets its own overview which will be used as a catalogue of results
-                    *   This overview informs all participants about the decisions made
+                    *   각 주제에는 결과 카탈로그로 사용될 고유한 개요가 있습니다.
+                    *   이 개요는 모든 참여자에게 결정 사항에 대해 알려줍니다.
                     *   ...
             item_3:
-              subject: Passing of preliminary planning
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 예비 계획 통과
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_4:
-              subject: Design planning
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 설계 계획
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Finishing design
+                  subject: 설계 완료
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Design is done
-                    *   All parties are happy with the results of the design planning phase
+                    *   설계가 완료됩니다.
+                    *   모든 당사자가 설계 계획 단계의 결과에 만족해합니다.
 
-                    ## Description
+                    ## 설명
 
-                    *   The design of the project will be finished
-                    *   All parties agree on the design
-                    *   The owner is happy with the results
+                    *   프로젝트의 설계가 완료될 것입니다.
+                    *   모든 당사자가 설계에 동의합니다.
+                    *   소유자가 결과에 만족해합니다.
                     *   ...
                 item_1:
-                  subject: Design freeze
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: 설계 프리즈
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_5:
-              subject: Construction phase
+              subject: 건설 단계
               children:
                 item_0:
-                  subject: Start constructing
+                  subject: 건설 시작
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Ground breaking ceremony
-                    *   Setting up the construction site
+                    *   기공식
+                    *   건설 사이트 설정
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   Preparing the site for the project
-                    *   Get the team together
+                    *   프로젝트용 사이트 준비
+                    *   팀의 화합
                     *   ...
                 item_1:
-                  subject: Foundation
+                  subject: 토대
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Laying of the foundation stone
+                    *   기초석 놓기
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   Setting up the concrete mixer
-                    *   Setting up the supply chain for the concrete
+                    *   콘크리트 믹서 설정
+                    *   콘크리트 공급망 설정
                     *   ...
                 item_2:
-                  subject: Building construction
+                  subject: 건물 건축
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Topping out ceremony
-                    *   Walls and ceilings are done
+                    *   상량식
+                    *   벽과 천정이 완성됩니다.
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   Creating all structural levels of the building
-                    *   Installing doors and windows
-                    *   Finishing the roof structure
+                    *   건물의 모든 구조 레벨 생성
+                    *   문과 창문 설치
+                    *   지붕 구조 완료
                     *   ...
                 item_3:
-                  subject: Finishing the facade
+                  subject: 파사드 완료
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Facade is done
-                    *   Whole building is waterproof
+                    *   파사드가 완료됩니다.
+                    *   건물 전체가 방수 처리됩니다.
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   Install all elements for the facade
-                    *   Finish the roof
+                    *   파사드의 모든 요소 설치
+                    *   지붕 완료
                     *   ...
                 item_4:
-                  subject: Installing the building service systems
+                  subject: 빌딩 서비스 시스템 설치
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   All building service systems are ready to be used
+                    *   모든 빌딩 서비스 시스템이 사용할 준비가 되었습니다.
 
-                    ## Description
+                    ## 설명
 
-                    *   Installing the heating system
-                    *   Installing the climate system
-                    *   Electrical installation
+                    *   난방 시스템 설치
+                    *   기후 시스템 설치
+                    *   전기 설치
                     *   ...
                 item_5:
-                  subject: Final touches
+                  subject: 최종 마무리
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Handover of the keys
-                    *   The customer is happy with his building
+                    *   열쇠 양도
+                    *   고객이 건물에 만족해합니다
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   Finishing the installation of the building service systems
-                    *   Finishing the interior construction
-                    *   Finishing the facade
+                    *   빌딩 서비스 시스템 설치 완료
+                    *   인테리어 공사 완료
+                    *   파사드 완료
                     *   ...
                 item_6:
-                  subject: House warming party
+                  subject: 집들이 파티
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Have a blast!
+                    *   즐거운 시간 보내기!
 
-                    ## Description
+                    ## 설명
 
-                    *   Invite the construction team
-                    *   Invite your friends
-                    *   Bring some drinks, snacks and your smile
+                    *   시공 팀 초대
+                    *   친구 초대
+                    *   음료수, 간식 준비 그리고 미소를 지으며 즐기기
         demo-bim-project:
-          name: "(Demo) BIM project"
-          status_explanation: All tasks and sub-projects are on schedule. The people involved know their tasks. The system is completely set up.
-          description: This is a short summary of the goals of this demo BIM project.
+          name: "(데모) BIM 프로젝트"
+          status_explanation: 모든 작업 및 하위 프로젝트가 예정대로 진행되고 있습니다. 관련된 사람들이 자신의 작업을 알고 있습니다. 시스템이 완전히 설정되었습니다.
+          description: 이 BIM 데모 프로젝트의 목표에 대한 간략한 요약입니다.
           news:
             item_0:
-              title: Welcome to your demo project
+              title: 데모 프로젝트에 오신 것을 환영합니다
               summary: |
-                We are glad you joined.
-                In this module you can communicate project news to your team members.
-              description: The actual news
+                가입해주셔서 감사합니다.
+                이 모듈에서는 팀원에게 프로젝트 뉴스를 전할 수 있습니다.
+              description: 실제 뉴스
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: 카테고리 1(프로젝트 설정에서 변경)
           queries:
             item_0:
-              name: Project plan
+              name: 프로젝트 계획
             item_1:
-              name: Milestones
+              name: 마일스톤
             item_2:
-              name: Tasks
+              name: 작업
             item_3:
               name: 팀 플래너
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: 환영합니다
               item_1:
                 options:
                   name: 시작하기
                   text: |
-                    We are glad you joined! We suggest to try a few things to get started in OpenProject.
+                    가입해주셔서 감사합니다! OpenProject에서 시작하려면 몇 가지를 시도해보시기 바랍니다.
 
-                    This demo project offers roles, workflows and work packages that are specialized for BIM.
+                    이 데모 프로젝트는 BIM에 특화된 역할, 워크플로 및 작업 패키지를 제공합니다.
 
-                    _Try the following steps:_
+                    _다음 단계를 시도해 보세요._
 
-                    1.  _Invite new members to your project:_ → Go to [Members]({{opSetting:base_url}}/projects/demo-bim-project/members) in the project navigation.
-                    2.  _Upload and view 3D-models in IFC format:_ → Go to [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) in the project navigation.
-                    3.  _Create and manage BCF issues linked directly in the IFC model:_ → Go to [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) → Create.
-                    4.  _View the work in your projects:_ → Go to [Work packages]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    5.  _Create a new work package:_ → Go to [Work packages → Create]({{opSetting:base_url}}/projects/demo-bim-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11).
-                    6.  _Create and update a Gantt chart:_ → Go to [Gantt chart]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D) in the project navigation.
-                    7.  _Activate further modules:_ → Go to [Project settings → Modules]({{opSetting:base_url}}/projects/demo-bim-project/settings/modules).
-                    8.  _Check out the tile view to get an overview of your BCF issues:_ → Go to [Work packages]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D)
-                    9.  _Working agile? Create a new board:_ → Go to [Boards]({{opSetting:base_url}}/projects/demo-bim-project/boards)
+                    1.  _프로젝트에 새 멤버 초대:_ → 프로젝트 탐색에서 [멤버]({{opSetting:base_url}}/projects/demo-bim-project/members)로 이동합니다.
+                    2.  _IFC 형식의 3D 모델 업로드 및 보기:_ → 프로젝트 탐색에서 [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf)로 이동합니다.
+                    3.  _IFC 모델에서 직접 링크된 BCF 이슈 만들기 및 관리:_ → [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) → 만들기로 이동합니다.
+                    4.  _프로젝트에서 작업 보기:_ → 프로젝트 탐색에서 [작업 패키지]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    5.  _새 작업 패키지 만들기:_ → [작업 패키지 → 만들기]({{opSetting:base_url}}/projects/demo-bim-project/work_packages/new?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22bcfIssueAssociated%22%2C%22o%22%3A%22%3D%22%2C%22v%22%3A%5B%22f%22%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D&type=11)로 이동합니다.
+                    6.  _Gantt 차트 만들기 및 업데이트:_ → 프로젝트 탐색에서 [Gantt 차트]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22assignee%22%2C%22responsible%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22list%22%7D)로 이동합니다.
+                    7.  _추가 모듈 활성화:_ → [프로젝트 설정 → 모듈]({{opSetting:base_url}}/projects/demo-bim-project/settings/modules)로 이동합니다.
+                    8.  _타일 보기를 확인하고 BCF 이슈 개요 확인:_ → [작업 패키지]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22priority%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D)로 이동합니다.
+                    9.  _애자일하게 작업하려면? 새로운 보드 만들기:_ → [보드]({{opSetting:base_url}}/projects/demo-bim-project/boards)로 이동합니다.
 
-                    Here you will find our [User Guides](https://www.openproject.org/docs/user-guide/).
-                    Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
+                    여기에서 [사용자 가이드](https://www.openproject.org/docs/user-guide/)를 확인할 수 있습니다.
+                    질문이 있거나 지원이 필요하면 알려주세요. 연락처: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
                   name: 멤버
@@ -459,273 +459,273 @@ ko:
                   name: 작업 패키지
               item_6:
                 options:
-                  name: Milestones
+                  name: 마일스톤
           work_packages:
             item_0:
-              subject: Project kick off creating BIM model
+              subject: BIM 모델 만들기 프로젝트 킥오프
               description: |-
-                The project Kickoff initializes the start of the project in your company. The whole project team should be invited to the Kickoff for a first briefing.
+                프로젝트 킥오프는 회사에서 프로젝트의 시작을 초기화합니다. 전체 프로젝트 팀을 첫 번째 브리핑을 위한 킥오프에 초대해야 합니다.
 
-                The next step could be to check out the timetable and adjusting the appointments, by looking at the [Gantt chart]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D).
+                다음 단계로는 [Gantt 차트]({{opSetting:base_url}}/projects/demo-bim-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22weeks%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D)를 살펴보면서 시간표를 확인하고 약속을 조정할 수 있습니다.
             item_1:
-              subject: Project preparation
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 프로젝트 준비
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Gathering the project specific data and information for the BIM model
+                  subject: BIM 모델에 대한 프로젝트별 데이터 및 정보 수집
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Identify the information strategy for the customer (e.g. by using plain language questions)
-                    *   If provided, analyze the customer information requirements for the BIM model
-                    *   Define an information delivery strategy according to the customers needs
+                    *   고객을 위한 정보 전략 파악(예: 일반 언어 질문 사용)
+                    *   제공된 경우, BIM 모델에 대한 고객 정보 요구 사항 분석
+                    *   고객 요구 사항에 따른 정보 전달 전략 정의
 
-                    ## Description
+                    ## 설명
 
-                    *   Analyzing the customers needs and goals for using the BIM methodology
-                    *   Results of this tasks should be:
-                    *   The requirements for the project
-                    *   A strategy for the delivery phase
+                    *   BIM 방법론을 사용하기 위한 고객의 요구 사항과 목표 분석
+                    *   이 작업의 결과는 다음과 같아야 합니다:
+                    *   프로젝트의 요구 사항
+                    *   전달 단계를 위한 전략
                     *   ...
                 item_1:
-                  subject: Creating the BIM execution plan
+                  subject: BIM 실행 계획 만들기
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   A BIM execution plan will be defined according to the exchange requirements specifications (ERS)
-                    *   All team members and partners have a plan on how to reach each of the project goals
+                    *   교환 요구 사항 사양(ERS)에 따라 BIM 실행 계획이 정의됩니다.
+                    *   모든 팀원과 파트너는 각 프로젝트 목표를 달성하는 방법에 대한 계획을 가지고 있습니다.
 
-                    # Description
+                    # 설명
 
-                    *   Depending on the identifies use cases, the individual Information Delivery Manuals will be defined
-                    *   To handle the technological interfaces, a software topology will be defined and analyzed and verified
+                    *   파악된 사용 사례에 따라 개별 정보 전달 매뉴얼이 정의됩니다.
+                    *   기술 인터페이스를 처리하기 위해 소프트웨어 토폴로지가 정의되고 분석되고 검증됩니다.
                     *   ...
                 item_2:
-                  subject: Completion of the BIM execution plan
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: BIM 실행 계획 완료
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_2:
-              subject: End of preparation phase
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 준비 단계 종료
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_3:
-              subject: Creating initial BIM model
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 초기 BIM 모델 만들기
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Modelling initial BIM model
+                  subject: 초기 BIM 모델 모델링
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Modelling the initial BIM model
-                    *   Creating a BIM model for the whole project team
+                    *   초기 BIM 모델 모델링
+                    *   전체 프로젝트 팀을 위한 BIM 모델 만들기
 
-                    # Description
+                    # 설명
 
-                    *   According to the gathered data from the customer, the initial model will be modelled
-                    *   The model shall be modelled according to the LOD Matrices and contain the information needed
+                    *   고객으로부터 수집된 데이터에 따라 초기 모델이 모델링됩니다.
+                    *   모델은 LOD 매트릭스에 따라 모델링되며 필요한 정보를 포함합니다.
                     *   ...
                 item_1:
-                  subject: Initial, internal model check and revising
+                  subject: 초기, 내부 모델 확인 및 수정
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Submitting a BIM model according to the defined standards
+                    *   정의된 표준에 따라 BIM 모델 제출
 
-                    # Description
+                    # 설명
 
-                    *   The model shall be checked, according to the defined standards (conventions, LOD, ...) and revised
+                    *   정의된 표준(규칙, LOD, ...)에 따라 모델을 확인하고 수정해야 합니다.
                     *   ...
                 item_2:
-                  subject: Submitting initial BIM model
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: 초기 BIM 모델 제출
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_4:
-              subject: Modelling, first cycle
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 모델링, 첫 번째 사이클
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Referencing external BIM models
+                  subject: 외부 BIM 모델 참조
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Having a foundation for developing the internal model/ offering answers
-                    *   Using the external model to develop the internal model
+                    *   내부 모델 개발/해답 제시를 위한 토대 마련
+                    *   외부 모델을 사용하여 내부 모델 개발
 
-                    # Description
+                    # 설명
 
-                    *   The external model will be referenced in the BIM platform, thus used for modelling the internal model
+                    *   외부 모델은 BIM 플랫폼에서 참조되므로 내부 모델 모델링에 사용됩니다.
                     *   ...
                 item_1:
-                  subject: Modelling the BIM model
+                  subject: BIM 모델 모델링
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Creating a BIM model for the project
-                    *   Creating a BIM model for the whole project team
+                    *   프로젝트의 BIM 모델 만들기
+                    *   전체 프로젝트 팀의 BIM 모델 만들기
 
-                    # Description
+                    # 설명
 
-                    *   The model will be created according to the BIM execution plan
+                    *   BIM 실행 계획에 따라 모델이 생성됩니다.
                     *   ...
                 item_2:
-                  subject: First Cycle, internal model check and revising
+                  subject: 첫 번째 사이클, 내부 모델 확인 및 수정
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Submitting a BIM model according to the defined standards
+                    *   정의된 표준에 따라 BIM 모델 제출
 
-                    # Description
+                    # 설명
 
-                    *   The model shall be checked, according to the defined standards (conventions, LOD, ...) and revised.
+                    *   정의된 표준(규칙, LOD, ...)에 따라 모델을 확인하고 수정해야 합니다.
                     *   ...
                 item_3:
-                  subject: Submitting BIM model
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: BIM 모델 제출
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_5:
-              subject: Coordination, first cycle
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 조정, 첫 번째 사이클
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
               children:
                 item_0:
-                  subject: Coordinate the different BIM models
+                  subject: 다양한 BIM 모델 조정
                   description: |-
-                    # Goal
+                    # 목표
 
-                    *   Assemble the different BIM models of the whole project team
-                    *   Coordinate the identified issues
+                    *   전체 프로젝트 팀의 다양한 BIM 모델 조립
+                    *   파악된 이슈 조정
 
-                    # Description
+                    # 설명
 
-                    *   The different BIM models will be assembled and checked
-                    *   The identified model specific issues will be communicated via BCF files
+                    *   다양한 BIM 모델을 조립하고 확인합니다.
+                    *   파악된 모델별 이슈는 BCF 파일로 전달됩니다.
                     *   ...
                 item_1:
-                  subject: Issue management, first cycle
+                  subject: 이슈 관리, 첫 번째 사이클
                 item_2:
-                  subject: Finishing coordination, first cycle
-                  description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+                  subject: 조정 완료, 첫 번째 사이클
+                  description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_6:
-              subject: Modelling & coordinating, second cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              subject: 모델링 및 조정, 두 번째 사이클
+              description: "## 목표\r\n\r\n*   ...\r\n\r\n## 설명\r\n\r\n* \\  ..."
             item_7:
-              subject: Modelling & coordinating, ... cycle
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 모델링 및 조정, ... 사이클
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_8:
-              subject: Modelling & coordinating, (n-th minus 1) cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              subject: 모델링 및 조정, (n - 1) 사이클
+              description: "## 목표\r\n\r\n*   ...\r\n\r\n## 설명\r\n\r\n* \\  ..."
             item_9:
-              subject: Modelling & coordinating n-th cycle
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 모델링 및 조정, n번째 사이클
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_10:
-              subject: Finishing modelling & coordinating, n-th cycle
-              description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
+              subject: 모델링 및 조정 완료, n번째 사이클
+              description: 이 유형은 계층적으로 &quot;충돌&quot; 및 &quot;요청&quot; 유형의 부모이므로 일반 메모를 나타냅니다.
             item_11:
-              subject: Use model for construction phase
+              subject: 건설 단계의 모델 사용
               children:
                 item_0:
-                  subject: Handover model for construction crew
+                  subject: 건설 인력에 대한 인계 모델
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   Everyone knows the model and their tasks
-                    *   Everybody gets all the relevant information, model based
+                    *   모든 사람이 모델과 자신의 작업을 알고 있습니다.
+                    *   모든 사람이 모델 기반의 모든 관련 정보를 얻습니다.
                     *   ...
 
-                    ## Description
+                    ## 설명
 
-                    *   The Kickoff on the construction site includes an introduction to the model
-                    *   All the objects should have the information needed for the assigned tasks. If not, data enrichment of the model needs to be done
+                    *   건설 사이트의 킥오프에는 모델 소개가 포함되어 있습니다.
+                    *   모든 개체에는 할당된 작업에 필요한 정보가 있어야 합니다. 그렇지 않은 경우 모델의 데이터 보강을 수행해야 합니다.
                     *   ...
                 item_1:
-                  subject: Construct the building
+                  subject: 건물 건설
                   description: |-
-                    ## Goal
+                    ## 목표
 
-                    *   New issues realized on construction site will be handled model based
-                    *   Issues will be documented by using the BCF files and the BIM model
+                    *   건설 사이트에서 파악된 새로운 이슈는 모델 기반으로 처리됩니다.
+                    *   이슈는 BCF 파일과 BIM 모델을 사용하여 문서화됩니다.
 
-                    ## Description
+                    ## 설명
 
-                    *   New issues will be documented using BCF files as sticky notes for the model
-                    *   The BCF files will be used to assign, track and correct issues
+                    *   새로운 이슈는 모델에 대한 스티커 메모로 BCF 파일을 사용하여 문서화됩니다.
+                    *   BCF 파일은 이슈를 할당, 추적 및 수정하는 데 사용됩니다.
                     *   ...
                 item_2:
-                  subject: Finish construction
+                  subject: 건설 종료
             item_12:
-              subject: Issue management, construction phase
+              subject: 이슈 관리, 건설 단계
             item_13:
-              subject: Handover for Facility Management
+              subject: 시설 관리 인계
               description: |-
-                ## Goal
+                ## 목표
 
-                *   The BIM model will be used for the Facility Management
-                *   The model provides all the relevant information for commissioning and operating the building
+                *   BIM 모델은 시설 관리에 사용됩니다.
+                *   이 모델은 건물 위탁 및 운영에 대한 모든 관련 정보를 제공합니다.
                 *   ...
 
-                ## Description
+                ## 설명
 
-                *   The model contains the relevant information for the facility manager
-                *   The model can be used for the operating system of the building
+                *   모델에는 시설 관리자를 위한 관련 정보가 포함되어 있습니다.
+                *   모델은 건물의 운영 체제에 사용할 수 있습니다.
                 *   ...
             item_14:
-              subject: Asset Management
-              description: Enjoy your building :)
+              subject: 자산 관리
+              description: 즐겁게 건물을 이용하세요 :)
         demo-bcf-management-project:
-          name: "(Demo) BCF management"
-          status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
-          description: This is a short summary of the goals of this demo BCF management project.
+          name: "(데모) BCF 관리"
+          status_explanation: 모든 작업이 예정대로 진행되고 있습니다. 관련된 사람들이 자신의 작업을 알고 있습니다. 시스템이 완전히 설정되었습니다.
+          description: 이 데모 BCF 관리 프로젝트의 목표에 대한 간략한 요약입니다.
           ifc_models:
             item_0:
-              name: Hospital - Architecture (cc-by-sa-3.0 Autodesk Inc.)
+              name: 병원 - 건축(cc-by-sa-3.0 Autodesk Inc.)
             item_1:
-              name: Hospital - Structural (cc-by-sa-3.0 Autodesk Inc.)
+              name: 병원 - 구조(cc-by-sa-3.0 Autodesk Inc.)
             item_2:
-              name: Hospital - Mechanical (cc-by-sa-3.0 Autodesk Inc.)
+              name: 병원 - 기계(cc-by-sa-3.0 Autodesk Inc.)
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: 카테고리 1(프로젝트 설정에서 변경)
           queries:
             item_0:
               name: 이슈
             item_1:
-              name: Clashes
+              name: 충돌
             item_2:
-              name: Requests
+              name: 요청
             item_3:
-              name: Remarks
+              name: 참고
             item_4:
-              name: Project plan
+              name: 프로젝트 계획
             item_5:
-              name: Milestones
+              name: 마일스톤
             item_6:
-              name: Tasks
+              name: 작업
             item_7:
               name: 팀 플래너
           boards:
             bcf:
-              name: BCF issues
+              name: BCF 이슈
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: 환영합니다
               item_1:
                 options:
                   name: 시작하기
                   text: |
-                    We are glad you joined! We suggest to try a few things to get started in OpenProject.
+                    가입해주셔서 감사합니다! OpenProject에서 시작하려면 몇 가지를 시도해보시기 바랍니다.
 
-                    This demo project shows BCF management functionalities.
+                    이 데모 프로젝트는 BCF 관리 기능을 보여줍니다.
 
-                    _Try the following steps:_
+                    _다음 단계를 시도해 보세요._
 
-                    1.  _Invite new members to your project:_ → Go to [Members]({{opSetting:base_url}}/projects/demo-bcf-management-project/members?show_add_members=true) in the project navigation.
-                    2.  _Upload and view 3D-models in IFC format:_ → Go to [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) in the project navigation.
-                    3.  _Create and manage BCF issues linked directly in the IFC model:_ → Go to [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) → Create.
-                    4.  _View the BCF files in your project:_ → Go to [BCF]({{opSetting:base_url}}/projects/demo-bcf-management-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22status%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D) in the project navigation.
-                    5.  _Load your BCF files:_ → Go to [BCF → Import.]({{opSetting:base_url}}/projects/demo-bcf-management-project/issues/upload)
-                    6.  _Create and update a Gantt chart:_ → Go to [Gantt chart]({{opSetting:base_url}}/projects/demo-bcf-management-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22days%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D) in the project navigation.
-                    7.  _Activate further modules:_ → Go to [Project settings → Modules.]({{opSetting:base_url}}/projects/demo-bcf-management-project/settings/modules)
-                    8.  _You love the agile approach? Create a board:_ → Go to [Boards]({{opSetting:base_url}}/projects/demo-bcf-management-project/boards).
+                    1.  _프로젝트에 새 멤버 초대:_ → 프로젝트 탐색에서 [멤버]({{opSetting:base_url}}/projects/demo-bcf-management-project/members?show_add_members=true)로 이동합니다.
+                    2.  _IFC 형식의 3D 모델 업로드 및 보기:_ → 프로젝트 탐색에서 [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf)로 이동합니다.
+                    3.  _IFC 모델에서 직접 링크된 BCF 이슈 만들기 및 관리:_ → [BCF]({{opSetting:base_url}}/projects/demo-bim-project/bcf) → 만들기로 이동합니다.
+                    4.  _프로젝트에서 BCF 파일 보기:_ → 프로젝트 탐색에서 [BCF]({{opSetting:base_url}}/projects/demo-bcf-management-project/work_packages?query_props=%7B%22c%22%3A%5B%22type%22%2C%22id%22%2C%22subject%22%2C%22status%22%2C%22assignee%22%2C%22priority%22%5D%2C%22hl%22%3A%22status%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22id%3Aasc%22%2C%22f%22%3A%5B%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%2C%22dr%22%3A%22card%22%7D)로 이동합니다.
+                    5.  _BCF 파일 로드:_ → [BCF → 가져오기]({{opSetting:base_url}}/projects/demo-bcf-management-project/issues/upload)로 이동합니다.
+                    6.  _Gantt  차트 만들기 및 업데이트:_ → 프로젝트 탐색에서 [Gantt 차트]({{opSetting:base_url}}/projects/demo-bcf-management-project/work_packages?query_props=%7B%22c%22%3A%5B%22id%22%2C%22subject%22%2C%22startDate%22%2C%22dueDate%22%5D%2C%22tv%22%3Atrue%2C%22tzl%22%3A%22days%22%2C%22hi%22%3Atrue%2C%22g%22%3A%22%22%2C%22t%22%3A%22startDate%3Aasc%22%2C%22f%22%3A%5B%7B%22n%22%3A%22status%22%2C%22o%22%3A%22o%22%2C%22v%22%3A%5B%5D%7D%5D%2C%22pa%22%3A1%2C%22pp%22%3A100%7D)로 이동합니다.
+                    7.  _추가 모듈 활성화:_ → [프로젝트 설정 → 모듈]({{opSetting:base_url}}/projects/demo-bcf-management-project/settings/modules)로 이동합니다.
+                    8.  _애자일 접근 방식을 좋아하시나요? 보드 만들기:_ → [보드]({{opSetting:base_url}}/projects/demo-bcf-management-project/boards)로 이동합니다.
 
-                    Here you will find our [User Guides](https://www.openproject.org/docs/user-guide/).
-                    Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
+                    여기에서 [사용자 가이드](https://www.openproject.org/docs/user-guide/)를 확인할 수 있습니다.
+                    질문이 있거나 지원이 필요하면 알려주세요. 연락처: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
                   name: 멤버

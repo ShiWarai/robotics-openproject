@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,11 +34,11 @@ module SkipIfCommandUnavailableMixin
   #
   # The test is not skipped if in continuous integration environment.
   def skip_if_commands_unavailable(*commands)
-    return if ENV['CI']
+    return if ENV["CI"]
 
     commands.flatten.compact.each do |cmd|
       # Avoid `which`, as it's not POSIX
-      Open3.capture2e(cmd, '--version')
+      Open3.capture2e(cmd, "--version")
     rescue Errno::ENOENT
       skip "Skipped because '#{cmd}' command not found in PATH"
     end

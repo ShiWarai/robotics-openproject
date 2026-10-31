@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,9 +31,9 @@
 require "rails_helper"
 
 RSpec.describe AttributeGroups::AttributeGroupHeaderComponent, type: :component do
-  it 'renders the title' do
-    render_inline(described_class.new(title: 'A Title'))
+  it "renders the title" do
+    render_inline(described_class.new(title: "A Title"))
 
-    expect(page).to have_css('h3.attributes-group--header-text', text: 'A Title')
+    expect(page).to have_css("h3.attributes-group--header-text", text: "A Title")
   end
 end

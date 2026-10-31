@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -68,9 +68,9 @@ module API
 
                           represented.operator = ::API::Utilities::ResourceLinkParser
                                                  .parse_id fragment["href"],
-                                                           property: 'operator',
-                                                           expected_version: '3',
-                                                           expected_namespace: 'queries/operators'
+                                                           property: "operator",
+                                                           expected_version: "3",
+                                                           expected_namespace: "queries/operators"
                         }
 
           resources :values,
@@ -78,17 +78,8 @@ module API
                       next unless represented.ar_object_filter?
 
                       represented.value_objects.map do |value_object|
-                        href = begin
-                          path_name = value_object.class.name.demodulize.underscore
-
-                          api_v3_paths.send(path_name, value_object.id)
-                        rescue StandardError => e
-                          Rails.logger.error "Failed to get href for value_object #{value_object}: #{e}"
-                          nil
-                        end
-
                         link_object = {
-                          href:,
+                          href: api_v3_paths.path_for_object(value_object),
                           title: value_object.name
                         }
 

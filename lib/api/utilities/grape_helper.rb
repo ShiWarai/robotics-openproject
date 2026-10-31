@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,20 +34,21 @@ module API
       # outside of the Grape context. We use it outside of the Grape context because
       # OpenProject authentication happens in a middleware upstream of Grape.
       class GrapeError < Grape::Middleware::Error
-        def initialize(env)
+        def initialize(env, content_types:, format:)
+          super(nil, content_types:, format:)
           @env = env
-          @options = {}
+        end
+
+        def error!(message, status = nil, headers = nil, backtrace = nil, original_exception = nil)
+          super
         end
       end
 
       def grape_error_for(env, api)
-        GrapeError.new(env).tap do |e|
-          e.options[:content_types] = api.content_types
-          e.options[:format] = 'hal+json'
-        end
+        GrapeError.new(env, content_types: api.content_types, format: "hal+json")
       end
 
-      def error_response(rescued_error, error = nil, rescue_subclasses: nil, headers: -> { {} }, log: true)
+      def error_response(rescued_error, error = nil, rescue_subclasses: true, headers: -> { {} }, log: true)
         error_response_lambda = default_error_response(headers, log)
 
         response =
@@ -67,7 +68,7 @@ module API
           original_exception = $!
           representer = error_representer.new e
           resp_headers = instance_exec &headers
-          env['api.format'] = error_content_type
+          resp_headers["Content-Type"] = error_content_type
 
           if log == true
             OpenProject.logger.error original_exception, reference: :APIv3
@@ -75,7 +76,7 @@ module API
             log.call(original_exception)
           end
 
-          error_response status: e.code, message: representer.to_json, headers: resp_headers
+          error!(representer.to_json, e.code, resp_headers)
         }
       end
     end

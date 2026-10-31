@@ -1,10 +1,11 @@
-require 'spec_helper'
-require 'spreadsheet'
+require "spec_helper"
+require "spreadsheet"
 
 RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
-  let(:project) { create(:project) }
+  shared_let(:project) { create(:project) }
+  shared_let(:admin) { create(:admin) }
 
-  let(:current_user) { create(:admin) }
+  let(:current_user) { admin }
 
   let(:column_names) { %w[type id subject status assigned_to priority] }
   let(:query) do
@@ -12,7 +13,7 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
 
     query.filters.clear
     query.column_names = column_names
-    query.sort_criteria = [['id', 'asc']]
+    query.sort_criteria = [["id", "asc"]]
     query
   end
 
@@ -36,26 +37,26 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
     )
   end
 
-  context 'with relations' do
-    let(:options) { { show_relations: true } }
+  context "with relations" do
+    let(:options) { { show_relations: "true" } }
 
-    let(:parent) { create(:work_package, project:, subject: 'Parent') }
+    let(:parent) { create(:work_package, project:, subject: "Parent") }
     let(:child_1) do
-      create(:work_package, parent:, project:, subject: 'Child 1')
+      create(:work_package, parent:, project:, subject: "Child 1")
     end
     let(:child_2) do
-      create(:work_package, parent:, project:, subject: 'Child 2')
+      create(:work_package, parent:, project:, subject: "Child 2")
     end
 
-    let(:single) { create(:work_package, project:, subject: 'Single') }
-    let(:followed) { create(:work_package, project:, subject: 'Followed') }
+    let(:single) { create(:work_package, project:, subject: "Single") }
+    let(:followed) { create(:work_package, project:, subject: "Followed") }
 
     let(:child_2_child) do
       create(:work_package, parent: child_2, project:, subject: "Child 2's child")
     end
 
     let(:relation) do
-      create(:follows_relation, from: child_2, to: followed, description: 'description foobar')
+      create(:follows_relation, from: child_2, to: followed, description: "description foobar")
     end
 
     let(:relations) { [relation] }
@@ -77,18 +78,18 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
     RELATION_DESCRIPTION = 10
     RELATED_SUBJECT = 13
 
-    it 'produces the correct result' do
+    it "produces the correct result" do
       expect(query.columns.map(&:name)).to eq %i[type id subject status assigned_to priority]
 
       # the first header row divides the sheet into work packages and relation columns
-      expect(sheet.rows.first.take(8)).to eq ['Work packages', nil, nil, nil, nil, nil, nil, 'Relations']
+      expect(sheet.rows.first.take(8)).to eq ["Work packages", nil, nil, nil, nil, nil, nil, "Relations"]
 
       # the second header row includes the column names for work packages and relations and the related work package
       expect(sheet.rows[1])
         .to eq [
-          nil, 'Type', 'ID', 'Subject', 'Status', 'Assignee', 'Priority',
-          nil, 'Relation type', 'Delay', 'Description',
-          'Type', 'ID', 'Subject', 'Status', 'Assignee', 'Priority',
+          nil, "Type", "ID", "Subject", "Status", "Assignee", "Priority",
+          nil, "Relation type", "Lag", "Description",
+          "Type", "ID", "Subject", "Status", "Assignee", "Priority",
           nil
         ]
 
@@ -98,43 +99,43 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
         .to eq [parent.id, parent.id, child_1.id, c2id, c2id, c2id, single.id, followed.id, child_2_child.id].map(&:to_s)
 
       # marks Parent as parent of Child 1 and 2
-      expect(sheet.row(PARENT)[RELATION]).to eq 'parent of'
-      expect(sheet.row(PARENT)[RELATED_SUBJECT]).to eq 'Child 1'
+      expect(sheet.row(PARENT)[RELATION]).to eq "parent of"
+      expect(sheet.row(PARENT)[RELATED_SUBJECT]).to eq "Child 1"
 
-      expect(sheet.row(PARENT + 1)[RELATION]).to eq 'parent of'
-      expect(sheet.row(PARENT + 1)[RELATED_SUBJECT]).to eq 'Child 2'
+      expect(sheet.row(PARENT + 1)[RELATION]).to eq "parent of"
+      expect(sheet.row(PARENT + 1)[RELATED_SUBJECT]).to eq "Child 2"
 
       # shows Child 1 as child of Parent
-      expect(sheet.row(CHILD_1)[RELATION]).to eq 'child of'
-      expect(sheet.row(CHILD_1)[RELATED_SUBJECT]).to eq 'Parent'
+      expect(sheet.row(CHILD_1)[RELATION]).to eq "child of"
+      expect(sheet.row(CHILD_1)[RELATED_SUBJECT]).to eq "Parent"
 
       # shows Child 2 as child of Parent
-      expect(sheet.row(CHILD_2)[RELATION]).to eq 'child of'
-      expect(sheet.row(CHILD_2)[RELATED_SUBJECT]).to eq 'Parent'
+      expect(sheet.row(CHILD_2)[RELATION]).to eq "child of"
+      expect(sheet.row(CHILD_2)[RELATED_SUBJECT]).to eq "Parent"
 
       # shows Child 2 as parent of Child 2's child
-      expect(sheet.row(CHILD_2 + 1)[RELATION]).to eq 'parent of'
+      expect(sheet.row(CHILD_2 + 1)[RELATION]).to eq "parent of"
       expect(sheet.row(CHILD_2 + 1)[RELATED_SUBJECT]).to eq "Child 2's child"
 
       # shows Child 2 as following Followed
-      expect(sheet.row(CHILD_2 + 2)[RELATION]).to eq 'Follows'
-      expect(sheet.row(CHILD_2 + 2)[RELATED_SUBJECT]).to eq 'Followed'
+      expect(sheet.row(CHILD_2 + 2)[RELATION]).to eq "Follows"
+      expect(sheet.row(CHILD_2 + 2)[RELATED_SUBJECT]).to eq "Followed"
 
       # shows no relation information for Single
       expect(sheet.row(SINGLE).drop(7).compact).to eq []
 
       # shows Followed as preceding Child 2'
-      expect(sheet.row(FOLLOWED)[RELATION]).to eq 'Precedes'
-      expect(sheet.row(FOLLOWED)[RELATION_DESCRIPTION]).to eq 'description foobar'
-      expect(sheet.row(FOLLOWED)[RELATED_SUBJECT]).to eq 'Child 2'
+      expect(sheet.row(FOLLOWED)[RELATION]).to eq "Precedes"
+      expect(sheet.row(FOLLOWED)[RELATION_DESCRIPTION]).to eq "description foobar"
+      expect(sheet.row(FOLLOWED)[RELATED_SUBJECT]).to eq "Child 2"
 
       # exports the correct data (examples)
       expect(sheet.row(PARENT))
         .to eq [
           nil, parent.type.name, parent.id.to_s, parent.subject, parent.status.name, parent.assigned_to, parent.priority.name,
-          nil, 'parent of', nil, nil,
+          nil, "parent of", nil, nil,
           child_1.type.name, child_1.id.to_s, child_1.subject, child_1.status.name, child_1.assigned_to, child_1.priority.name
-        ] # delay nil as this is a parent-child relation not represented by an actual Relation record
+        ] # lag nil as this is a parent-child relation not represented by an actual Relation record
 
       expect(sheet.row(SINGLE))
         .to eq [
@@ -145,36 +146,37 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
         .to eq [
           nil,
           followed.type.name, followed.id.to_s, followed.subject, followed.status.name, followed.assigned_to, followed.priority.name,
-          nil, 'Precedes', 0, relation.description,
+          nil, "Precedes", 0, relation.description,
           child_2.type.name, child_2.id.to_s, child_2.subject, child_2.status.name, child_2.assigned_to, child_2.priority.name
         ]
     end
 
-    context 'with someone who may not see related work packages' do
+    context "with someone who may not see related work packages" do
       let(:current_user) { create(:user) }
 
-      it 'exports no information without visibility' do
+      it "exports no information without visibility" do
         expect(sheet.rows.length).to eq(2)
         expect(sheet.column(1).drop(2)).to be_empty
       end
     end
   end
 
-  describe 'with cost and time entries' do
+  describe "with cost and time entries", with_settings: { costs_currency: "EUR", costs_currency_format: "%n %u" } do
     # Since this test has to work without the actual costs plugin we'll just add
     # a custom field called 'costs' to emulate it.
 
     let(:custom_field) do
       create(:float_wp_custom_field,
-             name: 'unit costs')
+             name: "unit costs")
     end
     let(:custom_value) do
       create(:custom_value,
              custom_field:)
     end
     let(:type) do
-      type = project.types.first
-      type.custom_fields << custom_field
+      type = project.enabled_types.first
+      type.default_variant.custom_fields << custom_field
+
       type
     end
     let(:project) do
@@ -195,61 +197,49 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
       wps[3].save!
       wps
     end
-    let(:column_names) { ['subject', 'status', 'estimated_hours', custom_field.column_name] }
+    let(:column_names) { ["subject", "status", "estimated_hours", custom_field.column_name] }
 
-    before do
-      allow(Setting)
-        .to receive(:plugin_costs)
-        .and_return('costs_currency' => 'EUR', 'costs_currency_format' => '%n %u')
-    end
-
-    it 'successfullies export the work packages with a cost column' do
+    it "exports successfully the work packages with a cost column" do
       expect(sheet.rows.size).to eq(4 + 1)
 
       cost_column = sheet.columns.last.to_a
-      %w[1 99.99 1000].each do |value|
+      %w[1 99.99 1,000].each do |value|
         expect(cost_column).to include(value)
       end
     end
 
-    context 'with german locale' do
-      let(:current_user) { create(:admin, language: :de) }
-
-      it 'successfullies export the work packages with a cost column localized' do
-        I18n.with_locale :de do
-          sheet
-        end
-
-        expect(sheet.rows.size).to eq(4 + 1)
-        cost_column = sheet.columns.last.to_a
-        %w[1 99,99 1000].each do |value|
-          expect(cost_column).to include(value)
-        end
-      end
-    end
-
-    it 'includes estimated hours' do
+    it "includes work" do
       expect(sheet.rows.size).to eq(4 + 1)
 
       # Check row after header row
       hours = sheet.rows[1].values_at(2)
-      expect(hours).to include("27.5 h")
+      expect(hours).to include(27.5)
+    end
+
+    context "with duration format being set to 'days and hours'", with_settings: { duration_format: "days_and_hours" } do
+      it "includes work unformatted" do
+        expect(sheet.rows.size).to eq(4 + 1)
+
+        # Check row after header row
+        hours = sheet.rows[1].values_at(2)
+        expect(hours).to include(27.5)
+      end
     end
   end
 
-  context 'with descriptions' do
-    let(:options) { { show_descriptions: true } }
+  context "with descriptions" do
+    let(:options) { { show_descriptions: "true" } }
 
     let(:work_package) do
       create(:work_package,
              description: "some arbitrary description \n <p>with some html</p>",
              project:,
-             type: project.types.first)
+             type: project.enabled_types.first)
     end
     let(:work_packages) { [work_package] }
     let(:column_names) { %w[id] }
 
-    it 'includes the HTML sanitized description' do
+    it "includes the HTML sanitized description" do
       expect(sheet.rows.size).to eq(1 + 1)
 
       expect(sheet.rows[1][1])
@@ -257,17 +247,36 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
     end
   end
 
-  context 'with underscore in subject' do
+  context "with semantic work package identifiers",
+          with_settings: { work_packages_identifier: "semantic" } do
+    let(:project) { create(:project, identifier: "XLSPROJ") }
     let(:work_package) do
       create(:work_package,
-             subject: 'underscore_is included',
              project:,
-             type: project.types.first)
+             type: project.enabled_types.first)
     end
     let(:work_packages) { [work_package] }
     let(:column_names) { %w[id subject] }
 
-    it 'includes the underscore' do
+    it "exports the semantic identifier in the ID column" do
+      expect(sheet.rows.size).to eq(1 + 1)
+
+      expect(work_package.identifier).to match(/\AXLSPROJ-\d+\z/)
+      expect(sheet.rows[1][0]).to eq work_package.identifier
+    end
+  end
+
+  context "with underscore in subject" do
+    let(:work_package) do
+      create(:work_package,
+             subject: "underscore_is included",
+             project:,
+             type: project.enabled_types.first)
+    end
+    let(:work_packages) { [work_package] }
+    let(:column_names) { %w[id subject] }
+
+    it "includes the underscore" do
       expect(sheet.rows.size).to eq(1 + 1)
 
       expect(sheet.rows[1][1])
@@ -275,20 +284,20 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
     end
   end
 
-  describe 'empty result' do
+  describe "empty result" do
     let(:work_packages) { [] }
 
-    it 'yields an empty XLS file' do
+    it "yields an empty XLS file" do
       expect(sheet.rows.size).to eq(1) # just the headers
     end
   end
 
-  describe 'with user time zone' do
+  describe "with user time zone" do
     let(:zone) { +2 }
     let(:work_package) do
       create(:work_package,
              project:,
-             type: project.types.first)
+             type: project.enabled_types.first)
     end
     let(:work_packages) { [work_package] }
 
@@ -304,47 +313,98 @@ RSpec.describe XlsExport::WorkPackage::Exporter::XLS do
       allow(current_user).to receive(:time_zone).and_return(zone)
     end
 
-    it 'adapts the datetime fields to the user time zone' do
+    it "adapts the datetime fields to the user time zone" do
       work_package.reload
       updated_at_cell = sheet.rows.last.to_a.last
       expect(updated_at_cell).to eq(i18n_helper.format_time(work_package.updated_at).to_s)
     end
   end
 
-  describe 'with derived estimated hours' do
+  describe "with total work only" do
     let(:work_package) do
       create(:work_package,
              project:,
              derived_estimated_hours: 15.0,
-             type: project.types.first)
+             type: project.enabled_types.first)
     end
     let(:work_packages) { [work_package] }
 
-    let(:column_names) { %w[subject status updated_at estimated_hours] }
+    let(:column_names) { %w[estimated_hours remaining_hours done_ratio] }
 
-    it 'adapts the datetime fields to the user time zone' do
-      work_package.reload
-      estimated_cell = sheet.rows.last.to_a.last
-      expect(estimated_cell).to eq '(15.0 h)'
+    it "outputs its raw value in an additional 'Total work' column right after the 'Work' column" do
+      headers_row, values_row = sheet.rows
+      # why is there a nil at the end of the headers row?
+      headers_row.compact!
+      expect(headers_row.zip(values_row)).to eq [
+        ["Work", nil],
+        ["Total work", 15.0],
+        ["Remaining work", nil],
+        ["Total remaining work", nil],
+        ["% Complete", nil],
+        ["Total % complete", nil]
+      ]
     end
   end
 
-  describe 'with derived estimated hours and estimated_hours set to zero' do
+  describe "with work, total work, remaining work, total remaining work, % complete, and total % complete" do
     let(:work_package) do
       create(:work_package,
              project:,
+             estimated_hours: 10.0,
              derived_estimated_hours: 15.0,
-             estimated_hours: 0.0,
-             type: project.types.first)
+             remaining_hours: 5.0,
+             derived_remaining_hours: 8.0,
+             done_ratio: 50,
+             derived_done_ratio: 75,
+             type: project.enabled_types.first)
     end
     let(:work_packages) { [work_package] }
 
-    let(:column_names) { %w[subject status updated_at estimated_hours] }
+    let(:column_names) { %w[estimated_hours remaining_hours done_ratio] }
 
-    it 'outputs both values' do
-      work_package.reload
-      estimated_cell = sheet.rows.last.to_a.last
-      expect(estimated_cell).to eq '0.0 h (15.0 h)'
+    it "outputs all raw values in distinct columns for own and total values" do
+      headers_row, values_row = sheet.rows
+      # why is there a nil at the end of the headers row?
+      headers_row.compact!
+      expect(headers_row.zip(values_row)).to eq [
+        ["Work", 10.0],
+        ["Total work", 15.0],
+        ["Remaining work", 5.0],
+        ["Total remaining work", 8.0],
+        ["% Complete", 0.5],
+        ["Total % complete", 0.75]
+      ]
+    end
+  end
+
+  describe "with work, remaining work, and % complete set to zero and their total values set" do
+    let(:work_package) do
+      create(:work_package,
+             project:,
+             estimated_hours: 0.0,
+             derived_estimated_hours: 15.0,
+             remaining_hours: 0.0,
+             derived_remaining_hours: 8,
+             done_ratio: 0,
+             derived_done_ratio: 42,
+             type: project.enabled_types.first)
+    end
+    let(:work_packages) { [work_package] }
+
+    let(:column_names) { %w[estimated_hours remaining_hours done_ratio] }
+
+    it "outputs raw values in distinct columns for own and total values" do
+      headers_row, values_row = sheet.rows
+      # why is there a nil at the end of the headers row?
+      headers_row.compact!
+      expect(headers_row.zip(values_row)).to eq [
+        ["Work", 0.0],
+        ["Total work", 15.0],
+        ["Remaining work", 0.0],
+        ["Total remaining work", 8.0],
+        ["% Complete", 0.0],
+        ["Total % complete", 0.42]
+      ]
     end
   end
 end
