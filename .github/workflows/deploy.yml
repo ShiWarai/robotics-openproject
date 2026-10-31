@@ -1,6 +1,6 @@
-# Сборка и публикация образов в GHCR:
-# - main → ghcr.io/<owner>/robotics-openproject:backend-main, frontend-main, ...
-# - dev → ghcr.io/<owner>/robotics-openproject:backend-prerelease, frontend-prerelease, ... (только с [prerelease])
+# Self-contained multi-arch (amd64+arm64) OpenProject image → GHCR
+# main → <org>/robotics-openproject:main
+# dev → <org>/robotics-openproject:prerelease (requires [prerelease] in commit msg)
 name: Deploy
 
 on:
@@ -23,6 +23,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -34,7 +37,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image base
-        run: echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+        run: echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
 
       - name: Determine tag
         id: tag
@@ -45,48 +48,16 @@ jobs:
             echo "suffix=prerelease" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and push backend
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./docker/backend
+          context: .
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.IMAGE_BASE }}:backend-${{ steps.tag.outputs.suffix }}
-            ${{ env.IMAGE_BASE }}:backend-${{ github.sha }}
+            ${{ env.IMAGE_BASE }}:${{ steps.tag.outputs.suffix }}
+            ${{ env.IMAGE_BASE }}:${{ github.sha }}
           push: true
           provenance: false
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./docker/frontend
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.IMAGE_BASE }}:frontend-${{ steps.tag.outputs.suffix }}
-            ${{ env.IMAGE_BASE }}:frontend-${{ github.sha }}
-          push: true
-          provenance: false
-
-      - name: Build and push worker
-        uses: docker/build-push-action@v6
-        with:
-          context: ./docker/worker
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.IMAGE_BASE }}:worker-${{ steps.tag.outputs.suffix }}
-            ${{ env.IMAGE_BASE }}:worker-${{ github.sha }}
-          push: true
-          provenance: false
-
-      - name: Build and push builder
-        uses: docker/build-push-action@v6
-        with:
-          context: ./docker/builder
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.IMAGE_BASE }}:builder-${{ steps.tag.outputs.suffix }}
-            ${{ env.IMAGE_BASE }}:builder-${{ github.sha }}
-          push: true
-          provenance: false
-
-
+          cache-from: type=ghcr,ref=${{ env.IMAGE_BASE }}:buildcache
+          cache-to: type=ghcr,ref=${{ env.IMAGE_BASE }}:buildcache,mode=max
