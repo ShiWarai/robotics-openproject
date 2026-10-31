@@ -1,8 +1,9 @@
-#English strings go here
+---
 et:
   js:
     calendar:
-      create_new: 'Create new calendar'
-      title: 'Kalender'
-      too_many: 'There are %{count} work packages in total, but only %{max} can be shown.'
-      unsaved_title: 'Unnamed calendar'
+      create_new: Loo uus kalendet
+      label_calendar_plural: Kalendrid
+      title: Kalender
+      too_many: Kokku on %{count} tööpaketti, aga näidata saab maksimaalselt ainult %{max}.
+      unsaved_title: Nimeta kalender

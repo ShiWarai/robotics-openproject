@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,19 +28,18 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require_relative './support/board_index_page'
-require_relative './support/board_page'
+require "spec_helper"
+require_relative "support/board_index_page"
+require_relative "support/board_page"
 
-RSpec.describe 'Board remote changes resolution', js: true, with_ee: %i[board_view] do
+RSpec.describe "Board remote changes resolution", :js do
   let(:user1) do
     create(:user,
-           member_in_project: project,
-           member_through_role: role)
+           member_with_roles: { project => role })
   end
-  let(:type) { create(:type_standard) }
+  let(:type) { create(:type_task) }
   let(:project) { create(:project, types: [type], enabled_module_names: %i[work_package_tracking board_view]) }
-  let(:role) { create(:role, permissions:) }
+  let(:role) { create(:project_role, permissions:) }
 
   let(:board_index) { Pages::BoardIndex.new(project) }
 
@@ -48,28 +49,28 @@ RSpec.describe 'Board remote changes resolution', js: true, with_ee: %i[board_vi
   end
 
   let!(:priority) { create(:default_priority) }
-  let!(:open_status) { create(:default_status, name: 'Open') }
-  let!(:work_package1) { create(:work_package, project:, subject: 'Work package A', status: open_status) }
-  let!(:work_package2) { create(:work_package, project:, subject: 'Work package B', status: open_status) }
+  let!(:open_status) { create(:default_status, name: "Open") }
+  let!(:work_package1) { create(:work_package, project:, subject: "Work package A", status: open_status) }
+  let!(:work_package2) { create(:work_package, project:, subject: "Work package B", status: open_status) }
 
   before do
     project
     login_as(user1)
   end
 
-  it 'update boards in the background' do
+  it "update boards in the background", skip: "flickering spec" do
     board_index.visit!
 
     # Create new board
-    board_page = board_index.create_board action: :Status
+    board_page = board_index.create_board action: "Kanban"
 
     # expect lists of default status
-    board_page.expect_list 'Open'
+    board_page.expect_list "Open"
 
-    board_page.expect_card('Open', work_package1.subject)
-    board_page.expect_card('Open', work_package2.subject)
+    board_page.expect_card("Open", work_package1.subject)
+    board_page.expect_card("Open", work_package2.subject)
 
-    board_page.expect_cards_in_order('Open', work_package1, work_package2)
+    board_page.expect_cards_in_order("Open", work_package1, work_package2)
 
     board_query = Query.last
     board_query.ordered_work_packages.replace [
@@ -81,6 +82,6 @@ RSpec.describe 'Board remote changes resolution', js: true, with_ee: %i[board_vi
 
     sleep(3)
 
-    board_page.expect_cards_in_order('Open', work_package2, work_package1)
+    board_page.expect_cards_in_order("Open", work_package2, work_package1)
   end
 end

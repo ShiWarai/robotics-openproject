@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,7 +30,7 @@
 
 module Settings
   ##
-  # A text field to enter numeric values.
+  # A select field to select a time zone from.
   class TimeZoneSettingComponent < ::ApplicationComponent
     options :form, :title
     options container_class: "-wide"
@@ -79,7 +79,7 @@ module Settings
     private
 
     def time_zone_option(canonical_zone, zones)
-      zone_names = zones.map(&:name).join(', ')
+      zone_names = zones.map(&:name).join(", ")
       [
         "(UTC#{ActiveSupport::TimeZone.seconds_to_utc_offset(canonical_zone.base_utc_offset)}) #{zone_names}",
         canonical_zone.identifier

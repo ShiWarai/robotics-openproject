@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -32,8 +34,8 @@ module Members::Scopes
 
     class_methods do
       # Find all members visible to the inquiring user
-      def visible(user)
-        if user.admin?
+      def visible(user = User.current)
+        if user.active_admin?
           visible_for_admins
         else
           visible_for_non_admins(user)
@@ -43,16 +45,32 @@ module Members::Scopes
       private
 
       def visible_for_non_admins(user)
-        view_members = Project.where(id: Project.allowed_to(user, :view_members))
-        manage_members = Project.where(id: Project.allowed_to(user, :manage_members))
+        visible_member_ids = unscoped do
+          visible_project_members(user).or(shared_work_package_members(user)).select(:id)
+        end
 
-        project_scope = view_members.or(manage_members)
+        where(id: visible_member_ids)
+      end
 
-        Member.where(project_id: project_scope.select(:id))
+      # Project-wide memberships in projects where the user may view or manage members.
+      def visible_project_members(user)
+        view_members = Project.allowed_to(user, :view_members)
+        manage_members = Project.allowed_to(user, :manage_members)
+
+        where(project_id: view_members.or(manage_members).select(:id), entity_type: nil)
+      end
+
+      # Work package shares the user may list, limited to entities they can view.
+      def shared_work_package_members(user)
+        view_shared_work_packages_projects = Project.allowed_to(user, :view_shared_work_packages)
+        visible_shared_work_package_ids = WorkPackage.visible(user).select(:id)
+
+        where(project_id: view_shared_work_packages_projects.select(:id), entity_type: WorkPackage.name)
+          .where(entity_id: visible_shared_work_package_ids)
       end
 
       def visible_for_admins
-        Member.all
+        all
       end
     end
   end

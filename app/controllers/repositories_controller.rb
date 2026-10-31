@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +28,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'SVG/Graph/Bar'
-require 'SVG/Graph/BarHorizontal'
-require 'digest/sha1'
+require "SVG/Graph/Bar"
+require "SVG/Graph/BarHorizontal"
+require "digest/sha1"
 
 class ChangesetNotFound < StandardError
 end
@@ -39,14 +41,15 @@ end
 class RepositoriesController < ApplicationController
   include PaginationHelper
   include RepositoriesHelper
+  include OpTurbo::ComponentStream
 
   menu_item :repository
-  menu_item :settings, only: %i[edit destroy_info]
+  menu_item :settings, only: [:edit]
   default_search_scope :changesets
 
   before_action :find_project_by_project_id
   before_action :authorize
-  before_action :find_repository, except: %i[edit update create destroy destroy_info]
+  before_action :find_repository, except: %i[update create destroy destroy_info]
   accept_key_auth :revisions
 
   rescue_from OpenProject::SCM::Exceptions::SCMError, with: :show_error_command_failed
@@ -63,7 +66,7 @@ class RepositoriesController < ApplicationController
 
     if request.xhr?
       if @entries && @repository.valid?
-        render(partial: 'dir_list_content')
+        render(partial: "dir_list_content")
       else
         render(nothing: true)
       end
@@ -72,7 +75,7 @@ class RepositoriesController < ApplicationController
     else
       @changesets = @repository.latest_changesets(@path, @rev)
       @properties = @repository.properties(@path, @rev)
-      render action: 'show'
+      render action: "show"
     end
   end
 
@@ -80,8 +83,8 @@ class RepositoriesController < ApplicationController
     service = SCM::RepositoryFactoryService.new(@project, params)
     if service.build_and_save
       @repository = service.repository
-      flash[:notice] = I18n.t('repositories.create_successful')
-      flash[:notice] << (' ' + I18n.t('repositories.create_managed_delay')) if @repository.managed?
+      flash[:notice] = I18n.t("repositories.create_successful")
+      flash[:notice] << (" " + I18n.t("repositories.create_managed_delay")) if @repository.managed?
     else
       flash[:error] = service.build_error
     end
@@ -111,23 +114,24 @@ class RepositoriesController < ApplicationController
           h
         end
       flash[:notice] = I18n.t(:notice_successful_update)
-      redirect_to action: 'committers', project_id: @project
+      redirect_to action: "committers", project_id: @project
     end
   end
 
   def destroy_info
     @repository = @project.repository
-    project_settings_repository_path(@project)
+    respond_with_dialog Repositories::DestroyDialogComponent.new(project: @project, repository: @repository)
   end
 
   def destroy
     repository = @project.repository
     if repository.destroy
-      flash[:notice] = I18n.t('repositories.delete_sucessful')
+      flash[:notice] = I18n.t("repositories.delete_sucessful")
     else
       flash[:error] = repository.errors.full_messages
     end
-    redirect_to project_settings_repository_path(@project)
+    redirect_to project_settings_repository_path(@project),
+                status: :see_other
   end
 
   alias_method :browse, :show
@@ -146,7 +150,7 @@ class RepositoriesController < ApplicationController
     @properties = @repository.properties(@path, @rev)
     @changeset  = @repository.find_changeset_by_name(@rev)
 
-    render 'changes', formats: [:html]
+    render "changes", formats: [:html]
   end
 
   def revisions
@@ -203,7 +207,7 @@ class RepositoriesController < ApplicationController
     @annotate  = @repository.scm.annotate(@path, @rev)
     @changeset = @repository.find_changeset_by_name(@rev)
 
-    render 'annotate', formats: [:html]
+    render "annotate", formats: [:html]
   end
 
   def revision
@@ -221,7 +225,7 @@ class RepositoriesController < ApplicationController
   end
 
   def diff
-    if params[:format] == 'diff'
+    if params[:format] == "diff"
       @diff = @repository.diff(@path, @rev, @rev_to)
 
       unless @diff
@@ -230,11 +234,11 @@ class RepositoriesController < ApplicationController
       end
 
       filename = "changeset_r#{@rev}"
-      filename << "_r#{@rev_to}" if @rev_to
+      filename += "_r#{@rev_to}" if @rev_to
       send_data @diff.join,
                 filename: "#{filename}.diff",
-                type: 'text/x-patch',
-                disposition: 'attachment'
+                type: "text/x-patch",
+                disposition: "attachment"
     else
       @diff_type = diff_type_persisted
 
@@ -250,25 +254,23 @@ class RepositoriesController < ApplicationController
       @changeset_to = @rev_to ? @repository.find_changeset_by_name(@rev_to) : nil
       @diff_format_revisions = @repository.diff_format_revisions(@changeset, @changeset_to)
 
-      render 'diff', formats: :html
+      render "diff", formats: :html
     end
   end
 
   def stats
-    # allow object_src self to be able to load dynamic stats SVGs from ./graph
-    override_content_security_policy_directives object_src: %w('self')
+    append_content_security_policy_directives object_src: %w('self') # rubocop:disable Lint/PercentStringArray
 
-    @show_commits_per_author = current_user.allowed_to_in_project?(:view_commit_author_statistics,
-                                                                   @project)
+    @show_commits_per_author = current_user.allowed_in_project?(:view_commit_author_statistics, @project)
   end
 
   def graph
     data = nil
     case params[:graph]
-    when 'commits_per_month'
+    when "commits_per_month"
       data = graph_commits_per_month(@repository)
-    when 'commits_per_author'
-      unless current_user.allowed_to_in_project?(:view_commit_author_statistics, @project)
+    when "commits_per_author"
+      unless current_user.allowed_in_project?(:view_commit_author_statistics, @project)
         return deny_access
       end
 
@@ -276,8 +278,8 @@ class RepositoriesController < ApplicationController
     end
 
     if data
-      headers['Content-Type'] = 'image/svg+xml'
-      send_data(data, type: 'image/svg+xml', disposition: 'inline')
+      headers["Content-Type"] = "image/svg+xml"
+      send_data(data, type: "image/svg+xml", disposition: "inline")
     else
       render_404
     end
@@ -291,7 +293,7 @@ class RepositoriesController < ApplicationController
     @repository.attributes = @repository.class.permitted_params(repo_params)
 
     if @repository.save
-      flash[:notice] = I18n.t('repositories.update_settings_successful')
+      flash[:notice] = I18n.t("repositories.update_settings_successful")
     else
       flash[:error] = @repository.errors.full_messages.join('\n')
     end
@@ -307,7 +309,7 @@ class RepositoriesController < ApplicationController
 
     # Prepare checkout instructions
     # available on all pages (even empty!)
-    @path = params[:repo_path] || ''
+    @path = params[:repo_path] || ""
     @instructions = ::SCM::CheckoutInstructionsService.new(@repository, path: @path)
 
     # Asserts repository availability, or renders an appropriate error
@@ -320,9 +322,7 @@ class RepositoriesController < ApplicationController
       raise InvalidRevisionParam
     end
   rescue OpenProject::SCM::Exceptions::SCMEmpty
-    render 'empty'
-  rescue ActiveRecord::RecordNotFound
-    render_404
+    render "empty"
   rescue InvalidRevisionParam
     show_error_not_found
   end
@@ -340,7 +340,7 @@ class RepositoriesController < ApplicationController
     @date_from = @date_to << 11
     @date_from = Date.civil(@date_from.year, @date_from.month, 1)
     commits_by_day = Changeset.where(
-      ['repository_id = ? AND commit_date BETWEEN ? AND ?', repository.id, @date_from, @date_to]
+      ["repository_id = ? AND commit_date BETWEEN ? AND ?", repository.id, @date_from, @date_to]
     ).group(:commit_date).size
     commits_by_month = [0] * 12
     commits_by_day.each do |c|
@@ -390,10 +390,8 @@ class RepositoriesController < ApplicationController
   end
 
   def graph_commits_per_author(repository)
-    commits_by_author = Changeset.where(['repository_id = ?', repository.id]).group(:committer).size
-    commits_by_author.to_a.sort! do |x, y|
-      x.last <=> y.last
-    end
+    commits_by_author = Changeset.where(["repository_id = ?", repository.id]).group(:committer).size
+    commits_by_author.to_a.sort_by!(&:last)
 
     changes_by_author = Change.includes(:changeset)
                         .where(["#{Changeset.table_name}.repository_id = ?", repository.id])
@@ -409,12 +407,12 @@ class RepositoriesController < ApplicationController
     commits_data = commits_by_author.map(&:last)
     changes_data = commits_by_author.map { |r| h[r.first] || 0 }
 
-    fields = fields + ([''] * (10 - fields.length)) if fields.length < 10
+    fields = fields + ([""] * (10 - fields.length)) if fields.length < 10
     commits_data = commits_data + ([0] * (10 - commits_data.length)) if commits_data.length < 10
     changes_data = changes_data + ([0] * (10 - changes_data.length)) if changes_data.length < 10
 
     # Remove email address in usernames
-    fields = fields.map { |c| c.gsub(%r{<.+@.+>}, '') }
+    fields = fields.map { |c| c.gsub(%r{<.+@.+>}, "") }
 
     graph = SVG::Graph::BarHorizontal.new(
       height: 400,
@@ -443,17 +441,17 @@ class RepositoriesController < ApplicationController
   end
 
   def raw_or_to_large_or_non_text(content, path)
-    params[:format] == 'raw' ||
+    params[:format] == "raw" ||
       (content.size && content.size > Setting.file_max_size_displayed.to_i.kilobyte) ||
       !entry_text_data?(content, path)
   end
 
   def send_raw(content, path)
-    # Force the download
-    send_opt = { filename: filename_for_content_disposition(path.split('/').last) }
-    send_type = OpenProject::MimeType.of(path)
-    send_opt[:type] = send_type.to_s if send_type
-    send_data content, send_opt
+    # Force the download as binary to prevent CSP bypass
+    send_data content,
+              filename: filename_for_content_disposition(path.split("/").last),
+              type: "application/octet-stream",
+              disposition: :attachment
   end
 
   def render_text_entry
@@ -465,14 +463,14 @@ class RepositoriesController < ApplicationController
 
     # Forcing html format here to avoid
     # rails looking for e.g text when .txt is asked for
-    render 'entry', formats: [:html]
+    render "entry", formats: [:html]
   end
 
   def diff_type_persisted
     preferences = current_user.pref
 
     diff_type = params[:type] || preferences.diff_type
-    diff_type = 'inline' unless %w(inline sbs).include?(diff_type)
+    diff_type = "inline" unless %w(inline sbs).include?(diff_type)
 
     # Save diff type as user preference
     if current_user.logged? && diff_type != preferences.diff_type
@@ -488,7 +486,7 @@ class RepositoriesController < ApplicationController
     # It is very strict that file contains less than 30% of ascii symbols
     # in non Western Europe.
     # TODO: need to handle edge cases of non-binary content that isn't UTF-8
-    OpenProject::MimeType.is_type?('text', path) ||
-      ent.dup.force_encoding('UTF-8') == ent.dup.force_encoding('BINARY')
+    OpenProject::MimeType.is_type?("text", path) ||
+      ent.dup.force_encoding("UTF-8") == ent.dup.force_encoding("BINARY")
   end
 end

@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -76,18 +76,12 @@ module Costs
 
     def material_costs
       cost_entries_with_rate = cost_entries.select { |c| c.costs_visible_by?(@user) }
-      cost_entries_with_rate.blank? ? nil : cost_entries_with_rate.map(&:real_costs).sum
+      cost_entries_with_rate.blank? ? nil : cost_entries_with_rate.sum(&:real_costs)
     end
 
     def labor_costs
       time_entries_with_rate = time_entries.select { |c| c.costs_visible_by?(@user) }
-      time_entries_with_rate.blank? ? nil : time_entries_with_rate.map(&:real_costs).sum
-    end
-
-    def user_allowed_to?(*privileges)
-      privileges.inject(false) do |result, privilege|
-        result || @user.allowed_to?(privilege, @work_package.project)
-      end
+      time_entries_with_rate.blank? ? nil : time_entries_with_rate.sum(&:real_costs)
     end
   end
 end

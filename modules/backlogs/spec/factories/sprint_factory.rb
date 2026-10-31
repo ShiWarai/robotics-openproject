@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,9 +30,21 @@
 
 FactoryBot.define do
   factory :sprint do
-    name { 'version' }
-    effective_date { Date.today + 14.days }
-    sharing { 'none' }
-    status { 'open' }
+    sequence(:name) { |n| "Sprint #{n}" }
+    project
+    status { "in_planning" }
+    start_date { Time.zone.today }
+    finish_date { Time.zone.today + 14.days }
+
+    trait :active do
+      status { "active" }
+      started_at { Time.zone.now }
+    end
+
+    trait :completed do
+      status { "completed" }
+      started_at { 1.week.ago }
+      completed_at { Time.zone.now }
+    end
   end
 end

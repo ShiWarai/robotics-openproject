@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,100 +33,216 @@ module JournalChanges
     return @changes if @changes
     return {} if data.nil?
 
-    @changes = (cause.present? ? { cause: [nil, cause] } : {}).with_indifferent_access
+    merged = all_changes.compact.reduce({}.with_indifferent_access, :merge!)
 
-    if predecessor.nil?
-      @changes.merge!(initial_journal_data_changes)
-    else
-      @changes.merge!(subsequent_journal_data_changes)
-    end
+    @changes = suppress_version_change(merged)
+  end
 
-    @changes.merge!(get_association_changes(predecessor, 'attachable', 'attachments', :attachment_id, :filename))
-    @changes.merge!(get_association_changes(predecessor, 'customizable', 'custom_fields', :custom_field_id, :value))
+  def all_changes
+    [
+      get_cause_changes,
+      get_data_changes,
+      get_attachments_changes,
+      get_custom_comments_changes,
+      get_custom_fields_changes,
+      get_project_phases_changes,
+      get_target_versions_changes,
+      get_observed_in_versions_changes,
+      get_file_links_changes,
+      get_participants_changes,
+      get_agenda_items_changes
+    ]
+  end
 
-    @changes
+  def get_cause_changes
+    return if cause.blank?
+
+    { cause: [nil, cause] }
+  end
+
+  def get_data_changes
+    ::Acts::Journalized::Differ::Model.changes(predecessor&.data, data)
+  end
+
+  def get_attachments_changes
+    return unless journable&.attachable?
+
+    ::Acts::Journalized::Differ::Association.new(
+      predecessor,
+      self,
+      association: :attachable_journals,
+      id_attribute: :attachment_id,
+      multiple_values: :joined
+    ).single_attribute_changes(
+      :filename,
+      key_prefix: "attachments"
+    )
+  end
+
+  def get_custom_comments_changes
+    return unless journable.respond_to?(:custom_comments)
+
+    association = ->(journal) { filter_admin_only_custom_fields(journal.custom_comment_journals) }
+
+    ::Acts::Journalized::Differ::Association.new(
+      predecessor,
+      self,
+      association:,
+      id_attribute: :custom_field_id
+    ).single_attribute_changes(
+      :text,
+      key_prefix: "custom_comment"
+    )
+  end
+
+  def get_custom_fields_changes
+    return unless journable&.customizable?
+
+    association = ->(journal) {
+      relation = journal.customizable_journals
+      if journable.is_a?(::Project)
+        relation = relation.with(cf_mappings: journable.project_custom_field_project_mappings)
+                           .joins("INNER JOIN cf_mappings USING (custom_field_id)")
+      end
+      filter_admin_only_custom_fields(relation)
+    }
+
+    ::Acts::Journalized::Differ::Association.new(
+      predecessor,
+      self,
+      association:,
+      id_attribute: :custom_field_id,
+      multiple_values: :joined
+    ).single_attribute_changes(
+      :value,
+      key_prefix: "custom_fields"
+    )
+  end
+
+  def get_project_phases_changes
+    return unless journable.respond_to?(:phases)
+
+    ::Acts::Journalized::Differ::Association.new(
+      predecessor,
+      self,
+      association: :project_phase_journals,
+      id_attribute: :phase_id
+    ).multiple_attributes_changes(
+      %i[active date_range],
+      key_prefix: "project_phase"
+    )
+  end
+
+  # The whole set of target versions is diffed as a single value (the sorted,
+  # comma-joined version ids), matching how the change is rendered: one
+  # "Target versions" line with the old and the new list.
+  def get_target_versions_changes
+    return unless journable.respond_to?(:target_versions)
+
+    old_value = predecessor && joined_target_version_ids(predecessor)
+    new_value = joined_target_version_ids(self)
+    return if old_value == new_value
+
+    { target_versions: [old_value, new_value] }
+  end
+
+  def get_observed_in_versions_changes
+    return unless journable.respond_to?(:observed_in_versions)
+
+    old_value = predecessor && joined_observed_in_version_ids(predecessor)
+    new_value = joined_observed_in_version_ids(self)
+    return if old_value == new_value
+
+    { observed_in_versions: [old_value, new_value] }
+  end
+
+  def get_file_links_changes
+    return unless has_file_links?
+
+    ::Acts::Journalized::FileLinkJournalDiffer.get_changes_to_file_links(
+      predecessor,
+      storable_journals
+    )
+  end
+
+  def get_agenda_items_changes
+    return unless journable.respond_to?(:agenda_items)
+
+    ::Acts::Journalized::Differ::Association.new(
+      predecessor,
+      self,
+      association: :agenda_item_journals,
+      id_attribute: :agenda_item_id,
+      multiple_values: :joined
+    ).multiple_attributes_changes(
+      %i[title duration_in_minutes notes position work_package_id],
+      key_prefix: "agenda_items"
+    )
+  end
+
+  def get_participants_changes
+    return unless journable.respond_to?(:participants)
+
+    baseline = participant_baseline_journal
+    return unless baseline
+
+    previous = participant_names_for(baseline, :invited)
+    current = participant_names_for(self, :invited)
+
+    added = current - previous
+    removed = previous - current
+
+    {
+      participants_added: participant_change_detail(added),
+      participants_removed: participant_change_detail(removed)
+    }.compact
   end
 
   private
 
-  def initial_journal_data_changes
-    data
-     .journaled_attributes
-     .compact
-     .inject({}) do |result, (attribute, new_value)|
-      result[attribute] = [nil, new_value]
-      result
-    end
+  # The version_id column is no longer written, so a diff on it never reflects a real
+  # change. target_versions is the journaled representation, and historical journals
+  # render from it too, since every versioned journal has a backfilled target snapshot.
+  def suppress_version_change(changes)
+    changes.delete("version_id")
+
+    changes
   end
 
-  def subsequent_journal_data_changes
-    ::Acts::Journalized::JournableDiffer.changes(predecessor.data, data)
+  def joined_target_version_ids(journal)
+    journal.target_version_journals.map(&:version_id).sort.join(",").presence
   end
 
-  def get_association_changes(predecessor, journal_association, association, key, value)
-    journal_assoc_name = "#{journal_association}_journals"
-
-    if predecessor.nil?
-      send(journal_assoc_name).each_with_object({}) do |associated_journal, h|
-        changed_attribute = "#{association}_#{associated_journal.send(key)}"
-        new_value = associated_journal.send(value)
-        h[changed_attribute] = [nil, new_value]
-      end
-    else
-      new_journals = send(journal_assoc_name).map(&:attributes)
-      old_journals = predecessor.send(journal_assoc_name).map(&:attributes)
-
-      changes_on_association(new_journals, old_journals, association, key, value)
-    end
+  def joined_observed_in_version_ids(journal)
+    journal.observed_in_version_journals.map(&:version_id).sort.join(",").presence
   end
 
-  def changes_on_association(current, predecessor, association, key, value)
-    merged_journals = merge_reference_journals_by_id(current, predecessor, key.to_s, value.to_s)
+  def participant_baseline_journal
+    journals = journable.journals.to_a
+    current_index = journals.index { |entry| entry.id == id }
+    return unless current_index
 
-    changes = added_references(merged_journals)
-                .merge(removed_references(merged_journals))
-                .merge(changed_references(merged_journals))
-
-    to_changes_format(changes, association.to_s)
+    journals[0...current_index].reverse.find { |entry| entry.participant_journals.any? }
   end
 
-  def added_references(merged_references)
-    merged_references
-      .select { |_, (old_value, new_value)| old_value.nil? && new_value.present? }
+  def participant_names_for(journal, attribute)
+    journal
+      .participant_journals
+      .select { |entry| entry.public_send(attribute) }
+      .filter_map { |entry| entry.user&.name }
+      .sort
   end
 
-  def removed_references(merged_references)
-    merged_references
-      .select { |_, (old_value, new_value)| old_value.present? && new_value.nil? }
+  def participant_change_detail(names)
+    return if names.empty?
+
+    [nil, names.join(", ")]
   end
 
-  def changed_references(merged_references)
-    merged_references
-      .select { |_, (old_value, new_value)| old_value.present? && new_value.present? && old_value.strip != new_value.strip }
-  end
+  def filter_admin_only_custom_fields(relation)
+    return relation if User.current.admin?
+    return relation unless journable.admin_only_custom_fields_allowed?
 
-  def to_changes_format(references, key)
-    references.each_with_object({}) do |(id, (old_value, new_value)), result|
-      result["#{key}_#{id}"] = [old_value, new_value]
-    end
-  end
-
-  def merge_reference_journals_by_id(new_journals, old_journals, id_key, value)
-    all_associated_journal_ids = new_journals.map { |j| j[id_key] } | old_journals.map { |j| j[id_key] }
-
-    all_associated_journal_ids.index_with do |id|
-      [select_and_combine_journals(old_journals, id, id_key, value),
-       select_and_combine_journals(new_journals, id, id_key, value)]
-    end
-  end
-
-  def select_and_combine_journals(journals, id, key, value)
-    selected_journals = journals.select { |j| j[key] == id }.map { |j| j[value] }
-
-    if selected_journals.empty?
-      nil
-    else
-      selected_journals.sort.join(',')
-    end
+    relation.joins(:custom_field).where(custom_fields: { admin_only: false })
   end
 end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,15 +28,15 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Quick-add menu', js: true, with_cuprite: true do
+RSpec.describe "Quick-add menu", :js do
   let(:quick_add) { Components::QuickAddMenu.new }
 
-  context 'as a logged in user with add_project permission' do
-    current_user { create(:user, global_permission: %i[add_project]) }
+  context "as a logged in user with add_project permission" do
+    current_user { create(:user, global_permissions: %i[add_project]) }
 
-    it 'shows the add project option' do
+    it "shows the add project option" do
       visit home_path
 
       quick_add.expect_visible
@@ -43,46 +45,48 @@ RSpec.describe 'Quick-add menu', js: true, with_cuprite: true do
       quick_add.expect_user_invite present: false
       quick_add.expect_no_work_package_types
 
-      quick_add.click_link 'Project'
+      quick_add.click_link "Project"
       expect(page).to have_current_path new_project_path
     end
 
-    context 'with an existing project' do
+    context "with an existing project" do
       let(:project) { create(:project) }
       let(:field) { FormFields::SelectFormField.new :parent }
 
       current_user do
         create(:user,
-               member_in_project: project,
-               member_with_permissions: %i[add_subprojects])
+               member_with_permissions: { project => %i[add_subprojects] })
       end
 
-      it 'moves to a form with parent_id set' do
+      it "moves to a form with parent_id set" do
         visit project_path(project)
 
         quick_add.expect_visible
         quick_add.toggle
         quick_add.expect_add_project
 
-        quick_add.click_link 'Project'
+        quick_add.click_link "Project"
         expect(page).to have_current_path new_project_path(parent_id: project.id)
 
-        field.expect_selected project.name
+        # Step 1: Select workspace type (blank project)
+        click_on "Continue"
+
+        # Step 2: Project details - Parent field is not visible here
+        field.expect_not_visible
       end
     end
   end
 
-  context 'with current user as member with permission :manage_members in one project' do
+  context "with current user as member with permission :manage_members in one project" do
     let!(:project) { create(:project) }
     let(:invite_modal) { Components::Users::InviteUserModal.new project:, role: nil, principal: nil }
 
     current_user do
       create(:user,
-             member_in_project: project,
-             member_with_permissions: %i[manage_members])
+             member_with_permissions: { project => %i[manage_members] })
     end
 
-    it 'shows the user invite screen' do
+    it "shows the user invite screen" do
       visit home_path
 
       quick_add.expect_visible
@@ -91,17 +95,17 @@ RSpec.describe 'Quick-add menu', js: true, with_cuprite: true do
       quick_add.expect_no_work_package_types
       quick_add.expect_user_invite
 
-      quick_add.click_link 'Invite user'
+      quick_add.click_link "Invite user"
       invite_modal.expect_open
     end
   end
 
-  context 'with a project with one of three work package types' do
+  context "with a project with one of three work package types" do
     let!(:type_bug) { create(:type_bug) }
     let!(:other_type) { create(:type_task) }
     let!(:other_project_type) { create(:type) }
-    let!(:add_role) { create(:role, permissions: %i[add_work_packages]) }
-    let!(:read_role) { create(:role, permissions: %i[view_work_packages]) }
+    let!(:add_role) { create(:project_role, permissions: %i[add_work_packages]) }
+    let!(:read_role) { create(:project_role, permissions: %i[view_work_packages]) }
     let!(:project_with_permission) do
       create(:project,
              types: [type_bug],
@@ -120,7 +124,7 @@ RSpec.describe 'Quick-add menu', js: true, with_cuprite: true do
 
     current_user { create(:user) }
 
-    it 'shows only the project types within a project and only those types in projects the user can add work packages in' do
+    it "shows only the project types within a project and only those types in projects the user can add work packages in" do
       visit project_path(project_with_permission)
 
       quick_add.expect_visible
@@ -148,28 +152,48 @@ RSpec.describe 'Quick-add menu', js: true, with_cuprite: true do
       quick_add.expect_work_package_type other_project_type.name
 
       quick_add.click_link other_project_type.name
-      expect(page).to have_current_path new_work_packages_path(type: other_project_type.id)
+      expect(page).to have_current_path new_work_package_path(type: other_project_type.id)
     end
   end
 
-  context 'as a logged in user with no permissions' do
+  context "as a logged in user with no permissions" do
     current_user { create(:user) }
 
-    it 'does not show the quick add menu on the home screen' do
+    it "does not show the quick add menu on the home screen" do
       visit home_path
       quick_add.expect_invisible
     end
   end
 
-  context 'as an anonymous user', with_settings: { login_required: true } do
+  context "as an anonymous user", with_settings: { login_required: true } do
     current_user do
       create(:anonymous_role, permissions: %i[add_work_packages])
       create(:anonymous)
     end
 
-    it 'does not show the quick add menu on the home screen' do
+    it "does not show the quick add menu on the home screen" do
       visit signin_path
       quick_add.expect_invisible
+    end
+  end
+
+  context "with a project that has a variant enabled", with_flag: { type_variants: true } do
+    let!(:root_type) { create(:type, name: "Task") }
+    let!(:variant) { create(:type_variant, type: root_type, variant_name: "Bug") }
+    let!(:add_role) { create(:project_role, permissions: %i[add_work_packages]) }
+    let!(:project) do
+      create(:project, types: [variant], members: { current_user => add_role })
+    end
+
+    current_user { create(:user) }
+
+    it "labels the quick-add entry with the type's name, not the variant's" do
+      visit project_path(project)
+
+      quick_add.expect_visible
+      quick_add.toggle
+      quick_add.expect_work_package_type root_type.name
+      quick_add.expect_work_package_type variant.variant_name, present: false
     end
   end
 end

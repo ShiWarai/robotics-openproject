@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,24 +21,13 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  HostBinding,
-  Input,
-  OnDestroy,
-  OnInit,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
-import { Observable } from 'rxjs';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostBinding, Input, OnDestroy, OnInit, Output, ViewChild, ViewEncapsulation, inject } from '@angular/core';
+import { fromEvent, Observable } from 'rxjs';
 import { filter, map, tap } from 'rxjs/operators';
 
 import { States } from 'core-app/core/states/states.service';
@@ -53,23 +42,31 @@ import { OpUploadService } from 'core-app/core/upload/upload.service';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { IAttachment } from 'core-app/core/state/attachments/attachment.model';
 import isNewResource from 'core-app/features/hal/helpers/is-new-resource';
+import { HttpErrorResponse } from '@angular/common/http';
 
 function containsFiles(dataTransfer:DataTransfer):boolean {
-  return dataTransfer.types.indexOf('Files') >= 0;
+  return dataTransfer.types.includes('Files');
 }
 
-export const attachmentsSelector = 'op-attachments';
-
 @Component({
-  selector: attachmentsSelector,
+  selector: 'op-attachments',
   templateUrl: './attachments.component.html',
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnInit, OnDestroy {
-  @HostBinding('attr.data-qa-selector') public qaSelector = 'op-attachments';
+  elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected readonly I18n = inject(I18nService);
+  protected readonly states = inject(States);
+  protected readonly toastService = inject(ToastService);
+  private readonly uploadService = inject(OpUploadService);
+  protected readonly halResourceService = inject(HalResourceService);
+  protected readonly attachmentsResourceService = inject(AttachmentsResourceService);
+  protected readonly timezoneService = inject(TimezoneService);
+  protected readonly cdRef = inject(ChangeDetectorRef);
 
-  @HostBinding('id.attachments_fields') public hostId = true;
+  @HostBinding('attr.data-test-selector') public testSelector = 'op-attachments';
 
   @HostBinding('class.op-file-section') public className = true;
 
@@ -77,7 +74,17 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
 
   @Input() public allowUploading = true;
 
+  @Input() public allowRemoval = true;
+
   @Input() public destroyImmediately = true;
+
+  @Input() public externalUploadButton:string|null = null;
+
+  @Input() public showTimestamp = true;
+
+  @Output() public attachmentRemoved = new EventEmitter<void>();
+
+  @Output() public attachmentAdded = new EventEmitter<void>();
 
   public attachments$:Observable<IAttachment[]>;
 
@@ -96,7 +103,7 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
   };
 
   private get attachmentsSelfLink():string {
-    const attachments = this.resource.attachments as unknown&{ href:string };
+    const attachments = this.resource.attachments as { href:string };
     return attachments.href;
   }
 
@@ -115,21 +122,17 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
   };
 
   private onGlobalDragEnter:(_event:DragEvent) => void = (_event) => {
-    this.dragging += 1;
+    // When the global drag and drop is active and the dragging happens over the DOM
+    // elements, the dragenter and dragleave events are always fired in pairs.
+    // On dragenter the this.dragging is set to 2 and on dragleave we deduct it to 1,
+    // meaning the drag and drop remains active. When the drag and drop action is canceled
+    // i.e. by the "Escape" key, an extra dragleave event is fired.
+    // In this case this.dragging will be deducted to 0, disabling the active drop areas.
+    this.dragging = 2;
     this.cdRef.detectChanges();
   };
 
-  constructor(
-    public elementRef:ElementRef,
-    protected readonly I18n:I18nService,
-    protected readonly states:States,
-    protected readonly toastService:ToastService,
-    private readonly uploadService:OpUploadService,
-    protected readonly halResourceService:HalResourceService,
-    protected readonly attachmentsResourceService:AttachmentsResourceService,
-    protected readonly timezoneService:TimezoneService,
-    protected readonly cdRef:ChangeDetectorRef,
-  ) {
+  constructor() {
     super();
 
     populateInputsFromDataset(this);
@@ -139,6 +142,14 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
     if (!(this.resource instanceof HalResource)) {
       // Parse the resource if any exists
       this.resource = this.halResourceService.createHalResource(this.resource, true);
+    }
+
+    if (this.externalUploadButton) {
+      fromEvent(document.querySelector(this.externalUploadButton)!, 'click')
+        .pipe(
+          this.untilDestroyed(),
+        )
+        .subscribe(() => this.triggerFileInput());
     }
 
     this.states.forResource(this.resource)!.changes$()
@@ -205,7 +216,6 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
   public onDropFiles(event:DragEvent):void {
     if (event.dataTransfer === null) return;
 
-    // eslint-disable-next-line no-param-reassign
     event.dataTransfer.dropEffect = 'copy';
 
     this.uploadFiles(Array.from(event.dataTransfer.files));
@@ -215,7 +225,6 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
 
   public onDragOver(event:DragEvent):void {
     if (event.dataTransfer !== null && containsFiles(event.dataTransfer)) {
-      // eslint-disable-next-line no-param-reassign
       event.dataTransfer.dropEffect = 'copy';
       this.draggingOverDropZone = true;
     }
@@ -242,7 +251,10 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
     this
       .attachmentsResourceService
       .attachFiles(this.resource, filesWithoutFolders)
-      .subscribe();
+      .subscribe({
+        next: () => { this.attachmentAdded.emit(); },
+        error: (error:HttpErrorResponse) => this.toastService.addError(error),
+      });
   }
 
   /**
@@ -258,8 +270,8 @@ export class OpAttachmentsComponent extends UntilDestroyedMixin implements OnIni
       }
 
       // Files however MAY have no mime type as well
-      // so fall back to checking zero or 4096 bytes
-      if (file.size === 0 || file.size === 4096) {
+      // so fall back to checking zero
+      if (file.size === 0) {
         console.warn(`Skipping file because of file size (${file.size}) %O`, file);
         return false;
       }

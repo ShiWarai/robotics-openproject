@@ -1,9 +1,14 @@
+# frozen_string_literal: true
+
 RSpec.configure do |config|
   config.before do
     # Clear any mail deliveries
     # This happens automatically for :mailer specs
     ActionMailer::Base.delivery_method = :test
     ActionMailer::Base.deliveries.clear
+
+    TokenBucketState.delete_all
+    FactoryBot.create :token_bucket_state, :email_limit_per_day
   end
 
   config.append_after do
@@ -14,8 +19,13 @@ RSpec.configure do |config|
     RequestStore.clear!
   end
 
+  config.append_after(:all) do
+    # Ensure models don't leak between test through RequestStore if it is used in after(:all)
+    RequestStore.clear!
+  end
+
   # We don't want this to be reported on CI as it breaks the build
-  unless ENV['CI']
+  unless ENV["CI"]
     config.append_after(:suite) do
       [User.not_builtin, Project, WorkPackage].each do |cls|
         next if cls.count == 0

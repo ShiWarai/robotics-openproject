@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,31 +28,86 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require_relative './base_contract'
+require_relative "base_contract"
 
 ##
 # Model contract for AR records that
 # support change tracking
 class ModelContract < BaseContract
-  def valid?(*_args)
-    super()
-    readonly_attributes_unchanged
+  # Declares an attribute backed by the `store_attribute` gem (a virtual
+  # accessor for a key inside a JSONB column). store_attribute marks both the
+  # virtual attribute and the underlying column as dirty, which would otherwise
+  # trip the readonly check on the column. This DSL registers the virtual
+  # attribute as writable and, on first use per store column, declares the
+  # column itself as writable iff every dirty key in it is one that has been
+  # registered via `stored_attribute`.
+  def self.stored_attribute(name, store:)
+    store = store.to_sym
+    register_store_column(store) unless stored_keys_per_store.key?(store)
+    stored_keys_per_store[store] << name.to_s
 
-    # Allow subclasses to check only contract errors
-    return errors.empty? unless validate_model?
+    attribute name
+  end
 
-    model.valid?
+  def self.register_store_column(store)
+    contract_class = self
+    attribute store, writable: -> {
+      allowed = contract_class.allowed_stored_keys_for(store)
+      model.public_send(:"#{store}_change")&.none? { |hash| hash.except(*allowed).any? }
+    }
+  end
 
-    # We need to merge the contract errors with the model errors in
-    # order to have them available at one place.
-    # This is something we need as long as we have validations split
-    # among the model and its contract.
-    errors.merge!(model.errors)
+  def self.stored_keys_per_store
+    @stored_keys_per_store ||= Hash.new { |h, k| h[k] = Set.new }
+  end
 
-    errors.empty?
+  def self.allowed_stored_keys_for(store)
+    ancestors
+      .select { |a| a.respond_to?(:stored_keys_per_store, true) }
+      .flat_map { |a| a.stored_keys_per_store.key?(store) ? a.stored_keys_per_store[store].to_a : [] }
+      .uniq
+  end
+
+  # Runs all the specified validations and returns +true+ if no errors were
+  # added otherwise +false+.
+  # Validations on the model as well as on the contract are run.
+  # Since the error object of this contract is the model's error object,
+  # the errors of both contract and model are both added to it.
+  # After validation, the errors can thus be accessed via both means:
+  #
+  #   model = SomeModel.new
+  #   contract = SomeModels::SomeModelContract.new(model, some_user)
+  #   contract.valid? # => false
+  #
+  #   contract.errors == model.errors # => true
+  #
+  # This of course is only true if that contract validates the model and
+  # if the model has an errors object.
+  def valid?(context = nil)
+    model.valid?(context) if validate_model?
+
+    contract_valid?(context, clear_errors: !validate_model?)
   end
 
   protected
+
+  # This method is mostly copied from ActiveModel::Validations#valid?
+  # but:
+  # * does not clear errors before validation unless explicitly instructed to do so.
+  #   Clearing would then be done in the #valid? method by calling model.valid?
+  # * Checks for readonly attributes being changed
+  def contract_valid?(context = nil, clear_errors: false)
+    current_context = validation_context
+    self.validation_context = context
+
+    errors.clear if clear_errors
+
+    readonly_attributes_unchanged
+
+    run_validations!
+  ensure
+    self.validation_context = current_context
+  end
 
   ##
   # Allow subclasses to disable model validation

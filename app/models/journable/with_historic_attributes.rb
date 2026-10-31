@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -118,6 +120,10 @@ class Journable::WithHistoricAttributes < SimpleDelegator
       end
     end
 
+    def load_journal_associations(journalized)
+      Loader.new(journalized).load_journal_associations
+    end
+
     private
 
     def wrap_each_journable(journables, timestamps:, query:, include_only_changed_attributes:)
@@ -132,6 +138,10 @@ class Journable::WithHistoricAttributes < SimpleDelegator
       end
     end
   end
+
+  # The `attributes_by_timestamp` method is not being directly used in the api to render the
+  # attributesByTimestamp object inside the historic work packages.
+  # It serves as a console tool at the moment.
 
   def attributes_by_timestamp
     @attributes_by_timestamp ||= Hash.new do |h, t|
@@ -228,8 +238,74 @@ class Journable::WithHistoricAttributes < SimpleDelegator
 
     return unless historic_journable
 
-    ::Acts::Journalized::JournableDiffer
-      .changes(__getobj__, historic_journable)
+    changes = ::Acts::Journalized::Differ::Model.changes(__getobj__, historic_journable)
+
+    # In the other occurrences of Differ::Association calls, we are using the plural
+    # of the association name (`custom_fields` in this instance), to map the association fields. That
+    # will result in a changes hash containing { "custom_fields_1" => ... }. This makes sense in the case
+    # of journal changes, because the formatted fields have the convention for plural lookup for journals
+    # defined in the `register_journal_formatted_fields(/custom_fields_\d+/, formatter_key: :custom_field)`.
+    # In this case the diff is part of the WorkPackageAtTimestampRepresenter where the `representable_map`
+    # contains the singular names (`custom_field_1`), hence we need to map the diffs to match that format.
+    # As a food for thought, I think it would be more handy to use the singular naming everywhere.
+
+    changes.merge!(
+      ::Acts::Journalized::Differ::Association.new(
+        historic_journable,
+        __getobj__,
+        association: :custom_values,
+        id_attribute: :custom_field_id,
+        multiple_values: :joined
+      ).single_attribute_changes(
+        :value,
+        key_prefix: "custom_field"
+      )
+    )
+
+    merge_target_versions_changes!(changes, historic_journable)
+    merge_observed_in_versions_changes!(changes, historic_journable)
+
+    changes
+  end
+
+  def merge_target_versions_changes!(changes, historic_journable)
+    return unless __getobj__.respond_to?(:target_versions)
+
+    changes.delete("version_id")
+    changes.merge!(target_versions_changes(historic_journable))
+  end
+
+  def target_versions_changes(historic_journable)
+    old_ids = sorted_version_ids(historic_journable, :target_versions)
+    new_ids = sorted_version_ids(__getobj__, :target_versions)
+
+    {}.tap do |changes|
+      changes["version_id"] = [old_ids.first, new_ids.first] if old_ids.first != new_ids.first
+      changes["target_versions"] = [old_ids, new_ids].map { joined_version_ids(it) } if old_ids != new_ids
+    end
+  end
+
+  def merge_observed_in_versions_changes!(changes, historic_journable)
+    return unless __getobj__.respond_to?(:observed_in_versions)
+
+    changes.merge!(observed_in_versions_changes(historic_journable))
+  end
+
+  def observed_in_versions_changes(historic_journable)
+    old_ids = sorted_version_ids(historic_journable, :observed_in_versions)
+    new_ids = sorted_version_ids(__getobj__, :observed_in_versions)
+
+    {}.tap do |changes|
+      changes["observed_in_versions"] = [old_ids, new_ids].map { joined_version_ids(it) } if old_ids != new_ids
+    end
+  end
+
+  def sorted_version_ids(work_package, association)
+    work_package.public_send(association).map(&:id).sort
+  end
+
+  def joined_version_ids(ids)
+    ids.join(",").presence
   end
 
   def changed_attributes_at_timestamp(timestamp)

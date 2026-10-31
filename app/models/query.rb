@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,6 +33,8 @@ class Query < ApplicationRecord
   include Timestamps
   include Highlighting
   include ManualSorting
+  include DeprecatedVersionSelect
+  include DeprecatedVersionFilter
   include Queries::Filters::AvailableFilters
 
   belongs_to :project
@@ -40,14 +44,15 @@ class Query < ApplicationRecord
   has_many :ical_token_query_assignments
   has_many :ical_tokens,
            through: :ical_token_query_assignments,
-           class_name: 'Token::ICal'
+           class_name: "Token::ICal"
+  has_many :export_settings, dependent: :destroy
   # no `dependent: :destroy` as the ical_tokens are destroyed in the following before_destroy callback
   # dependent: :destroy is not possible as this would only delete the ical_token_query_assignments
   before_destroy :destroy_ical_tokens
 
-  serialize :filters, Queries::WorkPackages::FilterSerializer
-  serialize :column_names, Array
-  serialize :sort_criteria, Array
+  serialize :filters, coder: Queries::WorkPackages::FilterSerializer
+  serialize :column_names, type: Array
+  serialize :sort_criteria, type: Array
 
   validates :include_subprojects,
             inclusion: [true, false]
@@ -60,6 +65,7 @@ class Query < ApplicationRecord
   validate :validate_timestamps
 
   include Scopes::Scoped
+
   scopes :visible,
          :having_views
 
@@ -103,7 +109,7 @@ class Query < ApplicationRecord
   def add_default_filter
     return if filters.present?
 
-    add_filter('status_id', 'o', [''])
+    add_filter("status_id", "o", [""])
   end
 
   def validate_work_package_filters
@@ -115,7 +121,7 @@ class Query < ApplicationRecord
   end
 
   def validate_columns
-    available_names = displayable_columns.map(&:name).map(&:to_sym)
+    available_names = displayable_columns.map { |c| c.name.to_sym }
 
     (column_names - available_names).each do |name|
       errors.add :column_names,
@@ -135,7 +141,7 @@ class Query < ApplicationRecord
   end
 
   def validate_group_by
-    unless group_by.blank? || groupable_columns.map(&:name).map(&:to_s).include?(group_by.to_s)
+    unless group_by.blank? || groupable_columns.map { |c| c.name.to_s }.include?(group_by.to_s)
       errors.add :group_by, :invalid, value: group_by
     end
   end
@@ -186,11 +192,11 @@ class Query < ApplicationRecord
     filter.operator = operator
     filter.values = values
 
-    filters << filter
+    filters << filter if filters.none? { it.field.to_s == filter.field.to_s }
   end
 
   def filter_for(field)
-    filter = (filters || []).detect { |f| f.field.to_s == field.to_s } || super(field)
+    filter = (filters || []).detect { |f| f.field.to_s == field.to_s } || super
 
     filter.context = self
 
@@ -205,25 +211,53 @@ class Query < ApplicationRecord
     filters.delete_if { |f| f.field.to_s == name.to_s }
   end
 
+  # Mirrors `Queries::BaseQuery#find_active_filter` so that consumers built
+  # on top of the modern query API (e.g. `Filters::FilterFormComponent`) can ask any
+  # query — including this legacy work-package one — for its active filter
+  # by name. Signature kept identical to BaseQuery's (symbol arg in, filter
+  # or nil out).
+  def find_active_filter(name)
+    filters.detect { |f| f.name == name }
+  end
+
+  # The manual-sort filter is added programmatically when the user drags
+  # work packages to reorder them — it has no operator/value UI of its own
+  # (type `:empty_value`), so it doesn't belong in the picker that
+  # `Filters::FilterFormComponent` builds. Mirrors how
+  # `Queries::Filters::AvailableFilters#available_advanced_filters` already
+  # excludes the inline `name_and_identifier` quick-filter on projects.
+  #
+  # The relation-type filters (blocks, precedes, duplicates, etc.) and the
+  # generic relatable filter are also not supposed to be user selectable filters.
+  def available_advanced_filters
+    super
+      .grep_v(::Queries::WorkPackages::Filter::ManualSortFilter)
+      .grep_v(::Queries::WorkPackages::Filter::FilterOnDirectedRelationsMixin)
+      .grep_v(::Queries::WorkPackages::Filter::FilterOnUndirectedRelationsMixin)
+      .grep_v(::Queries::WorkPackages::Filter::RelatableFilter)
+  end
+
   def normalized_name
     name.parameterize.underscore
   end
 
   def available_columns
     if @available_columns &&
-       (@available_columns_project == (project&.cache_key || 0))
+       (@available_columns_project == (project&.cache_key_with_version || 0))
       return @available_columns
     end
 
-    @available_columns_project = project&.cache_key || 0
+    @available_columns_project = project&.cache_key_with_version || 0
     @available_columns = ::Query.available_columns(project)
   end
 
   def self.available_columns(project = nil)
-    Queries::Register
-      .columns[self]
-      .map { |col| col.instances(project) }
-      .flatten
+    RequestStore.fetch(:"available_columns_#{project&.id}") do
+      Queries::Register
+        .selects[self]
+        .map { |col| col.instances(project) }
+        .flatten
+    end
   end
 
   def self.displayable_columns
@@ -255,11 +289,11 @@ class Query < ApplicationRecord
   # Returns a Hash of sql columns for sorting by column
   def sortable_key_by_column_name
     column_sortability = sortable_columns.inject({}) do |h, column|
-      h[column.name.to_s] = column.sortable
+      h[column.name.to_s] = column.sortable(self)
       h
     end
 
-    { 'id' => "#{WorkPackage.table_name}.id" }
+    { "id" => "#{WorkPackage.table_name}.id" }
       .merge(column_sortability)
   end
 
@@ -269,7 +303,7 @@ class Query < ApplicationRecord
 
   def columns
     column_list = if has_default_columns?
-                    column_list = Setting.work_package_list_default_columns.dup.map(&:to_sym)
+                    column_list = normalize_select_names(Setting.work_package_list_default_columns)
                     # Adds the project column by default for cross-project lists
                     column_list += [:project] if project.nil? && column_list.exclude?(:project)
                     column_list
@@ -278,18 +312,13 @@ class Query < ApplicationRecord
                   end
 
     # preserve the order
-    column_list.map { |name| displayable_columns.find { |col| col.name == name.to_sym } }.compact
+    column_list.filter_map { |name| displayable_columns.find { |col| col.name == name.to_sym } }
   end
 
   def column_names=(names)
     col_names = Array(names)
                 .compact_blank
                 .map(&:to_sym)
-
-    # Set column_names to blank/nil if it is equal to the default columns
-    if col_names.map(&:to_s) == Setting.work_package_list_default_columns
-      col_names.clear
-    end
 
     write_attribute(:column_names, col_names)
   end
@@ -306,14 +335,14 @@ class Query < ApplicationRecord
     if arg.is_a?(Hash)
       arg = arg.keys.sort.map { |k| arg[k] }
     end
-    c = arg.reject { |k, _o| k.to_s.blank? }.slice(0, 3).map { |k, o| [k.to_s, o == 'desc' ? o : 'asc'] }
+    c = arg.reject { |k, _o| k.to_s.blank? }.slice(0, 3).map { |k, o| [k.to_s, o == "desc" ? o : "asc"] }
     write_attribute(:sort_criteria, c)
   end
 
   def sort_criteria
     (read_attribute(:sort_criteria) || []).tap do |criteria|
       criteria.map! do |attr, direction|
-        attr = 'id' if attr == 'parent'
+        attr = "id" if attr == "parent"
         [attr, direction]
       end
     end
@@ -329,10 +358,11 @@ class Query < ApplicationRecord
 
   def sort_criteria_columns
     sort_criteria
-      .map do |attribute, direction|
+      .filter_map do |attribute, direction|
         attribute = attribute.to_sym
+        col = sort_criteria_column(attribute)
 
-        [sort_criteria_column(attribute), direction]
+        [col, direction] if col
       end
   end
 
@@ -359,16 +389,24 @@ class Query < ApplicationRecord
   end
 
   def group_by_statement
-    group_by_column.try(:groupable)
+    group_by_column&.groupable
+  end
+
+  def group_by_select
+    group_by_column&.groupable_select || group_by_statement
+  end
+
+  def group_by_join_statement
+    group_by_column&.groupable_join
   end
 
   def statement
-    return '1=0' unless valid?
+    return "1=0" unless valid?
 
     statement_filters
       .map { |filter| "(#{filter.where})" }
       .compact_blank
-      .join(' AND ')
+      .join(" AND ")
   end
 
   # Returns the result set
@@ -378,14 +416,17 @@ class Query < ApplicationRecord
 
   # Returns the journals
   # Valid options are :order, :offset, :limit
-  def work_package_journals(options = {})
+  # NOTE: Internal comments are NEVER included "FOR NOW". This is a stop gap measure before we
+  #       evaluate whether we want to maintain the journals atom export or not.
+  def work_package_journals(options = {}) # rubocop:disable Metrics/AbcSize
     Journal.includes(:user)
-           .where(journable_type: WorkPackage.to_s)
-           .joins('INNER JOIN work_packages ON work_packages.id = journals.journable_id')
-           .joins('INNER JOIN projects ON work_packages.project_id = projects.id')
-           .joins('INNER JOIN users AS authors ON work_packages.author_id = authors.id')
-           .joins('INNER JOIN types ON work_packages.type_id = types.id')
-           .joins('INNER JOIN statuses ON work_packages.status_id = statuses.id')
+           .where(journable_type: WorkPackage.to_s, restricted: false)
+           .without_meeting_causes
+           .joins("INNER JOIN work_packages ON work_packages.id = journals.journable_id")
+           .joins("INNER JOIN projects ON work_packages.project_id = projects.id")
+           .joins("INNER JOIN users AS authors ON work_packages.author_id = authors.id")
+           .joins("INNER JOIN types ON work_packages.type_id = types.id")
+           .joins("INNER JOIN statuses ON work_packages.status_id = statuses.id")
            .order(options[:order])
            .limit(options[:limit])
            .offset(options[:offset])
@@ -402,11 +443,15 @@ class Query < ApplicationRecord
     subproject_filter.context = self
 
     subproject_filter.operator = if include_subprojects?
-                                   '*'
+                                   "*"
                                  else
-                                   '!*'
+                                   "!*"
                                  end
     subproject_filter
+  end
+
+  def export_settings_for(format)
+    export_settings.where(format:).first_or_initialize
   end
 
   private
@@ -437,8 +482,7 @@ class Query < ApplicationRecord
   end
 
   def allowed_timestamps
-    return timestamps if EnterpriseToken.allows_to?(:baseline_comparison)
-    timestamps.select { |t| t.one_day_ago? || t.to_time >= Date.yesterday }
+    Timestamp.allowed(timestamps)
   end
 
   def valid_filter_subset!
@@ -456,7 +500,9 @@ class Query < ApplicationRecord
   def valid_sort_criteria_subset!
     available_criteria = sortable_columns.map(&:name).map(&:to_s)
 
-    sort_criteria.select! do |criteria|
+    # Assigns rather than mutating: `sort_criteria` no longer hands out the
+    # stored array itself.
+    self.sort_criteria = sort_criteria.select do |criteria|
       available_criteria.include? criteria.first.to_s
     end
   end

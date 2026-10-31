@@ -1,7 +1,12 @@
-#English strings go here
+---
 id:
-  label_calendar_plural: "Kalender"
-  permission_view_calendar: "Lihat kalender"
-  permission_manage_calendars: "Kelola kalender"
-  permission_share_calendars: "Subscribe to iCalendars"
-  project_module_calendar_view: "Kalender"
+  label_calendar: Kalender
+  label_calendar_plural: Kalender
+  label_new_calendar: Kalender baru
+  permission_manage_calendars: Kelola kalender
+  permission_share_calendars: Berlangganan ke iCalendars
+  permission_view_calendar: Lihat kalender
+  plugin_openproject_calendar:
+    description: Menampilkan tampilan kalender.
+    name: Kalender OpenProject
+  project_module_calendar_view: Kalender

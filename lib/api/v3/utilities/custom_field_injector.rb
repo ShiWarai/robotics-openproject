@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +23,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # See COPYRIGHT and LICENSE files for more details.
 #++
@@ -31,37 +33,45 @@ module API
     module Utilities
       class CustomFieldInjector
         TYPE_MAP = {
-          'string' => 'String',
-          'empty' => 'String',
-          'text' => 'Formattable',
-          'int' => 'Integer',
-          'float' => 'Float',
-          'date' => 'Date',
-          'bool' => 'Boolean',
-          'user' => 'User',
-          'version' => 'Version',
-          'list' => 'CustomOption'
+          "string" => "String",
+          "empty" => "String",
+          "text" => "Formattable",
+          "link" => "Link",
+          "int" => "Integer",
+          "float" => "Float",
+          "date" => "Date",
+          "bool" => "Boolean",
+          "user" => "User",
+          "version" => "Version",
+          "list" => "CustomOption",
+          "hierarchy" => "CustomField::Hierarchy::Item",
+          "weighted_item_list" => "CustomField::Hierarchy::Item",
+          "calculated_value" => "CalculatedValue"
         }.freeze
 
-        LINK_FORMATS = %w(list user version).freeze
+        LINK_FORMATS = %w(list user version hierarchy weighted_item_list).freeze
 
         NAMESPACE_MAP = {
-          'user' => ['users', 'groups', 'placeholder_users'],
-          'version' => 'versions',
-          'list' => 'custom_options'
+          "user" => %w[users groups placeholder_users],
+          "version" => "versions",
+          "list" => "custom_options",
+          "hierarchy" => "custom_field_items",
+          "weighted_item_list" => "custom_field_items"
         }.freeze
 
         REPRESENTER_MAP = {
-          'user' => '::API::V3::Principals::PrincipalRepresenterFactory',
-          'version' => '::API::V3::Versions::VersionRepresenter',
-          'list' => '::API::V3::CustomOptions::CustomOptionRepresenter'
+          "user" => "::API::V3::Principals::PrincipalRepresenterFactory",
+          "version" => "::API::V3::Versions::VersionRepresenter",
+          "list" => "::API::V3::CustomOptions::CustomOptionRepresenter",
+          "hierarchy" => "::API::V3::CustomFields::Hierarchy::HierarchyItemRepresenter",
+          "weighted_item_list" => "::API::V3::CustomFields::Hierarchy::HierarchyItemRepresenter"
         }.freeze
 
         class << self
           def create_value_representer(custom_fields, representer)
             new_representer_class_with(representer) do |injector|
               custom_fields.each do |custom_field|
-                injector.inject_value(custom_field)
+                injector.inject_value(custom_field, representer.custom_field_injector_config)
               end
             end
           end
@@ -105,30 +115,40 @@ module API
 
         def inject_schema(custom_field)
           case custom_field.field_format
-          when 'version'
+          when "version"
             inject_version_schema(custom_field)
-          when 'user'
+          when "user"
             inject_user_schema(custom_field)
-          when 'list'
+          when "list"
             inject_list_schema(custom_field)
+          when "hierarchy", "weighted_item_list"
+            inject_hierarchy_schema(custom_field)
           else
             inject_basic_schema(custom_field)
           end
+
+          inject_comment_schema(custom_field)
         end
 
-        def inject_value(custom_field)
+        def inject_value(custom_field, config)
           case custom_field.field_format
           when *LINK_FORMATS
-            inject_link_value(custom_field)
+            inject_link_value(custom_field, config)
           else
-            inject_property_value(custom_field)
+            inject_property_value(custom_field, config)
           end
+
+          inject_comment_value(custom_field, config)
         end
 
         private
 
         def property_name(custom_field)
           custom_field.attribute_name(:camel_case).to_sym
+        end
+
+        def comment_property_name(custom_field)
+          custom_field.comment_attribute_name(:camel_case).to_sym
         end
 
         def inject_version_schema(custom_field)
@@ -169,6 +189,16 @@ module API
           )
         end
 
+        def inject_hierarchy_schema(custom_field)
+          @class.schema_with_allowed_link(
+            property_name(custom_field),
+            type: resource_type(custom_field),
+            name_source: ->(*) { custom_field.name },
+            required: custom_field.is_required,
+            href_callback: ->(*) { api_v3_paths.custom_field_items(custom_field.id) }
+          )
+        end
+
         def inject_basic_schema(custom_field)
           @class.schema property_name(custom_field),
                         type: resource_type(custom_field),
@@ -177,11 +207,23 @@ module API
                         has_default: custom_field.default_value.present?,
                         min_length: cf_min_length(custom_field),
                         max_length: cf_max_length(custom_field),
+                        minimum: custom_field.min_bound,
+                        maximum: custom_field.max_bound,
                         regular_expression: cf_regexp(custom_field),
-                        options: cf_options(custom_field)
+                        options: cf_options(custom_field),
+                        formula: cf_formula(custom_field)
         end
 
-        def inject_link_value(custom_field)
+        def inject_comment_schema(custom_field)
+          return unless custom_field.has_comment?
+
+          @class.schema comment_property_name(custom_field),
+                        type: "String",
+                        name_source: ->(*) { I18n.t(:label_custom_comment, name: custom_field.name) },
+                        required: false
+        end
+
+        def inject_link_value(custom_field, config)
           name = property_name(custom_field)
           expected_namespace = NAMESPACE_MAP[custom_field.field_format]
 
@@ -197,6 +239,8 @@ module API
 
           @class.send(method,
                       property_name(custom_field),
+                      link_cache_if: config[:cache_if],
+                      skip_render: config[:cache_if] ? ->(*) { !instance_exec(&config[:cache_if]) } : nil,
                       link:,
                       setter:,
                       getter:)
@@ -205,13 +249,13 @@ module API
         def link_value_setter_for(custom_field, property, expected_namespace)
           ->(fragment:, represented:, **) {
             values = Array([fragment].flatten).flat_map do |link|
-              href = link['href']
+              href = link["href"]
               value =
                 if href
                   ::API::Utilities::ResourceLinkParser.parse_id(
                     href,
                     property:,
-                    expected_version: '3',
+                    expected_version: "3",
                     expected_namespace:
                   )
                 end
@@ -227,10 +271,11 @@ module API
           representer_class = derive_representer_class(custom_field)
 
           proc do
-            # Do not embed list or multi values as their links contain all the
+            # Do not embed list, hierarchies or multi values as their links contain all the
             # information needed (title and href) already.
             next if represented.available_custom_fields.exclude?(custom_field) ||
                     custom_field.list? ||
+                    custom_field.hierarchical_list? ||
                     custom_field.multi_value?
 
             value = represented.send custom_field.attribute_getter
@@ -242,11 +287,29 @@ module API
           end
         end
 
-        def inject_property_value(custom_field)
+        def inject_property_value(custom_field, config)
           @class.property custom_field.attribute_name.to_sym,
-                          as: property_name(custom_field),
                           getter: property_value_getter_for(custom_field),
                           setter: property_value_setter_for(custom_field),
+                          cache_if: config[:cache_if],
+                          render_nil: true
+
+          if custom_field.calculated_value?
+            @class.property :"#{custom_field.attribute_name}_errors",
+                            if: ->(*) { available_custom_fields.include?(custom_field) },
+                            getter: calculated_value_error_getter(custom_field),
+                            cache_if: config[:cache_if]
+          end
+        end
+
+        def inject_comment_value(custom_field, config)
+          return unless custom_field.has_comment?
+
+          @class.property custom_field.comment_attribute_name.to_sym,
+                          if: ->(*) { available_custom_fields.include?(custom_field) },
+                          getter: ->(*) { custom_comment_for(custom_field)&.text },
+                          setter: ->(fragment:, **) { self.custom_comments = { custom_field.id => fragment } },
+                          cache_if: config[:cache_if],
                           render_nil: true
         end
 
@@ -256,7 +319,7 @@ module API
 
             value = send(custom_field.attribute_getter)
 
-            if custom_field.field_format == 'text'
+            if custom_field.field_format == "text"
               ::API::Decorators::Formattable.new(value, object: self)
             else
               value
@@ -266,12 +329,22 @@ module API
 
         def property_value_setter_for(custom_field)
           ->(fragment:, **) {
-            value = if fragment && custom_field.field_format == 'text'
-                      fragment['raw']
+            value = if fragment && custom_field.field_format == "text"
+                      fragment["raw"]
                     else
                       fragment
                     end
             send(custom_field.attribute_setter, value)
+          }
+        end
+
+        def calculated_value_error_getter(custom_field)
+          ->(*) {
+            errors = calculated_value_errors.where(custom_field:)
+            errors.map do |err|
+              { code: err.error_code,
+                message: CalculatedValues::ErrorsHelper.calculated_value_error_msg(err) }
+            end
           }
         end
 
@@ -299,6 +372,12 @@ module API
 
         def cf_regexp(custom_field)
           custom_field.regexp.presence
+        end
+
+        def cf_formula(custom_field)
+          if custom_field.field_format_calculated_value?
+            custom_field.formula_string
+          end
         end
 
         def cf_options(custom_field)
@@ -337,9 +416,9 @@ module API
 
         def allowed_users_static_filters
           [
-            { status: { operator: '!',
+            { status: { operator: "!",
                         values: [Principal.statuses[:locked].to_s] } },
-            { type: { operator: '=',
+            { type: { operator: "=",
                       values: %w[User Group PlaceholderUser] } }
           ]
         end
@@ -353,9 +432,9 @@ module API
             end
 
           if project_id_value.present?
-            [{ member: { operator: '=', values: [project_id_value.to_s] } }]
+            [{ member: { operator: "=", values: [project_id_value.to_s] } }]
           else
-            [{ member: { operator: '*', values: [] } }]
+            [{ member: { operator: "*", values: [] } }]
           end
         end
 
@@ -381,7 +460,7 @@ module API
             custom_fields = if current_user.admin?
                               represented.available_custom_fields
                             else
-                              represented.available_custom_fields.select(&:visible?)
+                              represented.available_custom_fields.reject(&:admin_only?)
                             end
 
             custom_field_class(custom_fields)
@@ -395,13 +474,14 @@ module API
           def custom_field_class(custom_fields)
             custom_field_sha = OpenProject::Cache::CacheKey.expand(custom_fields.sort_by(&:id))
 
-            cached_custom_field_classes[custom_field_sha] ||= begin
-              injector_class = custom_field_injector_config[:injector_class]
+            cached_custom_field_classes[custom_field_sha] ||=
+              begin
+                injector_class = custom_field_injector_config[:injector_class]
 
-              method_name = :"create_#{custom_field_injector_config[:type]}"
+                method_name = :"create_#{custom_field_injector_config[:type]}"
 
-              injector_class.send(method_name, custom_fields, self)
-            end
+                injector_class.send(method_name, custom_fields, self)
+              end
           end
 
           def cached_custom_field_classes

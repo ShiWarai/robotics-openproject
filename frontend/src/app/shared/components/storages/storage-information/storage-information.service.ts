@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,12 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -37,28 +37,31 @@ import { StorageInformationBox } from 'core-app/shared/components/storages/stora
 import { CurrentUserService } from 'core-app/core/current-user/current-user.service';
 import { storageLocaleString } from 'core-app/shared/components/storages/functions/storages.functions';
 import {
-  fileLinkViewError,
+  fileLinkStatusError,
   storageAuthorizationError,
   storageConnected,
+  storageNotConnected,
   storageFailedAuthorization,
 } from 'core-app/shared/components/storages/storages-constants.const';
 
 @Injectable()
 export class StorageInformationService {
+  private readonly i18n = inject(I18nService);
+  private readonly currentUserService = inject(CurrentUserService);
+
   private text = {
     fileLinkErrorHeader: this.i18n.t('js.storages.information.live_data_error'),
     fileLinkErrorContent: (storageType:string):string => this.i18n.t('js.storages.information.live_data_error_description', { storageType }),
+    authenticationErrorHeader: (storageType:string):string => this.i18n.t('js.storages.authentication_error', { storageType }),
+    authenticationErrorContent: (storageType:string):string => this.i18n.t('js.storages.information.authentication_error', { storageType }),
     connectionErrorHeader: (storageType:string):string => this.i18n.t('js.storages.no_connection', { storageType }),
     connectionErrorContent: (storageType:string):string => this.i18n.t('js.storages.information.connection_error', { storageType }),
-    authorizationFailureHeader: (storageType:string):string => this.i18n.t('js.storages.login_to', { storageType }),
-    authorizationFailureContent: (storageType:string):string => this.i18n.t('js.storages.information.not_logged_in', { storageType }),
+    notConnectedHeader: (storageType:string):string => this.i18n.t('js.storages.login_to', { storageType }),
+    notConnectedContent: (storageType:string):string => this.i18n.t('js.storages.information.not_logged_in', { storageType }),
     loginButton: (storageType:string):string => this.i18n.t('js.storages.login', { storageType }),
+    suggestLogout: this.i18n.t('js.storages.information.suggest_logout'),
+    suggestRelink: this.i18n.t('js.storages.information.suggest_relink'),
   };
-
-  constructor(
-    private readonly i18n:I18nService,
-    private readonly currentUserService:CurrentUserService,
-  ) {}
 
   public storageInformation(storage:IStorage, fileLinks:IFileLink[]):Observable<StorageInformationBox[]> {
     return this.currentUserService.isLoggedIn$
@@ -73,6 +76,8 @@ export class StorageInformationService {
           switch (storage._links.authorizationState.href) {
             case storageFailedAuthorization:
               return [this.failedAuthorizationInformation(storage, storageType)];
+            case storageNotConnected:
+              return [this.notConnectedInformation(storage, storageType)];
             case storageAuthorizationError:
               return [this.authorizationErrorInformation(storageType)];
             case storageConnected:
@@ -87,16 +92,32 @@ export class StorageInformationService {
       );
   }
 
-  private failedAuthorizationInformation(storage:IStorage, storageType:string):StorageInformationBox {
+  private notConnectedInformation(storage:IStorage, storageType:string):StorageInformationBox {
     if (!storage._links.authorize) {
-      throw new Error('Authorize link is missing!');
+      // user should authenticate through SSO, but is not yet linked, that's an error
+      return this.failedAuthorizationInformation(storage, storageType);
     }
 
     return new StorageInformationBox(
       'import',
-      this.text.authorizationFailureHeader(storageType),
-      this.text.authorizationFailureContent(storageType),
+      this.text.notConnectedHeader(storageType),
+      this.text.notConnectedContent(storageType),
       {
+        storageId: storage.id,
+        storageType: storage._links.type.href,
+        authorizationLink: storage._links.authorize,
+      },
+    );
+  }
+
+  private failedAuthorizationInformation(storage:IStorage, storageType:string):StorageInformationBox {
+    const suggestion = storage._links.authorize ? this.text.suggestRelink : this.text.suggestLogout;
+    return new StorageInformationBox(
+      'error',
+      this.text.authenticationErrorHeader(storageType),
+      `${this.text.authenticationErrorContent(storageType)} ${suggestion}`,
+      storage._links.authorize && {
+        storageId: storage.id,
         storageType: storage._links.type.href,
         authorizationLink: storage._links.authorize,
       },
@@ -120,6 +141,6 @@ export class StorageInformationService {
   }
 
   private hasFileLinkViewErrors(fileLinks:IFileLink[]):boolean {
-    return fileLinks.filter((fileLink) => fileLink._links.permission?.href === fileLinkViewError).length > 0;
+    return fileLinks.filter((fileLink) => fileLink._links.status?.href === fileLinkStatusError).length > 0;
   }
 }

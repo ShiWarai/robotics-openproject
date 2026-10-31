@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe WorkPackage::Ancestors do
   let(:user) { create(:user) }
@@ -60,12 +62,12 @@ RSpec.describe WorkPackage::Ancestors do
   end
 
   let(:view_role) do
-    build(:role,
+    build(:project_role,
           permissions: [:view_work_packages])
   end
 
   let(:none_role) do
-    build(:role,
+    build(:project_role,
           permissions: [])
   end
 
@@ -79,7 +81,7 @@ RSpec.describe WorkPackage::Ancestors do
     login_as(user)
   end
 
-  context 'with permission in the first project' do
+  context "with permission in the first project" do
     before do
       create(:member,
              user:,
@@ -87,16 +89,16 @@ RSpec.describe WorkPackage::Ancestors do
              roles: [view_role])
     end
 
-    describe 'fetching from db' do
-      it 'returns the same results' do
+    describe "fetching from db" do
+      it "returns the same results" do
         expect(leaf.visible_ancestors(user)).to eq([root_work_package, intermediate])
       end
     end
 
-    describe 'leaf ids' do
+    describe "leaf ids" do
       let(:ids) { leaf_ids }
 
-      it 'returns ancestors for the leaf in project 1' do
+      it "returns ancestors for the leaf in project 1" do
         expect(subject).to be_a(Hash)
         expect(subject.keys.length).to eq(2)
 
@@ -105,10 +107,10 @@ RSpec.describe WorkPackage::Ancestors do
       end
     end
 
-    describe 'intermediate ids' do
+    describe "intermediate ids" do
       let(:ids) { intermediate_ids }
 
-      it 'returns all ancestors in project 1' do
+      it "returns all ancestors in project 1" do
         expect(subject).to be_a(Hash)
         expect(subject.keys.length).to eq(2)
 
@@ -117,7 +119,7 @@ RSpec.describe WorkPackage::Ancestors do
       end
     end
 
-    context 'and permission in second project' do
+    context "and permission in second project" do
       before do
         create(:member,
                user:,
@@ -125,10 +127,10 @@ RSpec.describe WorkPackage::Ancestors do
                roles: [view_role])
       end
 
-      describe 'leaf ids' do
+      describe "leaf ids" do
         let(:ids) { leaf_ids }
 
-        it 'returns all ancestors' do
+        it "returns all ancestors" do
           expect(subject).to be_a(Hash)
           expect(subject.keys.length).to eq(2)
 
@@ -139,7 +141,7 @@ RSpec.describe WorkPackage::Ancestors do
     end
   end
 
-  context 'no permissions' do
+  context "no permissions" do
     before do
       create(:member,
              user:,
@@ -147,10 +149,10 @@ RSpec.describe WorkPackage::Ancestors do
              roles: [none_role])
     end
 
-    describe 'leaf ids' do
+    describe "leaf ids" do
       let(:ids) { leaf_ids }
 
-      it 'returns no results for all ids' do
+      it "returns no results for all ids" do
         expect(subject).to be_a(Hash)
         expect(subject.keys.length).to eq(0)
       end

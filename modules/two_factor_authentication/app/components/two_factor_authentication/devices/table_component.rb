@@ -1,11 +1,18 @@
+# frozen_string_literal: true
+
 module ::TwoFactorAuthentication
   module Devices
-    class TableComponent < ::TableComponent
+    class TableComponent < ::OpPrimer::BorderBoxTableComponent
       options :admin_table
-      columns :device_type, :default, :confirmed
+      columns :device_type, :default, :active
+      mobile_labels :default, :active
 
-      def initial_sort
-        %i[login asc]
+      def mobile_title
+        I18n.t("two_factor_authentication.label_devices")
+      end
+
+      def has_actions?
+        true
       end
 
       def self_table?
@@ -18,23 +25,9 @@ module ::TwoFactorAuthentication
 
       def target_controller
         if self_table?
-          'two_factor_authentication/my/two_factor_devices'
+          "two_factor_authentication/my/two_factor_devices"
         else
-          'two_factor_authentication/users/two_factor_devices'
-        end
-      end
-
-      def sortable?
-        false
-      end
-
-      def inline_create_link
-        if self_table?
-          link_to({ controller: target_controller, action: :new },
-                  class: 'budget-add-row wp-inline-create--add-link',
-                  title: I18n.t('two_factor_authentication.devices.add_new')) do
-            helpers.op_icon('icon icon-add')
-          end
+          "two_factor_authentication/users/two_factor_devices"
         end
       end
 
@@ -44,19 +37,19 @@ module ::TwoFactorAuthentication
         ::OpenProject::TwoFactorAuthentication::TokenStrategyManager
       end
 
-      def empty_row_message
+      def blank_title
         if admin_table?
-          I18n.t 'two_factor_authentication.admin.no_devices_for_user'
+          I18n.t "two_factor_authentication.admin.no_devices_for_user"
         else
-          I18n.t 'two_factor_authentication.devices.not_existing'
+          I18n.t "two_factor_authentication.devices.not_existing"
         end
       end
 
       def headers
         [
-          ['device_type', { caption: I18n.t('two_factor_authentication.label_device_type') }],
-          ['default', { caption: I18n.t(:label_default) }],
-          ['confirmed', { caption: I18n.t(:label_confirmed) }]
+          [:device_type, { caption: I18n.t("two_factor_authentication.label_device_type") }],
+          [:default, { caption: I18n.t(:label_default) }],
+          [:active, { caption: I18n.t(:label_active) }]
         ]
       end
     end

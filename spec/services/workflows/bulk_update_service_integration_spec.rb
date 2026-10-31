@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,14 +28,14 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe Workflows::BulkUpdateService, 'integration', type: :model do
-  let(:type) do
-    create(:type)
+RSpec.describe Workflows::BulkUpdateService, "integration", type: :model do
+  let(:variant) do
+    create(:type).default_variant
   end
   let(:role) do
-    create(:role)
+    create(:project_role)
   end
   let(:status1) do
     create(:status)
@@ -52,93 +54,116 @@ RSpec.describe Workflows::BulkUpdateService, 'integration', type: :model do
   end
 
   let(:instance) do
-    described_class.new(role:, type:)
+    described_class.new(role:, variant:, tab:)
   end
 
-  describe '#call' do
+  describe "#call" do
     let(:params) { {} }
-    let(:subject) do
+
+    subject do
       instance.call(params)
     end
 
-    context 'with status transitions for everybody' do
+    context "with status transitions for everybody" do
+      let(:tab) { "always" }
       let(:params) do
         {
-          status4.id => { status5.id => ['always'] },
-          status3.id => { status1.id => ['always'], status2.id => ['always'] }
+          status4.id => { status5.id => ["always"] },
+          status3.id => { status1.id => ["always"], status2.id => ["always"] }
         }
       end
 
-      it 'sets the workflows' do
+      it "sets the workflows" do
         subject
 
-        expect(Workflow.where(type_id: type.id, role_id: role.id).count)
+        expect(Workflow.where(type_variant_id: variant.id, role_id: role.id).count)
           .to be 3
 
-        refute_nil Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status2.id).first
-        assert_nil Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status5.id, new_status_id: status4.id).first
+        expect(Workflow.where(role_id: role.id,
+                              type_variant_id: variant.id,
+                              old_status_id: status3.id,
+                              new_status_id: status2.id).first).not_to be_nil
+        expect(Workflow.where(role_id: role.id,
+                              type_variant_id: variant.id,
+                              old_status_id: status5.id,
+                              new_status_id: status4.id).first).to be_nil
       end
     end
 
-    context 'with additional transitions' do
+    context "with additional author transitions" do
+      let(:tab) { "author" }
       let(:params) do
         {
-          status4.id => { status5.id => ['always'] },
-          status3.id => { status1.id => ['author'], status2.id => ['assignee'], status4.id => %w(author assignee) }
+          status3.id => { status1.id => ["author"] }
         }
       end
 
-      it 'sets the workflows' do
+      it "sets the workflows" do
         subject
 
-        expect(Workflow.where(type_id: type.id, role_id: role.id).count)
-          .to be 4
+        expect(Workflow.where(type_variant_id: variant.id, role_id: role.id).count)
+          .to be 1
 
-        w = Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status4.id, new_status_id: status5.id).first
-        assert !w.author
-        assert !w.assignee
-        w = Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status1.id).first
+        w = Workflow.where(role_id: role.id, type_variant_id: variant.id, old_status_id: status3.id,
+                           new_status_id: status1.id).first
         assert w.author
         assert !w.assignee
-        w = Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status2.id).first
+      end
+    end
+
+    context "with additional assignee transitions" do
+      let(:tab) { "assignee" }
+      let(:params) do
+        {
+          status3.id => { status2.id => ["assignee"] }
+        }
+      end
+
+      it "sets the workflows" do
+        subject
+
+        expect(Workflow.where(type_variant_id: variant.id, role_id: role.id).count)
+          .to be 1
+
+        w = Workflow.where(role_id: role.id, type_variant_id: variant.id, old_status_id: status3.id,
+                           new_status_id: status2.id).first
         assert !w.author
-        assert w.assignee
-        w = Workflow.where(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status4.id).first
-        assert w.author
         assert w.assignee
       end
     end
 
-    context 'without transitions' do
+    context "without transitions" do
+      let(:tab) { "always" }
       let(:params) do
         {}
       end
 
       before do
-        Workflow.create!(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status2.id)
+        Workflow.create!(role_id: role.id, type_variant_id: variant.id, old_status_id: status3.id, new_status_id: status2.id)
       end
 
-      it 'clears all workflows' do
+      it "clears all workflows" do
         subject
 
-        expect(Workflow.where(type_id: type.id, role_id: role.id).count)
+        expect(Workflow.where(type_variant_id: variant.id, role_id: role.id).count)
           .to be 0
       end
     end
 
-    context 'with no params' do
+    context "with no params" do
+      let(:tab) { "always" }
       let(:params) do
         nil
       end
 
       before do
-        Workflow.create!(role_id: role.id, type_id: type.id, old_status_id: status3.id, new_status_id: status2.id)
+        Workflow.create!(role_id: role.id, type_variant_id: variant.id, old_status_id: status3.id, new_status_id: status2.id)
       end
 
-      it 'clears all workflows' do
+      it "clears all workflows" do
         subject
 
-        expect(Workflow.where(type_id: type.id, role_id: role.id).count)
+        expect(Workflow.where(type_variant_id: variant.id, role_id: role.id).count)
           .to be 0
       end
     end

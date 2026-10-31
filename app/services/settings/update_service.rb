@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,21 +30,58 @@
 
 class Settings::UpdateService < BaseServices::BaseContracted
   def initialize(user:)
-    super user:,
-          contract_class: Settings::UpdateContract
+    super(user:,
+          contract_class: Settings::UpdateContract)
+  end
+
+  def validate_params
+    contract = Settings::UpdateParamsContract.new(model, user, params:)
+    ServiceResult.new success: contract.valid?,
+                      errors: contract.errors,
+                      result: model
   end
 
   def persist(call)
     params.each do |name, value|
       set_setting_value(name, value)
+    rescue Setting::NotWritableError
+      i18n_name = I18n.t("setting_#{name}", default: name)
+      call.success = false
+      call.errors.add(:base, I18n.t("settings.errors.failed_to_update",
+                                    message: I18n.t("settings.errors.not_writable"),
+                                    name: i18n_name))
     end
+
     call
   end
 
   private
 
   def set_setting_value(name, value)
-    Setting[name] = derive_value(value)
+    old_value = Setting[name]
+    new_value = derive_value(value)
+    Setting[name] = new_value
+
+    if name == :work_package_done_ratio
+      trigger_update_job_for_progress_mode_change(old_value, new_value)
+    elsif name == :total_percent_complete_mode
+      trigger_update_job_for_total_percent_complete_mode_change(old_value, new_value)
+    end
+  end
+
+  def trigger_update_job_for_progress_mode_change(old_value, new_value)
+    return if old_value == new_value
+    return if new_value != "status" # only trigger if changing to status-based
+
+    WorkPackages::Progress::ApplyStatusesChangeJob.perform_later(cause_type: "progress_mode_changed_to_status_based")
+  end
+
+  def trigger_update_job_for_total_percent_complete_mode_change(old_value, new_value)
+    return if old_value == new_value
+
+    WorkPackages::Progress::ApplyTotalPercentCompleteModeChangeJob
+      .perform_later(mode: new_value,
+                     cause_type: "total_percent_complete_mode_changed_to_#{new_value}")
   end
 
   def derive_value(value)

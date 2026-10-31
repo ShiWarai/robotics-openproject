@@ -1,130 +1,70 @@
-/*
- * -- copyright
- * OpenProject is an open source project management software.
- * Copyright (C) 2023 the OpenProject GmbH
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version 3.
- *
- * OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
- * Copyright (C) 2006-2013 Jean-Philippe Lang
- * Copyright (C) 2010-2013 the ChiliProject Team
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * See COPYRIGHT and LICENSE files for more details.
- * ++
- */
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
 
 import { Controller } from '@hotwired/stimulus';
+import dragula, { Drake } from 'dragula';
+import type { OpenProjectPluginContext } from 'core-app/features/plugins/plugin-context';
+import { useAngularServices } from 'core-stimulus/mixins/use-angular-services';
 
 export default class CustomFieldsController extends Controller {
   static targets = [
     'dragContainer',
-    'format',
-    'length',
-    'regexp',
-    'multiSelect',
-    'possibleValues',
-    'defaultValue',
-    'defaultText',
-    'defaultLongText',
-    'defaultBool',
-    'textOrientation',
-    'searchable',
-    'customOptionRow',
+
     'customOptionDefaults',
+    'customOptionRow',
   ];
 
   static values = {
-    format: String,
+    multiSelect: Boolean,
   };
 
-  declare readonly formatValue:string;
+  declare readonly multiSelectValue:boolean;
+
   declare readonly dragContainerTarget:HTMLElement;
   declare readonly hasDragContainerTarget:boolean;
 
-  // Lots of the option fields are optionally, so we use the
-  // array notation to loop through instead of a lot of if (has...Target) calls
-  declare readonly lengthTargets:HTMLElement[];
-  declare readonly regexpTargets:HTMLElement[];
-  declare readonly multiSelectTargets:HTMLElement[];
-  declare readonly possibleValuesTargets:HTMLElement[];
-  declare readonly defaultValueTargets:HTMLElement[];
-  declare readonly defaultTextTargets:HTMLElement[];
-  declare readonly defaultLongTextTargets:HTMLElement[];
-  declare readonly defaultBoolTargets:HTMLElement[];
-  declare readonly textOrientationTargets:HTMLElement[];
-  declare readonly searchableTargets:HTMLInputElement[];
-  declare readonly customOptionRowTargets:HTMLTableRowElement[];
   declare readonly customOptionDefaultsTargets:HTMLInputElement[];
+  declare readonly customOptionRowTargets:HTMLTableRowElement[];
+
+  declare pluginContext:Promise<OpenProjectPluginContext>;
+
+  initialize() {
+    useAngularServices(this);
+  }
 
   connect() {
     if (this.hasDragContainerTarget) {
       this.setupDragAndDrop();
     }
-
-    this.toggleFormat(this.formatValue);
   }
 
-  activate(elements:HTMLElement[], active = true) {
-    this.toggleVisibility(!active, elements);
-    elements.forEach((element) => {
-      element
-        .querySelectorAll<HTMLInputElement>('input,textarea')
-        .forEach((input) => {
-          if (!input.matches('.destroy_flag,.-cf-ignore-disabled')) {
-            input.disabled = !active;
-          }
-        });
-    });
-  }
-
-  toggleVisibility(hidden:boolean, elements:HTMLElement[]) {
-    elements
-      .forEach((field) => {
-        const wrapper = field.closest<HTMLElement>('.form--grouping') || field.closest<HTMLElement>('.form--field');
-        if (wrapper) {
-          wrapper.hidden = hidden;
-        } else {
-          field.hidden = hidden;
-        }
-      });
-  }
-
-  hide(...elements:HTMLElement[]) {
-    this.toggleVisibility(true, elements);
-  }
-
-  show(...elements:HTMLElement[]) {
-    this.toggleVisibility(false, elements);
-  }
-
-  unsearchable() {
-    this.hide(...this.searchableTargets);
-    this
-      .searchableTargets
-      .forEach((target) => (target.checked = false));
-  }
-
-  formatChanged(event:{ target:HTMLInputElement }) {
-    this.toggleFormat(event.target.value);
-  }
-
-  moveUpRow(event:{ target:HTMLElement }) {
-    const row = event.target.closest('tr') as HTMLTableRowElement;
+  moveRowUp(event:{ target:HTMLElement }) {
+    const row = event.target.closest('tr')!;
     const idx = this.customOptionRowTargets.indexOf(row);
     if (idx > 0) {
       this.customOptionRowTargets[idx - 1].before(row);
@@ -133,8 +73,8 @@ export default class CustomFieldsController extends Controller {
     return false;
   }
 
-  moveDownRow(event:{ target:HTMLElement }) {
-    const row = event.target.closest('tr') as HTMLTableRowElement;
+  moveRowDown(event:{ target:HTMLElement }) {
+    const row = event.target.closest('tr')!;
     const idx = this.customOptionRowTargets.indexOf(row);
     if (idx < this.customOptionRowTargets.length - 1) {
       this.customOptionRowTargets[idx + 1].after(row);
@@ -144,7 +84,7 @@ export default class CustomFieldsController extends Controller {
   }
 
   moveRowToTheTop(event:{ target:HTMLElement }) {
-    const row = event.target.closest('tr') as HTMLTableRowElement;
+    const row = event.target.closest('tr')!;
     const first = this.customOptionRowTargets[0];
 
     if (first && first !== row) {
@@ -155,7 +95,7 @@ export default class CustomFieldsController extends Controller {
   }
 
   moveRowToTheBottom(event:{ target:HTMLElement }) {
-    const row = event.target.closest('tr') as HTMLTableRowElement;
+    const row = event.target.closest('tr')!;
     const last = this.customOptionRowTargets[this.customOptionRowTargets.length - 1];
 
     if (last && last !== row) {
@@ -183,9 +123,12 @@ export default class CustomFieldsController extends Controller {
   addOption() {
     const count = this.customOptionRowTargets.length;
     const last = this.customOptionRowTargets[count - 1];
+    if (!last) { return false; }
+
     const dup = last.cloneNode(true) as HTMLElement;
 
-    const input = dup.querySelector('.custom-option-value input') as HTMLInputElement;
+    const input = dup.querySelector<HTMLInputElement>('.custom-option-value input');
+    if (!input) { return false; }
 
     input.setAttribute('name', `custom_field[custom_options_attributes][${count}][value]`);
     input.setAttribute('id', `custom_field_custom_options_attributes_${count}_value`);
@@ -195,8 +138,9 @@ export default class CustomFieldsController extends Controller {
       .querySelector('.custom-option-id')
       ?.remove();
 
-    const defaultValueCheckbox = dup.querySelector('input[type="checkbox"]') as HTMLInputElement;
-    const defaultValueHidden = dup.querySelector('input[type="hidden"]') as HTMLInputElement;
+    const defaultValueCheckbox = dup.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    const defaultValueHidden = dup.querySelector<HTMLInputElement>('input[type="hidden"]');
+    if (!defaultValueCheckbox || !defaultValueHidden) { return false; }
 
     defaultValueHidden.setAttribute('name', `custom_field[custom_options_attributes][${count}][default_value]`);
     defaultValueHidden.removeAttribute('id');
@@ -212,30 +156,14 @@ export default class CustomFieldsController extends Controller {
   uncheckOtherDefaults(event:{ target:HTMLElement }) {
     const cb = event.target as HTMLInputElement;
 
-    if (cb.checked) {
-      const multi = this.multiSelectTargets[0] as HTMLInputElement|undefined;
-
-      if (multi?.checked === false) {
-        this.customOptionDefaultsTargets.forEach((el) => (el.checked = false));
-        cb.checked = true;
-      }
-    }
-  }
-
-  checkOnlyOne(event:{ target:HTMLElement }) {
-    const cb = event.target as HTMLInputElement;
-
-    if (!cb.checked) {
-      this.customOptionDefaultsTargets
-        .filter((el) => el.checked)
-        .slice(1)
-        .forEach((el) => (el.checked = false));
+    if (cb.checked && !this.multiSelectValue) {
+      this.customOptionDefaultsTargets.forEach((el) => (el.checked = false));
+      cb.checked = true;
     }
   }
 
   private setupDragAndDrop() {
     // Make custom fields draggable
-    // eslint-disable-next-line no-undef
     const drake = dragula([this.dragContainerTarget], {
       isContainer: () => false,
       moves: (el, source, handle:HTMLElement) => handle.classList.contains('dragula-handle'),
@@ -250,83 +178,22 @@ export default class CustomFieldsController extends Controller {
       ignoreInputTextSelection: true,
     });
 
-    // Setup autoscroll
-    void window.OpenProject.getPluginContext().then((pluginContext) => {
-      // eslint-disable-next-line no-new
-      new pluginContext.classes.DomAutoscrollService(
-        [
-          document.getElementById('content-wrapper') as HTMLElement,
-        ],
-        {
-          margin: 25,
-          maxSpeed: 10,
-          scrollWhenOutside: true,
-          autoScroll: () => drake.dragging,
-        },
-      );
-    });
+    void this.setupAutoscroll(drake);
   }
 
-  private toggleFormat(format:string) {
-    // defaults (reset these fields before doing anything else)
-    this.activate(this.defaultBoolTargets, false);
-    this.activate(this.defaultLongTextTargets, false);
-    this.activate(this.multiSelectTargets, false);
-    this.activate(this.textOrientationTargets, false);
-    this.activate(this.defaultValueTargets);
-    this.activate(this.defaultTextTargets);
+  private async setupAutoscroll(drake:Drake) {
+    const { classes } = await this.pluginContext;
 
-    switch (format) {
-      case 'list':
-        this.activate(this.defaultValueTargets, false);
-        this.hide(...this.lengthTargets, ...this.regexpTargets, ...this.defaultValueTargets);
-        this.show(...this.searchableTargets, ...this.multiSelectTargets);
-        this.activate(this.multiSelectTargets);
-        this.activate(this.possibleValuesTargets);
-        break;
-      case 'bool':
-        this.activate(this.defaultBoolTargets);
-        this.activate(this.defaultTextTargets, false);
-        this.activate(this.possibleValuesTargets, false);
-        this.hide(...this.lengthTargets, ...this.regexpTargets, ...this.searchableTargets);
-        this.unsearchable();
-        break;
-      case 'date':
-        this.activate(this.defaultValueTargets, false);
-        this.activate(this.possibleValuesTargets, false);
-        this.hide(...this.lengthTargets, ...this.regexpTargets, ...this.defaultValueTargets);
-        this.unsearchable();
-        break;
-      case 'float':
-      case 'int':
-        this.activate(this.possibleValuesTargets, false);
-        this.show(...this.lengthTargets, ...this.regexpTargets);
-        this.unsearchable();
-        break;
-      case 'user':
-        this.activate(this.possibleValuesTargets, false);
-        this.show(...this.multiSelectTargets);
-        this.activate(this.multiSelectTargets);
-        this.hide(...this.lengthTargets, ...this.regexpTargets, ...this.defaultValueTargets);
-        this.unsearchable();
-        break;
-      case 'version':
-        this.activate(this.defaultValueTargets, false);
-        this.activate(this.possibleValuesTargets, false);
-        this.hide(...this.lengthTargets, ...this.regexpTargets, ...this.defaultValueTargets);
-        this.unsearchable();
-        break;
-      case 'text':
-        this.activate(this.defaultLongTextTargets);
-        this.activate(this.defaultTextTargets, false);
-        this.show(...this.lengthTargets, ...this.regexpTargets, ...this.searchableTargets, ...this.textOrientationTargets);
-        this.activate(this.possibleValuesTargets, false);
-        this.activate(this.textOrientationTargets);
-        break;
-      default:
-        this.show(...this.lengthTargets, ...this.regexpTargets, ...this.searchableTargets);
-        this.activate(this.possibleValuesTargets, false);
-        break;
-    }
+    new classes.DomAutoscrollService(
+      [
+        document.getElementById('content-body')!,
+      ],
+      {
+        margin: 25,
+        maxSpeed: 10,
+        scrollWhenOutside: true,
+        autoScroll: () => drake.dragging,
+      },
+    );
   }
 }

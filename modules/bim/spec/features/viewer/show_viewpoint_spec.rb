@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +26,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require_relative '../../spec_helper'
+require_relative "../../spec_helper"
 
-RSpec.describe 'Show viewpoint in model viewer',
-               js: true, with_config: { edition: 'bim' } do
+RSpec.describe "Show viewpoint in model viewer", :js, with_config: { edition: "bim" } do
   let(:project) do
     create(:project,
            enabled_module_names: %i[bim work_package_tracking],
@@ -40,11 +39,11 @@ RSpec.describe 'Show viewpoint in model viewer',
 
   let!(:work_package) { create(:work_package, project:) }
   let!(:bcf) { create(:bcf_issue, work_package:) }
-  let!(:viewpoint) { create(:bcf_viewpoint, issue: bcf, viewpoint_name: 'minimal_hidden_except_one') }
+  let!(:viewpoint) { create(:bcf_viewpoint, issue: bcf, viewpoint_name: "minimal_hidden_except_one") }
 
   let!(:model) do
     create(:ifc_model_minimal_converted,
-           title: 'minimal',
+           title: "minimal",
            project:,
            uploader: user)
   end
@@ -54,16 +53,16 @@ RSpec.describe 'Show viewpoint in model viewer',
   let(:card_view) { Pages::WorkPackageCards.new(project) }
   let(:bcf_details) { Pages::BcfDetailsPage.new(work_package, project) }
 
-  shared_examples 'has the minimal viewpoint shown' do
-    it 'loads the minimal viewpoint in the viewer' do
-      model_tree.select_sidebar_tab 'Objects'
+  shared_examples "has the minimal viewpoint shown" do
+    it "loads the minimal viewpoint in the viewer" do
+      model_tree.select_sidebar_tab "Objects"
       model_tree.expand_tree
       model_tree.expand_tree
       model_tree.expand_tree
       retry_block do
-        model_tree.expect_checked 'minimal'
+        model_tree.expect_checked "minimal"
         model_tree.all_checkboxes.each do |label, checkbox|
-          expect_checked = ['minimal', 'IfcSite', '0hOGUplITAJP95dJaHmSyV', '4OG'].include?(label.text)
+          expect_checked = ["minimal", "IfcSite", "0hOGUplITAJP95dJaHmSyV", "4OG"].include?(label.text)
           if expect_checked != checkbox.checked?
             raise "Expected #{label.text} to be #{expect_checked ? 'checked' : 'unchecked'}, but wasn't."
           end
@@ -79,7 +78,7 @@ RSpec.describe 'Show viewpoint in model viewer',
     card_view.expect_work_package_listed(work_package)
   end
 
-  context 'clicking on the card' do
+  context "clicking on the card" do
     before do
       # We need to wait a bit for xeokit to be initialized
       # otherwise the viewpoint selection won't go through
@@ -89,10 +88,10 @@ RSpec.describe 'Show viewpoint in model viewer',
       card_view.expect_work_package_selected(work_package, true)
     end
 
-    it_behaves_like 'has the minimal viewpoint shown'
+    it_behaves_like "has the minimal viewpoint shown"
   end
 
-  context 'when in details view' do
+  context "when in details view" do
     before do
       card_view.click_info_icon(work_package)
       bcf_details.expect_viewpoint_count(1)
@@ -103,14 +102,14 @@ RSpec.describe 'Show viewpoint in model viewer',
       bcf_details.show_current_viewpoint
     end
 
-    it_behaves_like 'has the minimal viewpoint shown'
+    it_behaves_like "has the minimal viewpoint shown"
   end
 
-  context 'when in work packages details view' do
+  context "when in work packages details view" do
     let(:wp_details) { Pages::SplitWorkPackage.new(work_package, project) }
 
     shared_examples "moves to the BCF page" do
-      it 'moves to the bcf page' do
+      it "moves to the bcf page" do
         wp_details.visit!
         bcf_details.expect_viewpoint_count(1)
         bcf_details.show_current_viewpoint
@@ -123,7 +122,7 @@ RSpec.describe 'Show viewpoint in model viewer',
     end
 
     context "current project is the work package's project" do
-      it_behaves_like 'moves to the BCF page'
+      it_behaves_like "moves to the BCF page"
     end
 
     context "current project is a parent of the work package's project" do
@@ -133,19 +132,18 @@ RSpec.describe 'Show viewpoint in model viewer',
       it_behaves_like "moves to the BCF page"
     end
 
-    context 'when user does not have view_linked_issues permission' do
+    context "when user does not have view_linked_issues permission" do
       let(:permissions) { %i[view_ifc_models view_work_packages] }
 
       let(:user) do
         create(:user,
-               member_in_project: project,
-               member_with_permissions: permissions)
+               member_with_permissions: { project => permissions })
       end
 
-      it 'does not show the viewpoint' do
+      it "does not show the viewpoint" do
         wp_details.visit!
         bcf_details.expect_viewpoint_count(0)
-        expect(page).not_to have_selector('h3.attributes-group--header-text', text: 'BCF')
+        expect(page).to have_no_css("h3.attributes-group--header-text", text: "BCF")
       end
     end
   end

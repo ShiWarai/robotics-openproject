@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,12 +26,14 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
+RSpec.describe AttachmentWebhookJob, :webmock, type: :job do
+  include_context "with ssrf stubs"
+
   shared_let(:user) { create(:admin) }
   shared_let(:request_url) { "http://example.net/test/42" }
-  shared_let(:project) { create(:project, name: 'Foo Bar') }
+  shared_let(:project) { create(:project, name: "Foo Bar") }
   shared_let(:container) { create(:work_package, project:) }
   shared_let(:attachment) { create(:attachment, container:) }
   shared_let(:webhook) { create(:webhook, all_projects: true, url: request_url, secret: nil) }
@@ -40,7 +42,7 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
   let(:stubbed_url) { request_url }
 
   let(:request_headers) do
-    { content_type: "application/json", accept: "application/json" }
+    { "Content-Type": "application/json", Accept: "application/json" }
   end
 
   let(:response_code) { 200 }
@@ -50,16 +52,16 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
   end
 
   let(:stub) do
-    stub_request(:post, stubbed_url.sub("http://", ""))
+    stub_request(:post, stubbed_url)
       .with(
         body: hash_including(
           "action" => event,
           "attachment" => hash_including(
             "_type" => "Attachment",
-            'id' => attachment.id
+            "id" => attachment.id
           )
         ),
-        headers: request_headers
+        headers: request_headers.merge(host: "example.net")
       )
       .to_return(
         status: response_code,
@@ -82,7 +84,7 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
   end
 
   describe "attachment webhook call" do
-    it 'requests with all projects' do
+    it "requests with all projects" do
       allow(webhook)
         .to receive(:enabled_for_project?).with(project.id)
                                           .and_call_original
@@ -91,7 +93,7 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
       expect(stub).to have_been_requested
     end
 
-    it 'does not request when project does not match unless create case' do
+    it "does not request when project does not match unless create case" do
       allow(webhook)
         .to receive(:enabled_for_project?).with(project.id)
                                           .and_return(false)
@@ -100,10 +102,10 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
       expect(stub).not_to have_been_requested
     end
 
-    context 'with uncontainered' do
+    context "with uncontainered" do
       shared_let(:attachment) { create(:attachment, container: nil) }
 
-      it 'does requests even if project nil' do
+      it "does requests even if project nil" do
         allow(webhook)
           .to receive(:enabled_for_project?).with(project.id)
                                             .and_return(false)
@@ -113,7 +115,7 @@ RSpec.describe AttachmentWebhookJob, type: :job, webmock: true do
       end
     end
 
-    describe 'successful flow' do
+    describe "successful flow" do
       before do
         subject
       end

@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +28,7 @@
 
 # = OpenProject configuration file
 #
-# Each environment has it's own configuration options.  If you are only
+# Each environment has its own configuration options.  If you are only
 # running in production, only the production block needs to be configured.
 # Environment specific configuration options override the default ones.
 #
@@ -221,10 +221,8 @@ default:
   # Configuration of the autologin cookie.
   # autologin_cookie_name: the name of the cookie (default: autologin)
   # autologin_cookie_path: the cookie path (default: /)
-  # autologin_cookie_secure: true sets the cookie secure flag (default: false)
   # autologin_cookie_name:
   # autologin_cookie_path:
-  # autologin_cookie_secure:
 
   # Configuration of the session cookie
   # session_cookie_name: the name of the OpenProject cookie (default: _open_project_session)
@@ -369,7 +367,7 @@ default:
   # omniauth provider if additional ones are configured.
   # omniauth_direct_login_provider: developer
   #
-  # disable_password_login: true
+  # password_login: none
 
   # If enabled a user's password cannot be set to an arbitrary value.
   # The respective form elements will be removed from the user edit view.
@@ -385,18 +383,8 @@ default:
   #     user: admin
   #     password: admin
 
-  # Overriding LDAP TLS configuration
-  # You can set other TLS options for the LDAP auth source connection
-  # They are passed as the `tls_options` to the Net::LDAP gem
-  # see the following resources for more information
-  # https://github.com/ruby-ldap/ruby-net-ldap/blob/master/lib/net/ldap.rb
-  # https://ruby.github.io/openssl/OpenSSL/SSL/SSLContext.html
-  # For example, to specify a CA file
-  # ldap_tls_options:
-  #   ca_file: "/path/to/the/root-ca.crt"
-
   # By default, the APIv3 allows authentication through basic auth.
-  # Uncomment the following line to restrict APIv3 access to session.
+  # Uncomment the following line to prevent APIv3 access using Basic auth.
   # apiv3_enable_basic_auth: false
 
   # You can configure where users should be sent after the login

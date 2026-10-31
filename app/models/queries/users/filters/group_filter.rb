@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,4 +30,20 @@
 
 class Queries::Users::Filters::GroupFilter < Queries::Users::Filters::UserFilter
   include Queries::Filters::Shared::GroupFilter
+
+  def human_name
+    I18n.t(:label_group)
+  end
+
+  def autocomplete_options
+    {
+      component: "opce-user-autocompleter",
+      resource: "principals",
+      url: ::API::V3::Utilities::PathHelper::ApiV3Path.principals,
+      filters: [{ name: "type", operator: "=", values: %w[Group] }],
+      searchKey: "any_name_attribute",
+      inputValue: values,
+      bindValue: "id"
+    }
+  end
 end

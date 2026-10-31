@@ -8,7 +8,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,8 +27,8 @@
 # See docs/COPYRIGHT.rdoc for more details.
 #++
 
-require 'roar/decorator'
-require 'roar/json/hal'
+require "roar/decorator"
+require "roar/json/hal"
 
 module API
   module V3
@@ -38,7 +38,7 @@ module API
         include API::Decorators::DateProperty
 
         self_link id_attribute: :id,
-                  title_getter: ->(*) { nil }
+                  title_getter: ->(*) {}
 
         property :gitlab_html_url, as: :htmlUrl
         property :gitlab_user_avatar_url, as: :userAvatarUrl
@@ -46,12 +46,14 @@ module API
         property :status
         property :details_url
         property :ci_details
+        property :username
+        property :commit_id, as: :commitId
 
         date_time_property :started_at
         date_time_property :completed_at
 
         def _type
-          'GitlabPipeline'
+          "GitlabPipeline"
         end
       end
     end

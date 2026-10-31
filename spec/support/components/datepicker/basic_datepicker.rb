@@ -1,4 +1,6 @@
-require_relative 'datepicker'
+# frozen_string_literal: true
+
+require_relative "datepicker"
 
 module Components
   class BasicDatepicker < Datepicker
@@ -16,11 +18,16 @@ module Components
       end
 
       date = Date.parse(date) unless date.is_a?(Date)
-      datepicker.set_date(date.strftime('%Y-%m-%d'))
+      datepicker.set_date(date.strftime("%Y-%m-%d"))
     end
 
     def flatpickr_container
       container.find(".flatpickr-calendar")
+    end
+
+    def open(trigger)
+      input = page.find(trigger)
+      input.click
     end
   end
 end

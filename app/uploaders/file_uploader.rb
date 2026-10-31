@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -49,6 +51,18 @@ module FileUploader
     file.to_file
   end
 
+  ##
+  # Streams this file's content into +output+ in chunks. Storage backends that don't already
+  # expose a local path (e.g. remote/S3 storage) should override this to stream directly from
+  # the remote source instead of first caching the whole file locally.
+  #
+  # @param output [IO] Stream to copy the file to
+  def stream_to(output)
+    File.open(local_file.path, "rb") do |file|
+      IO.copy_stream file, output
+    end
+  end
+
   def download_url(_options = {})
     file.is_path? ? file.path : file.url
   end
@@ -93,7 +107,7 @@ module FileUploader
 
   module ClassMethods
     def cache_dir
-      @cache_dir ||= File.join(Dir.tmpdir, 'op_uploaded_files')
+      @cache_dir ||= File.join(Dir.tmpdir, "op_uploaded_files")
     end
   end
 end

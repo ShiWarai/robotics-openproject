@@ -1,13 +1,15 @@
-require_relative './edit_field'
+# frozen_string_literal: true
+
+require_relative "edit_field"
 
 class WorkPackageStatusField < EditField
   def initialize(context)
     @context = context
-    @selector = "[data-qa-selector='op-wp-status-button']"
+    @selector = "[data-test-selector='op-wp-status-button']"
   end
 
   def input_selector
-    '#wp-status-context-menu'
+    "#wp-status-context-menu"
   end
 
   def input_element
@@ -37,7 +39,7 @@ class WorkPackageStatusField < EditField
   end
 
   def set_value(content)
-    input_element.find('button', text: content).click
+    input_element.find("button", text: content).click
   end
 
   def active?
@@ -51,6 +53,6 @@ class WorkPackageStatusField < EditField
   end
 
   def expect_inactive!
-    expect(page).not_to have_selector(input_selector)
+    expect(page).to have_no_selector(input_selector)
   end
 end

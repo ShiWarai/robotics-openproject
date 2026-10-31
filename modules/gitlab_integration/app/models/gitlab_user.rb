@@ -1,4 +1,4 @@
-#-- encoding: UTF-8
+# frozen_string_literal: true
 
 #-- copyright
 # OpenProject is an open source project management software.
@@ -10,7 +10,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,9 +32,10 @@
 class GitlabUser < ApplicationRecord
   has_many :gitlab_merge_requests
 
-  validates_presence_of :gitlab_id,
-                        :gitlab_name,
-                        :gitlab_username,
-                        :gitlab_email,
-                        :gitlab_avatar_url
+  validates :gitlab_id,
+            :gitlab_name,
+            :gitlab_username,
+            :gitlab_email,
+            :gitlab_avatar_url,
+            presence: true
 end

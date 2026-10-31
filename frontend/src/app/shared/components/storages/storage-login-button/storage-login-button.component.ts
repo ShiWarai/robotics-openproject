@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,18 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  Input,
-  OnInit,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, inject } from '@angular/core';
 import { CookieService } from 'ngx-cookie-service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,23 +35,23 @@ import { IStorageLoginInput } from 'core-app/shared/components/storages/storage-
 import { storageLocaleString } from 'core-app/shared/components/storages/functions/storages.functions';
 import { populateInputsFromDataset } from 'core-app/shared/components/dataset-inputs';
 
-export const opStorageLoginButtonSelector = 'op-storage-login-button';
 
 @Component({
-  selector: opStorageLoginButtonSelector,
+  selector: 'op-storage-login-button',
   templateUrl: 'storage-login-button.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class StorageLoginButtonComponent implements OnInit {
+  elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly i18n = inject(I18nService);
+  private readonly cookieService = inject(CookieService);
+
   @Input() input:IStorageLoginInput;
 
   label:string;
 
-  constructor(
-    public elementRef:ElementRef,
-    private readonly i18n:I18nService,
-    private readonly cookieService:CookieService,
-  ) {
+  constructor() {
     populateInputsFromDataset(this);
   }
 
@@ -73,9 +67,14 @@ export class StorageLoginButtonComponent implements OnInit {
   }
 
   private setAuthorizationCallbackCookie(nonce:string):void {
-    this.cookieService.set(`oauth_state_${nonce}`, window.location.href, {
-      path: '/',
-    });
+    this.cookieService.set(
+      `oauth_state_${nonce}`,
+      JSON.stringify({ href: window.location.href, integrationId: this.input.storageId }),
+      {
+        path: '/',
+        expires: 1/24, // roughly 1 hour
+      },
+    );
   }
 
   private static authorizationFailureActionUrl(baseUrl:string, nonce:string):string {

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -33,13 +35,16 @@ module Groups
     def initialize(group, current_user:, contract_class: AdminOnlyContract)
       self.model = group
 
-      super user: current_user,
-            contract_class:
+      super(user: current_user,
+            contract_class:)
     end
 
     private
 
     def persist(call)
+      validate_department_membership(call)
+      return call unless call.success?
+
       sql_query = ::OpenProject::SqlSanitization
                     .sanitize add_to_group,
                               group_id: model.id,
@@ -49,15 +54,44 @@ module Groups
       call
     end
 
+    # The same validation exists in Groups::BaseContract, but it relies on in-memory
+    # group_users that are new_record?. This service inserts group_users via raw SQL,
+    # so the contract never sees them. We duplicate the check here against the params directly.
+    def validate_department_membership(call)
+      return unless model.organizational_unit?
+
+      conflicts = users_already_in_departments(params[:ids])
+
+      conflicts.each do |user_id, department_id|
+        call.errors.add(:group_users, :user_already_in_department, user_id:, department_id:)
+      end
+
+      call.success = false if conflicts.any?
+    end
+
+    def users_already_in_departments(user_ids)
+      GroupUser
+        .joins(:group)
+        .merge(Group.organizational_units)
+        .where(user_id: user_ids)
+        .where.not(group_id: model.id)
+        .pluck(:user_id, :group_id)
+    end
+
     def after_perform(call)
-      Groups::CreateInheritedRolesService
-        .new(model, current_user: user, contract_class:)
-        .call(
-          user_ids: params[:ids],
-          message: params[:message]
-        )
+      create_inherited_roles(model)
+
+      model.ancestors.each do |ancestor|
+        create_inherited_roles(ancestor)
+      end
 
       call
+    end
+
+    def create_inherited_roles(group)
+      Groups::CreateInheritedRolesService
+        .new(group, current_user: user, contract_class:)
+        .call(user_ids: params[:ids], message: params[:message])
     end
 
     def add_to_group

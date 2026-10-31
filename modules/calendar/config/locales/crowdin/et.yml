@@ -1,7 +1,12 @@
-#English strings go here
+---
 et:
-  label_calendar_plural: "Calendars"
-  permission_view_calendar: "View calendars"
-  permission_manage_calendars: "Manage calendars"
-  permission_share_calendars: "Subscribe to iCalendars"
-  project_module_calendar_view: "Calendars"
+  label_calendar: Kalender
+  label_calendar_plural: Kalendrid
+  label_new_calendar: Uus Kalender
+  permission_manage_calendars: Halda kalendreid
+  permission_share_calendars: Telli iCal
+  permission_view_calendar: Vaata kalendrit
+  plugin_openproject_calendar:
+    description: Provides calendar views.
+    name: OpenProject Calendar
+  project_module_calendar_view: Kalendrid

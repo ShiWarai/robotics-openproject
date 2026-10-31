@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,6 +32,7 @@ module API::V3::ProjectStorages
   class ProjectStorageRepresenter < ::API::Decorators::Single
     include API::Decorators::DateProperty
     include API::Decorators::LinkedResource
+    include API::V3::Workspaces::LinkedResource
 
     defaults render_nil: true
 
@@ -46,8 +49,20 @@ module API::V3::ProjectStorages
       { href: api_v3_paths.storage_file(represented.storage.id, represented.project_folder_id) }
     end
 
+    link :open do
+      next unless show_open_storage_links
+
+      { href: api_v3_paths.project_storage_open(represented.id) }
+    end
+
+    link :openWithConnectionEnsured do
+      next unless show_open_storage_links
+
+      { href: api_v3_paths.project_storage_open(represented.id) }
+    end
+
     associated_resource :storage, skip_render: ->(*) { true }, skip_link: ->(*) { false }
-    associated_resource :project, skip_render: ->(*) { true }, skip_link: ->(*) { false }
+    associated_project  skip_render: ->(*) { true }
     associated_resource :creator,
                         v3_path: :user,
                         representer: ::API::V3::Users::UserRepresenter,
@@ -55,7 +70,17 @@ module API::V3::ProjectStorages
                         skip_link: ->(*) { false }
 
     def _type
-      'ProjectStorage'
+      "ProjectStorage"
+    end
+
+    private
+
+    def show_open_storage_links
+      if represented.project_folder_automatic?
+        return current_user.allowed_in_project?(:read_files, represented.project)
+      end
+
+      true
     end
   end
 end

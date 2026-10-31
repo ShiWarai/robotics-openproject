@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,7 +36,7 @@ class QueryPolicy < BasePolicy
       hash[cached_query] = {
         show: viewable?(cached_query),
         update: persisted_and_own_or_public?(cached_query),
-        destroy: persisted_and_own_or_public?(cached_query),
+        destroy: destroy_allowed?(cached_query),
         create: create_allowed?(cached_query),
         create_new: create_new_allowed?(cached_query),
         publicize: publicize_allowed?(cached_query),
@@ -90,42 +92,43 @@ class QueryPolicy < BasePolicy
   end
 
   def view_work_packages_allowed?(query)
-    @view_work_packages_cache ||= Hash.new do |hash, project|
-      hash[project] = user.allowed_to?(:view_work_packages, project, global: project.nil?)
+    if query.project
+      user.allowed_in_any_work_package?(:view_work_packages, in_project: query.project)
+    else
+      user.allowed_in_any_work_package?(:view_work_packages)
     end
-
-    @view_work_packages_cache[query.project]
   end
 
   def edit_work_packages_allowed?(query)
-    @edit_work_packages_cache ||= Hash.new do |hash, project|
-      hash[project] = user.allowed_to?(:edit_work_packages, project, global: project.nil?)
-    end
-
-    @edit_work_packages_cache[query.project]
+    user.allowed_in_any_work_package?(:edit_work_packages, in_project: query.project)
   end
 
   def save_queries_allowed?(query)
-    @save_queries_cache ||= Hash.new do |hash, project|
-      hash[project] = user.allowed_to?(:save_queries, project, global: project.nil?)
+    if query.project
+      user.allowed_in_project?(:save_queries, query.project)
+    else
+      user.allowed_in_any_project?(:save_queries)
     end
-
-    @save_queries_cache[query.project]
   end
 
   def manage_public_queries_allowed?(query)
-    @manage_public_queries_cache ||= Hash.new do |hash, project|
-      hash[project] = user.allowed_to?(:manage_public_queries, project, global: project.nil?)
+    if query.project
+      user.allowed_in_project?(:manage_public_queries, query.project)
+    else
+      user.allowed_in_any_project?(:manage_public_queries)
     end
-
-    @manage_public_queries_cache[query.project]
   end
 
   def share_via_ical_allowed?(query)
-    @share_via_ical_cache ||= Hash.new do |hash, project|
-      hash[project] = user.allowed_to?(:share_calendars, project, global: project.nil?)
+    if query.project
+      user.allowed_in_project?(:share_calendars, query.project)
+    else
+      user.allowed_in_any_project?(:share_calendars)
     end
+  end
 
-    @share_via_ical_cache[query.project]
+  def destroy_allowed?(query)
+    (query.persisted? && !query.project && query.user == user && user.logged?) ||
+       persisted_and_own_or_public?(query)
   end
 end

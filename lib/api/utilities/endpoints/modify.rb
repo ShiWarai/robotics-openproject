@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,15 +33,15 @@ module API
     module Endpoints
       class Modify < Bodied
         def default_instance_generator(model)
-          ->(_params, _current_user) do
-            instance_variable_get("@#{model.name.demodulize.underscore}")
+          lambda do |_params, _current_user|
+            instance_variable_get(:"@#{model.name.demodulize.underscore}")
           end
         end
 
         private
 
         def present_success(_request, _call)
-          raise NotImplementedError
+          raise SubclassResponsibilityError
         end
 
         def present_error(call)
@@ -79,11 +81,12 @@ module API
             key,
             dependent_class: result.model_name.human,
             related_id: result.id,
-            # TODO: Make it more robust, as not every model has a 'name' attribute (e.g. fall back to collection index?)
-            related_subject: result.name,
+            related_subject: dependent_error_subject(result),
             error: full_message
           )
         end
+
+        def dependent_error_subject(dependent_result) = dependent_result.name
 
         def deduce_process_service
           lookup_namespaced_class("#{update_or_create}Service")

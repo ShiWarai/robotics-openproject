@@ -1,6 +1,7 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,7 +28,10 @@
 #++
 
 module Queries::Meetings
-  class MeetingQuery < ::Queries::BaseQuery
+  class MeetingQuery
+    include ::Queries::BaseQuery
+    include ::Queries::UnpersistedQuery
+
     def self.model
       Meeting
     end
@@ -38,7 +42,11 @@ module Queries::Meetings
     end
 
     def default_scope
-      Meeting.visible(user)
+      Meeting
+        .not_templated
+        .not_cancelled
+        .visible(user)
+        .unscope(:order) # remove default scope order
     end
   end
 end

@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,19 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectorRef,
-  Directive,
-  ElementRef,
-  Inject,
-  OnDestroy,
-  OnInit,
-} from '@angular/core';
+import { Directive, OnDestroy, OnInit, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   BehaviorSubject,
@@ -46,9 +39,7 @@ import { catchError, map } from 'rxjs/operators';
 
 import { IStorage } from 'core-app/core/state/storages/storage.model';
 import { IStorageFile } from 'core-app/core/state/storage-files/storage-file.model';
-import { OpModalLocalsMap } from 'core-app/shared/components/modal/modal.types';
 import { OpModalComponent } from 'core-app/shared/components/modal/modal.component';
-import { OpModalLocalsToken } from 'core-app/shared/components/modal/modal.service';
 import { SortFilesPipe } from 'core-app/shared/components/storages/pipes/sort-files.pipe';
 import { StorageFilesResourceService } from 'core-app/core/state/storage-files/storage-files.service';
 import { Breadcrumb, BreadcrumbsContent } from 'core-app/spot/components/breadcrumbs/breadcrumbs-content';
@@ -60,9 +51,18 @@ import {
   getIconForStorageType,
   makeFilesCollectionLink,
 } from 'core-app/shared/components/storages/functions/storages.functions';
+import {
+  IHalErrorBase,
+  v3ErrorIdentifierOutboundRequestForbidden,
+} from 'core-app/features/hal/resources/error-resource';
+
+type Alert = 'none'|'noAccess'|'managedFolderNoAccess'|'managedFolderNotFound'|'cannotCreateFolder';
 
 @Directive()
 export abstract class FilePickerBaseModalComponent extends OpModalComponent implements OnInit, OnDestroy {
+  protected readonly sortFilesPipe = inject(SortFilesPipe);
+  protected readonly storageFilesResourceService = inject(StorageFilesResourceService);
+
   private loadingSubscription:Subscription;
 
   protected readonly storageFiles$ = new BehaviorSubject<IStorageFile[]>([]);
@@ -79,7 +79,7 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
     navigate: () => {},
   }]);
 
-  public noAccessWarning = new BehaviorSubject(false);
+  public showAlert = new BehaviorSubject<Alert>('none');
 
   public listItems$:Observable<StorageFileListItem[]> = this.storageFiles$
     .pipe(
@@ -89,16 +89,6 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
     );
 
   public readonly loading$ = new BehaviorSubject<'loading'|'success'|'error'>('loading');
-
-  protected constructor(
-    @Inject(OpModalLocalsToken) public locals:OpModalLocalsMap,
-    readonly elementRef:ElementRef,
-    readonly cdRef:ChangeDetectorRef,
-    protected readonly sortFilesPipe:SortFilesPipe,
-    protected readonly storageFilesResourceService:StorageFilesResourceService,
-  ) {
-    super(locals, cdRef, elementRef);
-  }
 
   ngOnInit():void {
     super.ngOnInit();
@@ -114,10 +104,11 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
           this.breadcrumbs = this.makeBreadcrumbs(storageFiles.ancestors, storageFiles.parent);
           this.storageFiles$.next(storageFiles.files);
           this.loading$.next('success');
+          this.cdRef.detectChanges();
         },
-        error: (error) => {
+        error: () => {
           this.loading$.next('error');
-          throw error;
+          this.cdRef.detectChanges();
         },
       });
   }
@@ -125,11 +116,12 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
   ngOnDestroy():void {
     super.ngOnDestroy();
 
+    this.cancelCurrentLoading();
     this.storageFilesResourceService.reset();
   }
 
-  public closeWarning():void {
-    this.noAccessWarning.next(false);
+  public closeAlert():void {
+    this.showAlert.next('none');
   }
 
   protected abstract storageFileToListItem(file:IStorageFile, index:number):StorageFileListItem;
@@ -145,6 +137,7 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
   protected changeLevel(ancestor:IStorageFile):void {
     this.cancelCurrentLoading();
     this.loading$.next('loading');
+    this.cdRef.detectChanges();
 
     this.loadingSubscription = this.storageFilesResourceService
       .files(makeFilesCollectionLink(this.storage._links.self, ancestor.location))
@@ -154,16 +147,22 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
           this.breadcrumbs = this.makeBreadcrumbs(storageFiles.ancestors, storageFiles.parent);
           this.storageFiles$.next(storageFiles.files);
           this.loading$.next('success');
+          this.cdRef.detectChanges();
         },
-        error: (error) => {
+        error: () => {
           this.loading$.next('error');
-          throw error;
+          this.cdRef.detectChanges();
         },
       });
   }
 
   private entryLocation():Observable<string> {
-    if (this.locals.projectFolderHref === null) {
+    if (this.locals.projectFolderMode === 'inactive' || this.locals.projectFolderMode === undefined) {
+      return of('/');
+    }
+
+    if (this.locals.projectFolderMode === 'automatic' && !this.locals.projectFolderHref) {
+      this.showAlert.next('managedFolderNotFound');
       return of('/');
     }
 
@@ -171,12 +170,19 @@ export abstract class FilePickerBaseModalComponent extends OpModalComponent impl
       .file(this.locals.projectFolderHref as string)
       .pipe(
         map((file) => file.location),
-        catchError((error:HttpErrorResponse) => {
-          if (error.status !== 403) {
-            throw new Error(error.message);
+        catchError((response:HttpErrorResponse) => {
+          const isForbiddenOnStorage = response.status === 500
+            && (response.error as IHalErrorBase).errorIdentifier === v3ErrorIdentifierOutboundRequestForbidden;
+
+          if (!isForbiddenOnStorage) {
+            throw new Error(response.message);
           }
 
-          this.noAccessWarning.next(true);
+          if (this.locals.projectFolderMode === 'automatic') {
+            this.showAlert.next('managedFolderNoAccess');
+          } else {
+            this.showAlert.next('noAccess');
+          }
           return of('/');
         }),
       );

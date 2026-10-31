@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +28,10 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Journable::WithHistoricAttributes,
-               with_ee: %i[baseline_comparison], with_flag: { show_changes: true } do
+               with_ee: %i[baseline_comparison] do
   create_shared_association_defaults_for_work_package_factory
 
   shared_let(:baseline_time) { "2022-01-01".to_time }
@@ -37,63 +39,39 @@ RSpec.describe Journable::WithHistoricAttributes,
 
   shared_let(:project) { create(:project) }
   shared_let(:work_package1) do
-    new_work_package = create(:work_package,
-                              subject: "The current work package 1",
-                              project:)
-    new_work_package.update_columns(created_at:)
-    new_work_package
+    create(:work_package,
+           subject: "The current work package 1",
+           project:,
+           journals: {
+             created_at => { subject: "The original work package 1" },
+             1.day.ago => {}
+           })
   end
-  shared_let(:original_journal_wp1) do
-    work_package1.journals.destroy_all
-    create_journal(journable: work_package1,
-                   timestamp: created_at,
-                   version: 1,
-                   attributes: { subject: "The original work package 1", project: })
-  end
-  shared_let(:current_journal_wp1) do
-    create_journal(journable: work_package1,
-                   timestamp: 1.day.ago,
-                   version: 2,
-                   attributes: { subject: "The current work package 1", project: })
-  end
-
   shared_let(:work_package2) do
-    new_work_package = create(:work_package,
-                              project:,
-                              subject: "The current work package 2",
-                              start_date: created_at - 3.days)
-    new_work_package.update_columns(created_at:)
-    new_work_package
+    create(:work_package,
+           subject: "The current work package 2",
+           project:,
+           start_date: created_at - 3.days,
+           journals: {
+             created_at => { subject: "The original work package 2", start_date: created_at - 5.days },
+             1.day.ago => {}
+           })
   end
-  shared_let(:original_journal_wp2) do
-    work_package2.journals.destroy_all
-    create_journal(journable: work_package2,
-                   timestamp: created_at,
-                   version: 1,
-                   attributes: { start_date: created_at - 5.days,
-                                 subject: "The original work package 2",
-                                 project: })
-  end
-  shared_let(:current_journal_wp2) do
-    create_journal(journable: work_package2,
-                   timestamp: 1.day.ago,
-                   version: 2,
-                   attributes: { start_date: created_at - 3.days,
-                                 subject: "The current work package 2",
-                                 project: })
-  end
+  shared_let(:original_journal_wp1) { work_package1.journals.first }
+  shared_let(:current_journal_wp1) { work_package1.last_journal }
+  shared_let(:original_journal_wp2) { work_package2.journals.first }
+  shared_let(:current_journal_wp2) { work_package2.last_journal }
 
   let(:user1) do
     create(:user,
-           firstname: 'user',
-           lastname: '1',
-           member_in_project: project,
-           member_with_permissions: %i[view_work_packages view_file_links])
+           firstname: "user",
+           lastname: "1",
+           member_with_permissions: { project => %i[view_work_packages view_file_links] })
   end
   let(:build_query) do
     build(:query, user: nil, project: nil).tap do |query|
       query.filters.clear
-      query.add_filter 'subject', '~', search_term
+      query.add_filter "subject", "~", search_term
     end
   end
 
@@ -102,17 +80,6 @@ RSpec.describe Journable::WithHistoricAttributes,
   let(:include_only_changed_attributes) { nil }
 
   current_user { user1 }
-
-  def create_journal(journable:, version:, timestamp:, attributes: {})
-    work_package_attributes = journable.attributes.except("id")
-    journal_attributes = work_package_attributes \
-        .extract!(*Journal::WorkPackageJournal.attribute_names) \
-        .symbolize_keys.merge(attributes)
-    create(:work_package_journal,
-           version:,
-           journable:, created_at: timestamp, updated_at: timestamp,
-           data: build(:journal_work_package_journal, journal_attributes))
-  end
 
   subject { described_class.wrap(work_packages, timestamps:, query:, include_only_changed_attributes:) }
 
@@ -184,7 +151,7 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
 
     context "with active record relation of work packages" do
-      let(:work_packages) { WorkPackage.all }
+      let(:work_packages) { WorkPackage.order(subject: :asc).all }
 
       it "provides access to the work-package attributes" do
         expect(subject.map(&:subject)).to eq ["The current work package 1", "The current work package 2"]
@@ -200,7 +167,7 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
   end
 
-  describe '#attributes_by_timestamp' do
+  describe "#attributes_by_timestamp" do
     let(:work_packages) { work_package1 }
 
     context "with a single work package" do
@@ -281,7 +248,7 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
 
     context "with active record relation of work packages" do
-      let(:work_packages) { WorkPackage.all }
+      let(:work_packages) { WorkPackage.order(subject: :asc).all }
 
       it "provides access to the work-package attributes at timestamps" do
         expect(subject.first.attributes_by_timestamp["2022-01-01T00:00:00Z"].subject).to eq "The original work package 1"
@@ -314,7 +281,7 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
   end
 
-  describe '#exists_at_timestamps' do
+  describe "#exists_at_timestamps" do
     context "with a single work package" do
       let(:work_packages) { work_package1 }
 
@@ -323,7 +290,7 @@ RSpec.describe Journable::WithHistoricAttributes,
         expect(subject.exists_at_timestamps).to include Timestamp.parse("PT0S")
       end
 
-      context 'with the work package not being visible currently' do
+      context "with the work package not being visible currently" do
         let(:other_project) { create(:project) }
 
         before do
@@ -337,7 +304,7 @@ RSpec.describe Journable::WithHistoricAttributes,
         end
       end
 
-      context 'with the work package not having been visible before but being visible now' do
+      context "with the work package not having been visible before but being visible now" do
         let(:other_project) { create(:project) }
 
         before do
@@ -401,20 +368,20 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
   end
 
-  describe '#at_timestamp' do
+  describe "#at_timestamp" do
     context "with a single work package" do
       let(:work_packages) { work_package1 }
 
       it "returns the journable at a former time it existed with the attributes set to the former values" do
-        expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice('subject', 'id'))
-                      .to eq('subject' => "The original work package 1",
-                             'id' => work_package1.id)
+        expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice("subject", "id"))
+                      .to eq("subject" => "The original work package 1",
+                             "id" => work_package1.id)
       end
 
       it "returns the journable at the current time" do
-        expect(subject.at_timestamp(Timestamp.parse("PT0S")).attributes.slice('subject', 'id'))
-          .to eq('subject' => "The current work package 1",
-                 'id' => work_package1.id)
+        expect(subject.at_timestamp(Timestamp.parse("PT0S")).attributes.slice("subject", "id"))
+          .to eq("subject" => "The current work package 1",
+                 "id" => work_package1.id)
       end
 
       it "returns nil for a time it did not exist yet" do
@@ -422,7 +389,7 @@ RSpec.describe Journable::WithHistoricAttributes,
           .to be_nil
       end
 
-      context 'with the work package not being visible currently' do
+      context "with the work package not being visible currently" do
         let(:other_project) { create(:project) }
 
         before do
@@ -431,9 +398,9 @@ RSpec.describe Journable::WithHistoricAttributes,
         end
 
         it "returns the journable at a former time it existed with the attributes set to the former values" do
-          expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice('subject', 'id'))
-            .to eq('subject' => "The original work package 1",
-                   'id' => work_package1.id)
+          expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice("subject", "id"))
+            .to eq("subject" => "The original work package 1",
+                   "id" => work_package1.id)
         end
 
         it "returns nil at the current time" do
@@ -442,7 +409,7 @@ RSpec.describe Journable::WithHistoricAttributes,
         end
       end
 
-      context 'with the work package not having been visible before but being visible now' do
+      context "with the work package not having been visible before but being visible now" do
         let(:other_project) { create(:project) }
 
         before do
@@ -450,21 +417,21 @@ RSpec.describe Journable::WithHistoricAttributes,
         end
 
         it "returns the journable at a former time it existed (and was invisible) with the attributes set to the former values" do
-          expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice('subject', 'id'))
-            .to eq('subject' => "The original work package 1",
-                   'id' => work_package1.id)
+          expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).attributes.slice("subject", "id"))
+            .to eq("subject" => "The original work package 1",
+                   "id" => work_package1.id)
         end
 
         it "returns the journable at the current time" do
-          expect(subject.at_timestamp(Timestamp.parse("PT0S")).attributes.slice('subject', 'id'))
-            .to eq('subject' => "The current work package 1",
-                   'id' => work_package1.id)
+          expect(subject.at_timestamp(Timestamp.parse("PT0S")).attributes.slice("subject", "id"))
+            .to eq("subject" => "The current work package 1",
+                   "id" => work_package1.id)
         end
       end
     end
   end
 
-  describe '#historic?' do
+  describe "#historic?" do
     context "with a single work package" do
       let(:work_packages) { work_package1 }
 
@@ -506,7 +473,7 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
   end
 
-  describe '#matches_query_filters_at_timestamps' do
+  describe "#matches_query_filters_at_timestamps" do
     let(:query) { build_query }
     let(:search_term) { "original" }
 
@@ -627,20 +594,230 @@ RSpec.describe Journable::WithHistoricAttributes,
     end
   end
 
-  describe '#changed_at_timestamp' do
+  describe "#changed_at_timestamp" do
     subject { described_class.wrap(work_package1, timestamps:) }
 
-    context 'for a timestamp where the work package did exist' do
-      it 'returns the changed attributes at the timestamp compared to the current attribute values' do
+    context "for a timestamp where the work package did exist" do
+      it "returns the changed attributes at the timestamp compared to the current attribute values" do
         expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
-          .to match_array ['subject']
+          .to contain_exactly("subject")
+      end
+
+      context "when the work package includes custom field changes" do
+        let!(:custom_field) do
+          create(:string_wp_custom_field,
+                 name: "String CF",
+                 types: project.enabled_types,
+                 projects: [project])
+        end
+
+        let!(:custom_value) do
+          create(:custom_value,
+                 custom_field:,
+                 customized: work_package1,
+                 value: "This is a string value")
+        end
+
+        it "returns the changed attributes including custom fields at the timestamp compared to the current attribute values" do
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly "subject", "custom_field_#{custom_field.id}"
+        end
       end
     end
 
-    context 'for a timestamp where the work package did not exist' do
-      it 'returns the changed attributes at the timestamp compared to the current attribute values' do
+    context "for a timestamp where the work package did not exist" do
+      it "returns no changes" do
         expect(subject.changed_at_timestamp(Timestamp.parse("2021-01-01T00:00:00Z")))
           .to be_empty
+      end
+    end
+  end
+
+  describe "target versions" do
+    shared_let(:version_a) { create(:version, project:, name: "Version A") }
+    shared_let(:version_b) { create(:version, project:, name: "Version B") }
+
+    let(:work_package) do
+      create(:work_package,
+             subject: "The versioned work package",
+             project:,
+             version: version_a,
+             journals: {
+               created_at => {},
+               1.day.ago => {}
+             })
+    end
+
+    subject { described_class.wrap(work_package, timestamps:) }
+
+    def update_target_versions(*versions)
+      work_package.target_version_ids_replacements = versions.map(&:id)
+      work_package.save!
+    end
+
+    describe "#at_timestamp" do
+      it "returns the target versions from the journal snapshot, not the current ones" do
+        update_target_versions(version_a, version_b)
+
+        expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).target_versions)
+          .to contain_exactly(version_a)
+        expect(work_package.reload.target_versions)
+          .to contain_exactly(version_a, version_b)
+      end
+
+      it "omits snapshotted target versions that were deleted since" do
+        update_target_versions(version_a, version_b)
+        version_b.destroy!
+
+        # 1 hour in the future so the journal written by the update above is
+        # unambiguously in the past, regardless of sub-second timing.
+        expect(subject.at_timestamp(Timestamp.parse(1.hour.from_now.iso8601)).target_versions)
+          .to contain_exactly(version_a)
+      end
+    end
+
+    describe "#changed_at_timestamp" do
+      context "when the target version was swapped" do
+        it "marks both the version and the target versions as changed" do
+          update_target_versions(version_b)
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("target_versions", "version_id")
+        end
+      end
+
+      context "when a target version was added alongside the existing one" do
+        it "marks only the target versions as changed" do
+          update_target_versions(version_a, version_b)
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("target_versions")
+        end
+      end
+
+      context "when one of several target versions was removed" do
+        it "marks only the target versions as changed" do
+          # Journal rows are stamped by the database clock, so a past removal
+          # can't be journalled directly; seed the baseline snapshot instead.
+          create(:journal_work_package_version_journal,
+                 journal: work_package.journals.first,
+                 version: version_b,
+                 kind: "target")
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("target_versions")
+        end
+      end
+
+      context "when all target versions were removed" do
+        it "marks both the version and the target versions as changed" do
+          update_target_versions
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("target_versions", "version_id")
+        end
+      end
+
+      context "when the target versions are unchanged" do
+        it "reports no version change" do
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to be_empty
+        end
+      end
+    end
+  end
+
+  describe "observed in versions" do
+    shared_let(:version_a) { create(:version, project:, name: "Version A") }
+    shared_let(:version_b) { create(:version, project:, name: "Version B") }
+
+    let(:work_package) do
+      create(:work_package,
+             subject: "The versioned work package",
+             project:,
+             journals: {
+               created_at => {},
+               1.day.ago => {}
+             })
+    end
+
+    subject { described_class.wrap(work_package, timestamps:) }
+
+    def update_observed_in_versions(*versions)
+      work_package.observed_in_version_ids_replacements = versions.map(&:id)
+      work_package.save!
+    end
+
+    describe "#at_timestamp" do
+      it "returns the observed in versions from the journal snapshot, not the current ones" do
+        # Journal rows are stamped by the database clock, so the baseline snapshot
+        # is seeded directly rather than journalled at a past date.
+        create(:journal_work_package_version_journal,
+               journal: work_package.journals.first,
+               version: version_a,
+               kind: "observed_in")
+        update_observed_in_versions(version_a, version_b)
+
+        expect(subject.at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")).observed_in_versions)
+          .to contain_exactly(version_a)
+        expect(work_package.reload.observed_in_versions)
+          .to contain_exactly(version_a, version_b)
+      end
+
+      it "omits snapshotted observed in versions that were deleted since" do
+        update_observed_in_versions(version_a, version_b)
+        version_b.destroy!
+
+        # 1 hour in the future so the journal written by the update above is
+        # unambiguously in the past, regardless of sub-second timing.
+        expect(subject.at_timestamp(Timestamp.parse(1.hour.from_now.iso8601)).observed_in_versions)
+          .to contain_exactly(version_a)
+      end
+    end
+
+    describe "#changed_at_timestamp" do
+      context "when an observed in version was added" do
+        it "marks the observed in versions as changed" do
+          update_observed_in_versions(version_a, version_b)
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("observed_in_versions")
+        end
+      end
+
+      context "when one of several observed in versions was removed" do
+        it "marks only the observed in versions as changed" do
+          # Journal rows are stamped by the database clock, so a past removal
+          # can't be journalled directly; seed the baseline snapshot instead.
+          create(:journal_work_package_version_journal,
+                 journal: work_package.journals.first,
+                 version: version_b,
+                 kind: "observed_in")
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("observed_in_versions")
+        end
+      end
+
+      context "when all observed in versions were removed" do
+        it "marks the observed in versions as changed" do
+          create(:journal_work_package_version_journal,
+                 journal: work_package.journals.first,
+                 version: version_a,
+                 kind: "observed_in")
+
+          update_observed_in_versions
+
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to contain_exactly("observed_in_versions")
+        end
+      end
+
+      context "when the observed in versions are unchanged" do
+        it "reports no version change" do
+          expect(subject.changed_at_timestamp(Timestamp.parse("2022-01-01T00:00:00Z")))
+            .to be_empty
+        end
       end
     end
   end

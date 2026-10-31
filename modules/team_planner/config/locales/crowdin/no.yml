@@ -1,19 +1,21 @@
-#English strings go here
-"no":
-  permission_view_team_planner: "Vis teamplanlegger"
-  permission_manage_team_planner: "Administrer teamplanlegger"
-  project_module_team_planner_view: "Teamplanlegger"
+---
+'no':
+  ee:
+    feature_names:
+      team_planner_view: Teamplanlegger
+    upsell:
+      team_planner_view:
+        description: Få en fullstendig oversikt over ditt teams planlegging med Team Planner. Utvid, forkort og dra-og-slipp arbeidspakker for å endre datoer, flytte dem eller endre deltakere.
+        title: Teamplanlegger
+  permission_manage_team_planner: Administrer teamplanlegger
+  permission_view_team_planner: Vis teamplanlegger
+  plugin_openproject_team_planner:
+    description: Tilbyr teamplanlegger visninger.
+    name: OpenProject Team Planlegger
+  project_module_team_planner_view: Teamplanleggere
   team_planner:
-    label_team_planner: "Teamplanlegger"
-    label_new_team_planner: "New team planner"
-    label_create_new_team_planner: "Opprett ny teamplanlegger"
-    label_team_planner_plural: "Teamplanlegger"
-    label_assignees: "Tildelt"
-    label_favoured: "Favoured"
-    help_text:
-      project: Team planners are always attached to a project. After creating a team planner you can add work packages from other projects to it.
-      public: Publish this view, allowing other users to access your view. Users with the 'Manage public views' permission can modify or remove public query. This does not affect the visibility of work package results in that view and depending on their permissions, users may see different results.
-      favoured: Mark this view as favourite and add to the saved views sidebar on the left.
-    upsale:
-      title: "Teamplanlegger"
-      description: "Få en fullstendig oversikt over ditt teams planlegging med Team Planner. Utvid, forkort og dra-og-slipp arbeidspakker for å endre datoer, flytte dem eller endre deltakere."
+    label_assignees: Tildelt
+    label_create_new_team_planner: Opprett ny teamplanlegger
+    label_new_team_planner: Ny teamplanlegger
+    label_team_planner: Teamplanlegger
+    label_team_planner_plural: Teamplanleggere

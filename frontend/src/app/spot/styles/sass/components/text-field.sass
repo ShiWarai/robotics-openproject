@@ -1,33 +1,33 @@
 .spot-text-field
   @include spot-body-small
 
-  border: 1px solid $spot-color-basic-gray-3
+  border: 1px solid var(--fgColor-muted)
   color: $spot-color-basic-black
   border-radius: 4px
   padding: $spot-spacing-0_5
-  background-color: $spot-color-basic-white
+  background-color: var(--bgColor-default)
   display: inline-flex
   justify-content: center
   align-items: center
 
   &::placeholder
-    color: $spot-color-basic-gray-3
+    color: var(--fgColor-muted)
 
   &:focus,
   &_focused
     color: $spot-color-basic-black
-    @include spot-focus
+    @include focus
 
   &:disabled,
   &_disabled
-    color: $spot-color-basic-gray-3
+    color: var(--fgColor-muted)
     border-color: $spot-color-basic-gray-4
 
   &:disabled,
   &_disabled &--input
     &,
     &:hover
-      background-color: $spot-color-basic-white
+      background-color: var(--bgColor-default)
 
   &--input
     background: transparent
@@ -45,12 +45,15 @@
 
     &:disabled,
     &:disabled:hover
-      color: $spot-color-basic-gray-4
-      background-color: $spot-color-basic-white
+      color: var(--fgColor-muted)
+      background-color: var(--bgColor-default)
 
     &:focus,
     &:focus-visible
       outline: none
+
+  .octicon
+    fill: var(--body-font-color)
 
   &--clear-button
     border: 0
@@ -58,13 +61,10 @@
     padding: 0
     display: flex
     align-items: center
-    color: $spot-color-basic-gray-3
+    color: var(--fgColor-muted)
 
     &:focus
-      @include spot-focus
+      @include focus
 
     &:not(:last-child)
       margin-right: $spot-spacing-0_5
-
-    > .spot-icon
-      font-size: $spot-spacing-0_75

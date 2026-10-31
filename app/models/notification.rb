@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -39,17 +41,20 @@ class Notification < ApplicationRecord
     scheduled: 8,
     responsible: 9,
     date_alert_start_date: 10,
-    date_alert_due_date: 11
+    date_alert_due_date: 11,
+    shared: 12,
+    reminder: 13
   }.freeze
 
-  enum reason: REASONS,
-       _prefix: true
+  enum :reason, REASONS, prefix: true
 
-  belongs_to :recipient, class_name: 'User'
-  belongs_to :actor, class_name: 'User'
-  belongs_to :project
+  belongs_to :recipient, class_name: "User"
+  belongs_to :actor, class_name: "User"
   belongs_to :journal
   belongs_to :resource, polymorphic: true
+
+  has_one :reminder_notification, dependent: :destroy
+  has_one :reminder, through: :reminder_notification
 
   include Scopes::Scoped
   scopes :unsent_reminders_before,

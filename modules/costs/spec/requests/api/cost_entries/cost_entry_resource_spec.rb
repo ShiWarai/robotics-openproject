@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,20 +28,21 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'rack/test'
+require "spec_helper"
+require "rack/test"
 
-RSpec.describe 'API v3 Cost Entry resource' do
+RSpec.describe "API v3 Cost Entry resource" do
   include Rack::Test::Methods
   include API::V3::Utilities::PathHelper
 
   let(:current_user) do
-    create(:user, member_in_project: project, member_through_role: role)
+    create(:user, member_with_permissions: { project => permissions })
   end
-  let(:cost_entry) { create(:cost_entry, project:) }
-  let(:role) { create(:role, permissions:) }
+  let(:cost_entry) { create(:cost_entry, entity: work_package, user: entry_user) }
   let(:permissions) { [:view_cost_entries] }
   let(:project) { create(:project) }
+  let(:work_package) { create(:work_package, project:) }
+  let(:entry_user) { create(:user) }
 
   subject(:response) { last_response }
 
@@ -49,54 +52,73 @@ RSpec.describe 'API v3 Cost Entry resource' do
     get get_path
   end
 
-  describe 'cost_entries/:id' do
+  describe "cost_entries/:id" do
     let(:get_path) { api_v3_paths.cost_entry cost_entry.id }
 
-    context 'user can see cost entries' do
-      context 'valid id' do
-        it 'returns HTTP 200' do
-          expect(response.status).to be(200)
+    context "when user can see cost entries" do
+      context "with a valid id" do
+        it "returns HTTP 200" do
+          expect(response).to have_http_status(200)
+        end
+
+        it "does not disclose the linked work package the user may not see" do
+          expect(response.body)
+            .to be_json_eql(API::V3::URN_UNDISCLOSED.to_json)
+            .at_path("_links/entity/href")
+
+          expect(response.body)
+            .to be_json_eql(I18n.t(:"api_v3.undisclosed.workPackage").to_json)
+            .at_path("_links/entity/title")
+
+          expect(response.body).not_to have_json_path("_embedded/entity")
+          expect(response.body).not_to have_json_path("_embedded/workPackage")
         end
       end
 
-      context 'invalid id' do
-        let(:get_path) { api_v3_paths.cost_type 'bogus' }
+      context "and the user can also see the linked work package" do
+        let(:permissions) { %i[view_cost_entries view_work_packages] }
 
-        it_behaves_like 'param validation error' do
-          let(:id) { 'bogus' }
+        it "discloses the work package subject and link" do
+          expect(response.body)
+            .to be_json_eql(api_v3_paths.work_package(work_package.id).to_json)
+            .at_path("_links/entity/href")
+
+          expect(response.body)
+            .to be_json_eql(work_package.subject.to_json)
+            .at_path("_links/entity/title")
         end
+      end
+
+      context "with an invalid id" do
+        let(:get_path) { api_v3_paths.cost_type "bogus" }
+
+        it_behaves_like "not found"
       end
     end
 
-    context 'user can only see own cost entries' do
+    context "when user can only see own cost entries" do
       let(:permissions) { [:view_own_cost_entries] }
 
-      context 'cost entry is not his own' do
-        it_behaves_like 'error response',
-                        403,
-                        'MissingPermission',
-                        I18n.t('api_v3.errors.code_403')
+      context "when cost entry is not his own" do
+        it_behaves_like "not found"
       end
 
-      context 'cost entry is his own' do
-        let(:cost_entry) { create(:cost_entry, project:, user: current_user) }
+      context "when cost entry is their own" do
+        let(:entry_user) { current_user }
 
-        it 'returns HTTP 200' do
-          expect(response.status).to be(200)
+        it "returns HTTP 200" do
+          expect(response).to have_http_status(200)
         end
       end
     end
 
-    context 'user has no cost entry permissions' do
+    context "when user has no cost entry permissions" do
       let(:permissions) { [] }
 
-      describe 'he can\'t even see own cost entries' do
-        let(:cost_entry) { create(:cost_entry, project:, user: current_user) }
+      describe "he can't even see own cost entries" do
+        let(:entry_user) { current_user }
 
-        it_behaves_like 'error response',
-                        403,
-                        'MissingPermission',
-                        I18n.t('api_v3.errors.code_403')
+        it_behaves_like "not found"
       end
     end
   end

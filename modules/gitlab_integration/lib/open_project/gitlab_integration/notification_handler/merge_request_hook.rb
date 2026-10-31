@@ -8,7 +8,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,8 +33,8 @@ module OpenProject::GitlabIntegration
     # Handles Gitlab merge request notifications.
     class MergeRequestHook
       include OpenProject::GitlabIntegration::NotificationHandler::Helper
-      
-      def process(payload_params)
+
+      def process(payload_params) # rubocop:disable Metrics/AbcSize, Metrics/PerceivedComplexity
         update_status_on_new_mr = false # true if you only reference one merge by work_package, else false.
         update_status_on_merged = false # true if you only reference one merge by work_package, else false.
         wp_status_id_on_new_mr = 7 # the id of the status.
@@ -47,16 +47,18 @@ module OpenProject::GitlabIntegration
         @payload = wrap_payload(payload_params)
         return unless (accepted_actions.include? payload.object_attributes.action) || (accepted_states.include? payload.object_attributes.state)
 
-        user = User.find_by_id(payload.open_project_user_id)
-        text = payload.object_attributes.title
+        user = User.find_by(id: payload.open_project_user_id)
+        text = [payload.object_attributes.title, payload.object_attributes.description]
+          .compact_blank
+          .join(" - ")
         work_packages = find_mentioned_work_packages(text, user)
         notes = generate_notes(payload)
-        
+
         if (accepted_actions_for_comments.include? payload.object_attributes.action) || (accepted_states.include? payload.object_attributes.state)
           comment_on_referenced_work_packages(work_packages, user, notes)
-          if payload.object_attributes.state == 'opened' && update_status_on_new_mr
+          if payload.object_attributes.state == "opened" && update_status_on_new_mr
             status_on_referenced_work_packages(work_packages, user, wp_status_id_on_new_mr)
-          elsif payload.object_attributes.state == 'merged' && update_status_on_merged
+          elsif payload.object_attributes.state == "merged" && update_status_on_merged
             status_on_referenced_work_packages(work_packages, user, wp_status_id_on_merged)
           end
         end
@@ -69,43 +71,42 @@ module OpenProject::GitlabIntegration
 
       def generate_notes(payload)
         key = {
-          'opened' => 'opened',
-          'reopened' => 'reopened',
-          'closed' => 'closed',
-          'merged' => 'merged',
-          'edited' => 'referenced',
-          'referenced' => 'referenced'
+          "opened" => "opened",
+          "reopened" => "reopened",
+          "closed" => "closed",
+          "merged" => "merged",
+          "edited" => "referenced",
+          "referenced" => "referenced"
         }[payload.object_attributes.state]
-  
+
         key_action = {
-          'reopen' => 'reopened'
+          "reopen" => "reopened"
         }[payload.object_attributes.action]
 
         return nil unless key
 
-        I18n.t("gitlab_integration.merge_request_#{key_action ? key_action : key}_comment",
-               :mr_number => payload.object_attributes.iid,
-               :mr_title => payload.object_attributes.title,
-               :mr_url => payload.object_attributes.url,
-               :repository => payload.repository.name,
-               :repository_url => payload.repository.url,
-               :gitlab_user => payload.user.name,
-               :gitlab_user_url => payload.user.avatar_url)
+        I18n.t("gitlab_integration.merge_request_#{key_action || key}_comment",
+               mr_number: payload.object_attributes.iid,
+               mr_title: payload.object_attributes.title,
+               mr_url: payload.object_attributes.url,
+               repository: payload.repository.name,
+               repository_url: payload.repository.url,
+               gitlab_user: payload.user.name,
+               gitlab_user_url: payload.user.avatar_url)
       end
 
       def merge_request
-        @merge_request ||= GitlabMergeRequest
-                            .where(gitlab_id: payload.object_attributes.iid)
-                            .or(GitlabMergeRequest.where(gitlab_html_url: payload.object_attributes.url))
-                            .take
+        return @merge_request if defined?(@merge_request)
+
+        @merge_request = GitlabMergeRequest.find_by(gitlab_html_url: payload.object_attributes.url)
       end
 
       def upsert_merge_request(work_packages)
         return if work_packages.empty? && merge_request.nil?
-        OpenProject::GitlabIntegration::Services::UpsertMergeRequest.new.call(payload,
-                                                                             work_packages: work_packages)
-      end
 
+        OpenProject::GitlabIntegration::Services::UpsertMergeRequest.new.call(payload,
+                                                                              work_packages:)
+      end
     end
   end
 end

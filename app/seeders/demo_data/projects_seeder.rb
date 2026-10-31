@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 #-- copyright
 
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,20 +33,20 @@ module DemoData
     # on the seeded project will be lost.
     # On the other hand, it won't be applied if there are already existing projects.
     def seed_data!
-      print_status ' ↳ Updating settings'
+      print_status " ↳ Updating settings"
       seed_settings
 
-      seed_data.each_data('projects') do |project_data|
-        seed_project(project_data)
+      project_seeders.each do |project_seeder|
+        project_seeder.seed!
         Setting.demo_projects_available = true
       end
 
-      print_status ' ↳ Update form configuration with global queries'
+      print_status " ↳ Update form configuration with global queries"
       seed_form_configuration
     end
 
     def applicable?
-      Project.count.zero?
+      Project.count.zero? && project_seeders.all?(&:applicable?)
     end
 
     def seed_settings
@@ -55,24 +57,26 @@ module DemoData
       end
     end
 
-    def seed_project(project_data)
-      project_seeder = ProjectSeeder.new(project_data)
-      project_seeder.seed!
-    end
-
     def seed_form_configuration
       BasicData::TypeConfigurationSeeder.new(seed_data).seed!
     end
 
     def seedable_welcome_settings
-      welcome = seed_data.lookup('welcome')
+      welcome = seed_data.lookup("welcome")
       return {} if welcome.blank?
 
       {
-        welcome_title: welcome.lookup('title'),
-        welcome_text: welcome.lookup('text'),
+        welcome_title: welcome.lookup("title"),
+        welcome_text: welcome.lookup("text"),
         welcome_on_homescreen: 1
       }
+    end
+
+    private
+
+    def project_seeders
+      @project_seeders ||= seed_data.each_data("projects")
+                                    .map { |project_data| ProjectSeeder.new(project_data) }
     end
   end
 end

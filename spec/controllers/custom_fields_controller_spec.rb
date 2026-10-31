@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe CustomFieldsController do
   shared_let(:admin) { create(:admin) }
@@ -37,16 +39,16 @@ RSpec.describe CustomFieldsController do
     login_as admin
   end
 
-  describe 'POST edit' do
+  describe "POST edit" do
     before do
       allow(CustomField).to receive(:find).and_return(custom_field)
       allow(custom_field).to receive(:save).and_return(true)
     end
 
-    describe 'WITH all ok params' do
+    describe "WITH all ok params" do
       let(:params) do
         {
-          'custom_field' => { 'name' => 'Issue Field' }
+          "custom_field" => { "name" => "Issue Field" }
         }
       end
 
@@ -54,21 +56,21 @@ RSpec.describe CustomFieldsController do
         put :update, params: params.merge(id: custom_field.id)
       end
 
-      it 'works' do
+      it "works" do
         expect(response).to be_redirect
-        expect(custom_field.name).to eq('Issue Field')
+        expect(custom_field.name).to eq("Issue Field")
       end
     end
   end
 
-  describe 'POST new' do
-    describe 'WITH empty name param' do
+  describe "POST new" do
+    describe "WITH empty name param" do
       let(:params) do
         {
-          'type' => 'WorkPackageCustomField',
-          'custom_field' => {
-            'name' => '',
-            'field_format' => 'string'
+          "type" => "WorkPackageCustomField",
+          "custom_field" => {
+            "name" => "",
+            "field_format" => "string"
           }
         }
       end
@@ -77,19 +79,19 @@ RSpec.describe CustomFieldsController do
         post :create, params:
       end
 
-      it 'responds with error' do
-        expect(response).to render_template 'new'
+      it "responds with error" do
+        expect(response).to render_template "new"
         expect(assigns(:custom_field).errors.messages[:name].first).to eq("can't be blank.")
       end
     end
 
-    describe 'WITH all ok params' do
+    describe "WITH all ok params" do
       let(:params) do
         {
-          'type' => 'WorkPackageCustomField',
-          'custom_field' => {
-            'name' => 'field',
-            'field_format' => 'string'
+          "type" => "WorkPackageCustomField",
+          "custom_field" => {
+            "name" => "field",
+            "field_format" => "string"
           }
         }
       end
@@ -98,9 +100,9 @@ RSpec.describe CustomFieldsController do
         post :create, params:
       end
 
-      it 'responds ok' do
+      it "responds ok" do
         expect(response).to be_redirect
-        expect(CustomField.last.name).to eq 'field'
+        expect(CustomField.last.name).to eq "field"
       end
     end
   end

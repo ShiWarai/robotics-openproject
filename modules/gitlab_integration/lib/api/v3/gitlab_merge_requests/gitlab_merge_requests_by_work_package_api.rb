@@ -1,4 +1,4 @@
-#-- encoding: UTF-8
+# frozen_string_literal: true
 
 #-- copyright
 # OpenProject is an open source project management software.
@@ -10,7 +10,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,7 +34,7 @@ module API
     module GitlabMergeRequests
       class GitlabMergeRequestsByWorkPackageAPI < ::API::OpenProjectAPI
         after_validation do
-          authorize(:show_gitlab_content, context: @work_package.project)
+          authorize_in_work_package(:show_gitlab_content, work_package: @work_package)
           @gitlab_merge_requests = @work_package.gitlab_merge_requests
         end
 
@@ -44,7 +44,7 @@ module API
             GitlabMergeRequestCollectionRepresenter.new(@gitlab_merge_requests,
                                                         @gitlab_merge_requests.count,
                                                         self_link: path,
-                                                        current_user: current_user)
+                                                        current_user:)
           end
         end
       end

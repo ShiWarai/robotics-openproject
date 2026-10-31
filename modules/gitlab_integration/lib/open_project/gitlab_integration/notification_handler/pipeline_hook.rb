@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
 # Copyright (C) 2023 Ben Tey
@@ -8,7 +10,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,15 +39,17 @@ module OpenProject::GitlabIntegration
       def process(payload_params)
         @payload = wrap_payload(payload_params)
 
-        return unless associated_with_mr?
+        return if payload.merge_request.blank?
+
         merge_request = find_merge_request
         return unless merge_request
+        return unless associated_with_mr?
 
         # disabled until gitlab issue resolution
-        # OpenProject::GitlabIntegration::Services::UpsertPipeline.new.call(
-        #   payload,
-        #   merge_request: merge_request
-        # )
+        OpenProject::GitlabIntegration::Services::UpsertPipeline.new.call(
+          payload,
+          merge_request:
+        )
       end
 
       private
@@ -53,12 +57,17 @@ module OpenProject::GitlabIntegration
       attr_reader :payload
 
       def associated_with_mr?
-        payload.merge_request.iid?.present?
+        payload.merge_request.iid.present?
       end
 
       def find_merge_request
-        gitlab_id = payload.merge_request.iid
-        GitlabMergeRequest.find_by(gitlab_id: gitlab_id)
+        # The payload's merge request URL is authoritative: for fork pipelines the
+        # pipeline's project is not the merge request's project, so a URL rebuilt
+        # from the project would not match. Rebuilding is the fallback for payloads
+        # that carry no URL.
+        url = payload.merge_request.url?.presence ||
+          "#{payload.project.web_url}/-/merge_requests/#{payload.merge_request.iid}"
+        GitlabMergeRequest.find_by(gitlab_html_url: url)
       end
     end
   end

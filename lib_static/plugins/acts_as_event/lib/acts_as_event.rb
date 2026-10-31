@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +28,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-# This now only seems to be used when rendering atom responses.
-# Search as well as activities do not rely on it.
-# Thus, whenever an atom link is removed for a resource, acts_as_event within that model can also be removed.
+# The event_* methods defined here power the server-rendered search results page
+# and atom feeds. The Activities subsystem renders through its own providers, so
+# a model can drop acts_as_event only once neither search nor atom references it.
 
 module Redmine
   module Acts
@@ -45,8 +47,8 @@ module Redmine
                               title: :title,
                               description: :description,
                               author: :author,
-                              url: { controller: '/welcome' },
-                              name: Proc.new { ::I18n.t(name.underscore, scope: 'events') },
+                              url: { controller: "/welcome" },
+                              name: Proc.new { ::I18n.t(name.underscore, scope: "events") },
                               type: name.underscore.dasherize }
 
           cattr_accessor :event_options
@@ -56,10 +58,6 @@ module Redmine
       end
 
       module InstanceMethods
-        def self.included(base)
-          base.extend ClassMethods
-        end
-
         %w(datetime title description author name type).each do |attr|
           src = <<-END_SRC
             def event_#{attr}
@@ -95,9 +93,6 @@ module Redmine
           else
             option
           end
-        end
-
-        module ClassMethods
         end
       end
     end

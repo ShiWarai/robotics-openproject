@@ -1,4 +1,4 @@
-#-- encoding: UTF-8
+# frozen_string_literal: true
 
 #-- copyright
 # OpenProject is an open source project management software.
@@ -10,7 +10,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,38 +34,35 @@ class GitlabMergeRequest < ApplicationRecord
 
   has_and_belongs_to_many :work_packages
   has_many :gitlab_pipelines, dependent: :destroy
-  has_many :github_check_runs, dependent: :destroy
   belongs_to :gitlab_user, optional: true
-  belongs_to :merged_by, optional: true, class_name: 'GitlabUser'
+  belongs_to :merged_by, optional: true, class_name: "GitlabUser"
 
-  enum state: {
-    opened: 'opened',
-    merged: 'merged',
-    closed: 'closed'
+  enum :state, {
+    opened: "opened",
+    merged: "merged",
+    closed: "closed"
   }
 
-  validates_presence_of :gitlab_html_url,
-                        :number,
-                        :repository,
-                        :state,
-                        :title,
-                        :gitlab_updated_at
-  validates_presence_of :body,
-                        unless: :partial?
+  validates :gitlab_html_url,
+            :number,
+            :repository,
+            :state,
+            :title,
+            :gitlab_updated_at,
+            presence: true
+  validates :body,
+            presence: { unless: :partial? }
   validate :validate_labels_schema
 
-  scope :without_work_package, -> { left_outer_joins(:work_packages).where(work_packages: { id: nil }) }
+  scope :without_work_package, -> { where.missing(:work_packages) }
 
-  def self.find_by_gitlab_identifiers(id: nil, url: nil, initialize: false)
-    raise ArgumentError, "needs an id or an url" if id.nil? && url.blank?
+  def self.find_by_gitlab_identifiers(url:, id: nil, initialize: false)
+    raise ArgumentError, "needs an url" if url.blank?
 
-    found = where(gitlab_id: id).or(where(gitlab_html_url: url)).take
-
-    if found
-      found
-    elsif initialize
-      new(gitlab_id: id, gitlab_html_url: url)
-    end
+    # gitlab_id holds GitLab's per-project iid, which repeats across
+    # repositories, so the URL is the only identifier safe to look up by.
+    found = find_by(gitlab_html_url: url)
+    found || (new(gitlab_id: id, gitlab_html_url: url) if initialize)
   end
 
   ##
@@ -74,8 +71,8 @@ class GitlabMergeRequest < ApplicationRecord
 
   def latest_pipelines
     with_logging do
-      gitlab_pipelines.select("DISTINCT ON (gitlab_pipelines.project_id, gitlab_pipelines.name) *")
-                      .order(project_id: :asc, name: :asc, started_at: :desc)
+      gitlab_pipelines.select("DISTINCT ON (gitlab_pipelines.project_id, gitlab_pipelines.gitlab_id) *")
+                      .order(project_id: :asc, gitlab_id: :desc, started_at: :desc)
     end
   end
 
@@ -89,7 +86,7 @@ class GitlabMergeRequest < ApplicationRecord
     return if labels.nil?
     return if labels.all? { |label| label.keys.sort == LABEL_KEYS }
 
-    errors.add(:labels, 'invalid schema')
+    errors.add(:labels, :invalid_schema)
   end
 
   def with_logging

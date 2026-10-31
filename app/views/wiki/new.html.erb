@@ -1,6 +1,6 @@
 <%#-- copyright
 OpenProject is an open source project management software.
-Copyright (C) 2012-2023 the OpenProject GmbH
+Copyright (C) the OpenProject GmbH
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License version 3.
@@ -27,18 +27,34 @@ See COPYRIGHT and LICENSE files for more details.
 
 ++#%>
 
-<% html_title t("create_new_page") %>
+<% html_title t(:create_wiki_page) %>
 
-<%= labelled_tabular_form_for @page,
-                              as: :page,
-                              url: create_project_wiki_index_path(project_id: @project),
-                              html: { method: :post, multipart: true, id: 'wiki_form' } do |f| %>
-
-  <%= render partial: 'page_form', locals: {f: f}  %>
-
+<%=
+  render Primer::OpenProject::PageHeader.new do |header|
+    header.with_title { t(:create_wiki_page) }
+    header.with_breadcrumbs(
+      [{ href: project_overview_path(@project.id), text: @project.name },
+       { href: url_for({ controller: "/wiki", action: "index", project_id: @project.identifier }), text: Wiki.model_name.human },
+       t(:create_wiki_page)]
+    )
+  end
+%>
+<%= primer_form_with(
+      model: @page,
+      scope: :page,
+      url: create_project_wiki_index_path(project_id: @project),
+      method: :post,
+      data: { turbo: false }
+    ) do |f| %>
+  <%= render(Primer::Alpha::Layout.new(stacking_breakpoint: :lg)) do |layout| %>
+    <% layout.with_main do %>
+      <%= render WikiPages::Form.new(f, create: true) %>
+    <% end %>
+    <% layout.with_sidebar(col_placement: :end, row_placement: :end) do %>
+      <%= render WikiPages::AttachmentsSidePanelComponent.new(@page) %>
+    <% end %>
+  <% end %>
 <% end %>
-
-<div id="preview"></div>
 
 <% content_for :header_tags do %>
   <%= robot_exclusion_tag %>

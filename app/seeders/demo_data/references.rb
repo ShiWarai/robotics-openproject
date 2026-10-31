@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -46,8 +48,8 @@ module DemoData
     #
     # For instance:
     # - Turns `##sprint:sprint_backlog` into
-    #   `/projects/demo-project/sprints/23/taskboard` given there is a sprint
-    #   referenced with :sprint_backlog and its ID here is 23.
+    #   `/projects/demo-project/backlogs/sprints/23/taskboard` given there is a
+    #   sprint referenced with :sprint_backlog and its ID here is 23.
     #
     #   Alternatively `##sprint.id:sprint_backlog` is translated into just the
     #   id.
@@ -67,7 +69,7 @@ module DemoData
       return str if str.blank?
 
       str.gsub(/##(query|sprint|wp)(\.id)?:[a-z_0-9]+/) do |match|
-        tag, reference = match.delete('#').split(":", 2)
+        tag, reference = match.delete("#").split(":", 2)
         instance = seed_data.find_reference(reference.to_sym)
         if match.include?(".id")
           instance.id
@@ -102,11 +104,11 @@ module DemoData
 
     def link(tag, instance)
       case tag
-      when 'query'
+      when "query"
         query_link(instance)
-      when 'sprint'
+      when "sprint"
         sprint_link(instance)
-      when 'wp'
+      when "wp"
         work_package_link(instance)
       else
         raise ArgumentError, "cannot create link for #{tag.inspect}"
@@ -121,7 +123,7 @@ module DemoData
     end
 
     def sprint_link(sprint)
-      url_helpers.backlogs_project_sprint_taskboard_path(
+      url_helpers.project_backlogs_sprint_taskboard_path(
         sprint_id: sprint.id,
         project_id: sprint.project.identifier
       )
@@ -131,7 +133,7 @@ module DemoData
       url_helpers.project_work_package_path(
         id: work_package.id,
         project_id: work_package.project.identifier,
-        state: "activity"
+        tab: "activity"
       )
     end
   end

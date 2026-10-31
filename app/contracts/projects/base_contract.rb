@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -35,6 +37,7 @@ module Projects
     attribute :identifier
     attribute :description
     attribute :public
+    attribute :settings
     attribute :active do
       validate_active_present
       validate_changing_active
@@ -52,17 +55,17 @@ module Projects
 
     validate :validate_user_allowed_to_manage
 
+    def valid?(context = :saving_custom_fields) = super
+
     def assignable_parents
-      Project
-        .allowed_to(user, :add_subprojects)
-        .where.not(id: model.self_and_descendants)
+      Project.assignable_parents(user, model)
     end
 
     def available_custom_fields
       if user.admin?
         model.available_custom_fields
       else
-        model.available_custom_fields.select(&:visible?)
+        model.available_custom_fields.reject(&:admin_only?)
       end
     end
 
@@ -72,13 +75,27 @@ module Projects
       Project.status_codes.keys
     end
 
+    protected
+
+    def collect_available_custom_field_attributes
+      # required because project custom fields are now activated on a per-project basis
+      #
+      # if we wouldn't query available_custom field on a global level here,
+      # implicitly enabling project custom fields through this contract would fail
+      # as the disabled custom fields would be treated as not-writable
+      #
+      # relevant especially for the project API
+
+      model.all_available_custom_fields.flat_map(&:all_attribute_names)
+    end
+
     private
 
     def validate_parent_assignable
       if model.parent &&
          model.parent_id_changed? &&
-         !assignable_parents.where(id: parent.id).exists?
-        errors.add(:parent, :does_not_exist)
+         !assignable_parents.exists?(id: parent.id)
+        errors.add(:parent, :invalid)
       end
     end
 
@@ -90,7 +107,7 @@ module Projects
 
     def validate_user_allowed_to_manage
       with_unchanged_id do
-        errors.add :base, :error_unauthorized unless user.allowed_to?(manage_permission, model)
+        errors.add :base, :error_unauthorized unless user.allowed_in_project?(manage_permission, model)
       end
     end
 
@@ -105,7 +122,7 @@ module Projects
     end
 
     def manage_permission
-      raise NotImplementedError
+      raise SubclassResponsibilityError
     end
 
     def with_unchanged_id
@@ -122,9 +139,16 @@ module Projects
 
       contract_klass = model.being_archived? ? ArchiveContract : UnarchiveContract
       contract = contract_klass.new(model, user)
-      contract.validate
 
-      errors.merge!(contract.errors)
+      validate_and_merge_errors(contract)
+    end
+
+    def all_available_custom_fields
+      if user.admin?
+        model.all_available_custom_fields
+      else
+        model.all_available_custom_fields.where(admin_only: false)
+      end
     end
   end
 end

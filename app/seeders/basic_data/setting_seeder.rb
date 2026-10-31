@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +30,8 @@
 module BasicData
   class SettingSeeder < Seeder
     self.needs = [
-      BasicData::RoleSeeder,
+      BasicData::ProjectRoleSeeder,
+      BasicData::GlobalRoleSeeder,
       BasicData::StatusSeeder
     ]
 
@@ -48,7 +51,7 @@ module BasicData
     end
 
     def not_applicable_message
-      'Skipping settings as all settings already exist in the db'
+      "Skipping settings as all settings already exist in the db"
     end
 
     def data
@@ -61,14 +64,14 @@ module BasicData
         # to set a default role. The role cannot be specified in the definition as
         # that would mean to know the ID upfront.
         new_project_user_role_id = seed_data.find_reference(:default_role_project_admin, default: nil).try(:id)
-        settings['new_project_user_role_id'] = new_project_user_role_id
+        settings["new_project_user_role_id"] = new_project_user_role_id
 
         # Set the closed status for repository commit references
         status_closed = seed_data.find_reference(:default_status_closed, default: nil)
-        settings['commit_fix_status_id'] = status_closed.try(:id)
+        settings["commit_fix_status_id"] = status_closed.try(:id)
 
         # Add the current locale to the list of available languages
-        settings['available_languages'] = (Setting.available_languages + [I18n.locale.to_s]).uniq.sort
+        settings["available_languages"] = (Setting.available_languages + [I18n.locale]).map(&:to_s).uniq.sort
 
         settings.compact
       end
@@ -78,7 +81,7 @@ module BasicData
 
     # Set the default language to the current locale
     def force_default_language_setting
-      default_language_setting = Setting.find_or_initialize_by(name: 'default_language')
+      default_language_setting = Setting.find_or_initialize_by(name: "default_language")
       # Need to force the value because it's non-writable if
       # OPENPROJECT_DEFAULT_LANGUAGE env var is set.
       default_language_setting.set_value!(I18n.locale, force: true)

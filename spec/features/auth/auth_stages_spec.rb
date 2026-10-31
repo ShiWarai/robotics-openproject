@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,19 +28,18 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Authentication Stages',
-               skip_2fa_stage: true do
+RSpec.describe "Authentication Stages", :skip_2fa_stage do
   before do
     @capybara_ignore_elements = Capybara.ignore_hidden_elements
     Capybara.ignore_hidden_elements = true
 
-    OpenProject::Authentication::Stage.register :dummy_step, '/login/stage_test'
+    OpenProject::Authentication::Stage.register :dummy_step, "/login/stage_test"
 
-    allow_any_instance_of(AccountController)
+    allow_any_instance_of(ApplicationController) # rubocop:disable RSpec/AnyInstance
       .to receive(:stage_secret)
-      .and_return('success') # usually 'success' would be a random hex string
+      .and_return("success") # usually 'success' would be a random hex string
   end
 
   after do
@@ -46,16 +47,16 @@ RSpec.describe 'Authentication Stages',
     OpenProject::Authentication::Stage.deregister :dummy_step
   end
 
-  let(:user_password) { 'bob' * 4 }
+  let(:user_password) { "bob" * 4 }
   let(:user) do
     create(
       :user,
       force_password_change: false,
       first_login: false,
-      login: 'bob',
-      mail: 'bob@example.com',
-      firstname: 'Bo',
-      lastname: 'B',
+      login: "bob",
+      mail: "bob@example.com",
+      firstname: "Bo",
+      lastname: "B",
       password: user_password,
       password_confirmation: user_password
     )
@@ -63,14 +64,14 @@ RSpec.describe 'Authentication Stages',
 
   def login!
     visit signin_path
-    within('#login-form') do
-      fill_in('username', with: user.login)
-      fill_in('password', with: user_password)
+    within("#login-form") do
+      fill_in("username", with: user.login)
+      fill_in("password", with: user_password)
       click_link_or_button I18n.t(:button_login)
     end
   end
 
-  context 'with automatic registration', with_settings: { self_registration: "3" } do
+  context "with automatic registration", with_settings: { self_registration: "3" } do
     before do
       OpenProject::Authentication::Stage.register(:activation_step, run_after_activation: true) do
         # while we're at it let's confirm path helpers work here (/login)
@@ -78,7 +79,7 @@ RSpec.describe 'Authentication Stages',
       end
 
       # this shouldn't influence the specs as it is active
-      OpenProject::Authentication::Stage.register :inactive, '/foo/bar', active: -> { false }
+      OpenProject::Authentication::Stage.register :inactive, "/foo/bar", active: -> { false }
     end
 
     after do
@@ -86,8 +87,8 @@ RSpec.describe 'Authentication Stages',
       OpenProject::Authentication::Stage.deregister :inactive
     end
 
-    it 'redirects to authentication stage after automatic registration and before login' do
-      visit signin_path
+    it "redirects to authentication stage after automatic registration and before login" do
+      visit account_register_path
 
       within("#new_user") do
         fill_in "user_login", with: "h.wurst"
@@ -108,15 +109,11 @@ RSpec.describe 'Authentication Stages',
 
       visit "/my/account"
 
-      expect(page).to have_text "h.wurst" # just double checking we're really logged in
+      expect(page).to have_text "Hans Wurst" # just double checking we're really logged in
     end
 
-    it 'redirects to authentication stage after registration via omniauth too' do
-      visit signin_path
-
-      within("#new_user") do
-        click_on "Omniauth Developer"
-      end
+    it "redirects to authentication stage after registration via omniauth too" do
+      start_omniauth_developer
 
       fill_in "first_name", with: "Adam"
       fill_in "last_name", with: "Apfel"
@@ -132,11 +129,11 @@ RSpec.describe 'Authentication Stages',
 
       visit "/my/account"
 
-      expect(page).to have_text "a.apfel" # just double checking we're really logged in
+      expect(page).to have_text "Adam Apfel" # just double checking we're really logged in
     end
   end
 
-  it 'redirects to registered authentication stage before actual login if successful' do
+  it "redirects to registered authentication stage before actual login if successful" do
     expect { login! }.to raise_error(ActionController::RoutingError, /\/login\/stage_test/)
 
     expect(current_path).to eql "/login/stage_test"
@@ -144,14 +141,16 @@ RSpec.describe 'Authentication Stages',
     # after the stage is finished it must redirect to the complete endpoint
     visit "/login/dummy_step/success"
 
-    expect(current_path).to eql "/my/page" # after which the user will actually be logged in
+    expect(page).to have_current_path(home_path) # after which the user will actually be logged in
 
     visit "/my/account"
 
-    expect(page).to have_text user.login # just checking we're really logged in
+    within_test_selector "my-account-form" do
+      expect(page).to have_field "user_login", with: user.login # just checking we're really logged in
+    end
   end
 
-  it 'redirects to the login page and shows an error on verification failure' do
+  it "redirects to the login page and shows an error on verification failure" do
     expect { login! }.to raise_error(ActionController::RoutingError, /\/login\/stage_test/)
 
     expect(current_path).to eql "/login/stage_test"
@@ -164,10 +163,10 @@ RSpec.describe 'Authentication Stages',
 
     visit "/my/account"
 
-    expect(page).not_to have_text user.login # just checking we're really not logged in
+    expect(page).to have_no_test_selector "my-account-form" # just checking we're really not logged in
   end
 
-  it 'redirects to the login page and shows an error on authentication stage failure' do
+  it "redirects to the login page and shows an error on authentication stage failure" do
     expect { login! }.to raise_error(ActionController::RoutingError, /\/login\/stage_test/)
 
     expect(current_path).to eql "/login/stage_test"
@@ -180,10 +179,10 @@ RSpec.describe 'Authentication Stages',
 
     visit "/my/account"
 
-    expect(page).not_to have_text user.login # just checking we're really not logged in
+    expect(page).to have_no_test_selector "my-account-form" # just checking we're really not logged in
   end
 
-  it 'redirects to the login page and shows an error on returning to the wrong stage' do
+  it "redirects to the login page and shows an error on returning to the wrong stage" do
     expect { login! }.to raise_error(ActionController::RoutingError, /\/login\/stage_test/)
 
     expect(current_path).to eql "/login/stage_test"
@@ -196,18 +195,16 @@ RSpec.describe 'Authentication Stages',
 
     visit "/my/account"
 
-    expect(page).not_to have_text user.login # just checking we're really not logged in
+    expect(page).to have_no_test_selector "my-account-form" # just checking we're really not logged in
   end
 
-  it 'redirects to the referer if there is one' do
+  it "redirects to the referer if there is one" do
     visit "/projects"
 
-    click_on "Sign in"
-
     expect do
-      within('#login-form') do
-        fill_in('username', with: user.login)
-        fill_in('password', with: user_password)
+      within("#login-form") do
+        fill_in("username", with: user.login)
+        fill_in("password", with: user_password)
         click_link_or_button I18n.t(:button_login)
       end
     end
@@ -222,7 +219,9 @@ RSpec.describe 'Authentication Stages',
 
     visit "/my/account"
 
-    expect(page).to have_text user.login # just checking we're really logged in
+    within_test_selector "my-account-form" do
+      expect(page).to have_field "user_login", with: user.login # just checking we're really logged in
+    end
   end
 
   context "with two stages" do
@@ -237,7 +236,7 @@ RSpec.describe 'Authentication Stages',
       OpenProject::Authentication::Stage.deregister :two_step
     end
 
-    it 'redirects to both registered authentication stages before actual login if successful' do
+    it "redirects to both registered authentication stages before actual login if successful" do
       expect { login! }.to raise_error(ActionController::RoutingError, /\/login\/stage_test/)
 
       expect(current_path).to eql "/login/stage_test"
@@ -248,11 +247,13 @@ RSpec.describe 'Authentication Stages',
       # after the stage is finished it must redirect to the complete endpoint
       visit "/login/two_step/success"
 
-      expect(current_path).to eql "/my/page" # after which the user will actually be logged in
+      expect(page).to have_current_path(home_path) # after which the user will actually be logged in
 
       visit "/my/account"
 
-      expect(page).to have_text user.login # just checking we're really logged in
+      within_test_selector "my-account-form" do
+        expect(page).to have_field "user_login", with: user.login # just checking we're really logged in
+      end
     end
   end
 end

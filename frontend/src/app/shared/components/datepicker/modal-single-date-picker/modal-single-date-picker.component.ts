@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2022 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,51 +21,29 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  AfterContentInit,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  EventEmitter,
-  forwardRef,
-  Injector,
-  Input,
-  OnInit,
-  Output,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
+import { AfterContentInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, Injector, Input, OnInit, Output, ViewChild, ViewEncapsulation, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
-import {
-  ControlValueAccessor,
-  NG_VALUE_ACCESSOR,
-} from '@angular/forms';
-import {
-  onDayCreate,
-  parseDate,
-  setDates,
-} from 'core-app/shared/components/datepicker/helpers/date-modal.helpers';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import { onDayCreate, parseDate, setDates } from 'core-app/shared/components/datepicker/helpers/date-modal.helpers';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { DatePicker } from '../datepicker';
 import flatpickr from 'flatpickr';
 import { DayElement } from 'flatpickr/dist/types/instance';
 import { populateInputsFromDataset } from '../../dataset-inputs';
-import { debounce } from 'lodash';
-import { SpotDropModalTeleportationService } from 'core-app/spot/components/drop-modal/drop-modal-teleportation.service';
-
-export const opModalSingleDatePickerSelector = 'op-modal-single-date-picker';
+import { debounce } from 'lodash-es';
+import {
+  SpotDropModalTeleportationService,
+} from 'core-app/spot/components/drop-modal/drop-modal-teleportation.service';
 
 @Component({
-  selector: opModalSingleDatePickerSelector,
+  selector: 'op-modal-single-date-picker',
   templateUrl: './modal-single-date-picker.component.html',
-  styleUrls: ['../styles/datepicker.modal.sass', './modal-single-date-picker.component.sass'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  styleUrls: ['./modal-single-date-picker.component.sass'],
   encapsulation: ViewEncapsulation.None,
   providers: [
     {
@@ -74,11 +52,23 @@ export const opModalSingleDatePickerSelector = 'op-modal-single-date-picker';
       multi: true,
     },
   ],
+  standalone: false,
+  // TODO: This component has been partially migrated to be zoneless-compatible.
+  // After testing, this should be updated to ChangeDetectionStrategy.OnPush.
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class OpModalSingleDatePickerComponent implements ControlValueAccessor, OnInit, AfterContentInit {
-  @Output('closed') closed = new EventEmitter();
+  readonly I18n = inject(I18nService);
+  readonly timezoneService = inject(TimezoneService);
+  readonly injector = inject(Injector);
+  readonly cdRef = inject(ChangeDetectorRef);
+  readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly spotDropModalTeleportationService = inject(SpotDropModalTeleportationService);
 
-  @Output('valueChange') valueChange = new EventEmitter();
+  @Output() closed = new EventEmitter();
+
+  @Output() valueChange = new EventEmitter();
 
   private _value = '';
 
@@ -127,7 +117,7 @@ export class OpModalSingleDatePickerComponent implements ControlValueAccessor, O
 
   @Input() ignoreNonWorkingDays = false;
 
-  @ViewChild('flatpickrTarget') flatpickrTarget:ElementRef;
+  @ViewChild('flatpickrTarget') flatpickrTarget:ElementRef<HTMLElement>;
 
   public workingValue = '';
 
@@ -148,14 +138,7 @@ export class OpModalSingleDatePickerComponent implements ControlValueAccessor, O
     },
   };
 
-  constructor(
-    readonly I18n:I18nService,
-    readonly timezoneService:TimezoneService,
-    readonly injector:Injector,
-    readonly cdRef:ChangeDetectorRef,
-    readonly elementRef:ElementRef,
-    readonly spotDropModalTeleportationService:SpotDropModalTeleportationService,
-  ) {
+  constructor() {
     populateInputsFromDataset(this);
   }
 
@@ -164,7 +147,7 @@ export class OpModalSingleDatePickerComponent implements ControlValueAccessor, O
   }
 
   ngAfterContentInit() {
-    const trigger = (this.elementRef.nativeElement as HTMLElement).querySelector("[slot='trigger']");
+    const trigger = this.elementRef.nativeElement.querySelector("[slot='trigger']");
     this.useDefaultTrigger = trigger === null;
   }
 
@@ -244,7 +227,8 @@ export class OpModalSingleDatePickerComponent implements ControlValueAccessor, O
         showMonths: 1,
         inline: true,
         onReady: (_date:Date[], _datestr:string, instance:flatpickr.Instance) => {
-          instance.calendarContainer.classList.add('op-datepicker-modal--flatpickr-instance');
+          instance.calendarContainer.classList.add('op-modal-single-date-picker--flatpickr-instance');
+          this.cdRef.detectChanges();
         },
         onChange: (dates:Date[]) => {
           if (dates.length > 0) {
@@ -265,7 +249,7 @@ export class OpModalSingleDatePickerComponent implements ControlValueAccessor, O
           );
         },
       },
-      this.flatpickrTarget.nativeElement as HTMLElement,
+      this.flatpickrTarget.nativeElement,
     );
   }
 

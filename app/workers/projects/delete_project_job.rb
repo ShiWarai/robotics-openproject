@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -43,7 +45,7 @@ module Projects
                                  "#{service_call.message}")
       end
     rescue StandardError => e
-      OpenProject.logger.error('Encountered an error when trying to delete project ' \
+      OpenProject.logger.error("Encountered an error when trying to delete project " \
                                "'#{project}' : #{e.message} #{e.backtrace.join("\n")}")
     end
   end

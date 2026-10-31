@@ -1,14 +1,13 @@
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Cost report in subproject', js: true do
+RSpec.describe "Cost report in subproject", :js do
   let!(:project) { create(:project) }
   let!(:subproject) { create(:project, parent: project) }
 
-  let!(:role) { create(:role, permissions: %i(view_cost_entries view_own_cost_entries)) }
+  let!(:role) { create(:project_role, permissions: %i(view_cost_entries view_own_cost_entries)) }
   let!(:user) do
     create(:user,
-           member_in_project: subproject,
-           member_through_role: role)
+           member_with_roles: { subproject => role })
   end
 
   before do
@@ -16,13 +15,13 @@ RSpec.describe 'Cost report in subproject', js: true do
     visit project_path(subproject)
   end
 
-  it 'provides filtering' do
-    within '#main-menu' do
-      click_on 'Time and costs'
+  it "provides filtering" do
+    within "#main-menu" do
+      click_on "Time and costs"
     end
 
-    within '#content' do
-      expect(page).to have_content 'New cost report'
+    within "#content" do
+      expect(page).to have_content "New cost report"
     end
   end
 end
