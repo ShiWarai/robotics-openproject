@@ -26,7 +26,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt1-dev \
     libyaml-dev \
     libffi-dev \
+    libsqlite3-dev \
     git \
+    postgresql \
     && rm -rf /var/lib/apt/lists/*
 
 COPY .ruby-version Gemfile Gemfile.lock Gemfile.modules ./
@@ -38,14 +40,23 @@ COPY . .
 COPY --from=frontend-builder /app/public/assets/frontend ./public/assets/frontend
 RUN cat > config/database.yml << 'DBEOF'
 default: &default
-  url: <%= ENV["DATABASE_URL"] %>
+  url: "<%= ENV['DATABASE_URL'] %>"
 
 production:
   <<: *default
 DBEOF
 
 ENV RAILS_ENV=production
-RUN SECRET_KEY_BASE=dummy RAILS_SERVE_STATIC_FILES=true bundle exec rails assets:precompile 2>/dev/null || true
+RUN service postgresql start && \
+    su postgres -c "psql -c \"CREATE USER appuser WITH SUPERUSER PASSWORD 'pass'\"" && \
+    su postgres -c "psql -c \"CREATE DATABASE dummy OWNER appuser\"" && \
+    SECRET_KEY_BASE=dummy RAILS_SERVE_STATIC_FILES=true RECOMPILE_RAILS_ASSETS=true \
+    DATABASE_URL=postgresql://appuser:pass@localhost:5432/dummy \
+    bundle exec rails assets:precompile && \
+    SECRET_KEY_BASE=dummy RAILS_SERVE_STATIC_FILES=true \
+    DATABASE_URL=postgresql://appuser:pass@localhost:5432/dummy \
+    bundle exec rails assets:rebuild_manifest && \
+    service postgresql stop
 
 # Stage 3: Runtime
 FROM ruby:4.0.9-slim AS runtime

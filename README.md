@@ -63,7 +63,7 @@ docker run -d --name op-app \
   --network host \
   -e DATABASE_URL=postgresql://openproject:secret@127.0.0.1:5432/openproject \
   -e SECRET_KEY_BASE=$(openssl rand -hex 32) \
-  -e HTTPS_ENABLE=false \
+  -e OPENPROJECT_HTTPS=false \
   -p 3000:3000 \
   robotics-openproject:latest
 
@@ -82,7 +82,7 @@ docker run -d --name op-worker \
 |---|---|---|
 | `DATABASE_URL` | да | Строка подключения PostgreSQL |
 | `SECRET_KEY_BASE` | да | 64-символьный hex-ключ для шифрования |
-| `HTTPS_ENABLE` | нет | `true` — редирект на HTTPS (для reverse-proxy) |
+| `OPENPROJECT_HTTPS` | нет | `false` — отключить редирект на HTTPS (для локального доступа без reverse-proxy) |
 | `HOST` | нет | Адрес привязки (по умолчанию `0.0.0.0`) |
 | `PORT` | нет | Порт Puma (по умолчанию `3000`) |
 | `RAILS_SERVE_STATIC_FILES` | нет | `true` — отдача статических файлов из Rails |
