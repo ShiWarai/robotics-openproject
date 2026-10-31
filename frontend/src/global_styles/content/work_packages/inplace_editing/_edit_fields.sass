@@ -4,11 +4,7 @@
     .inline-edit--display-field,
     .inline-edit--field
       background: $nm-color-error-background
-      border-color: var(--content-form-danger-zone-bg-color)
-
-      &:hover
-        // TODO WAS border-color: lighten(var(--content-form-danger-zone-bg-color), 10%)
-        border-color: #d56767
+      border-color: var(--borderColor-danger-emphasis)
 
   form
     width: 100%
@@ -20,7 +16,6 @@
     // Full width to inline-edit inputs
     width: 100%
     line-height: 24px
-    font-size: 14px
     border-radius: 2px
 
   input:not([type='checkbox'])
@@ -50,3 +45,5 @@
     display: block
     padding: 5px 0 5px 5px
 
+    @media screen and (max-width: $breakpoint-md)
+      padding-left: 0

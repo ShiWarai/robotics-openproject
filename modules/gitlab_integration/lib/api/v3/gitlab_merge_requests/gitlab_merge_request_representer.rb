@@ -8,7 +8,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -27,8 +27,8 @@
 # See docs/COPYRIGHT.rdoc for more details.
 #++
 
-require 'roar/decorator'
-require 'roar/json/hal'
+require "roar/decorator"
+require "roar/json/hal"
 
 module API
   module V3
@@ -42,7 +42,7 @@ module API
         def initialize(model, current_user:, **_opts)
           # We force `embed_links` so that github_user and github_check_runs
           # are embedded and we can avoid having separate endpoints.
-          super(model, current_user: current_user, embed_links: true)
+          super(model, current_user:, embed_links: true)
         end
 
         cached_representer key_parts: %i[gitlab_user merged_by]
@@ -61,7 +61,7 @@ module API
 
         date_time_property :gitlab_updated_at,
                            render_nil: true,
-                           setter: ->(*) { nil }
+                           setter: ->(*) {}
 
         property :title,
                  render_nil: true
@@ -98,7 +98,7 @@ module API
         date_time_property :updated_at
 
         def _type
-          'GitlabMergeRequest'
+          "GitlabMergeRequest"
         end
 
         self.to_eager_load = %i[gitlab_user merged_by]

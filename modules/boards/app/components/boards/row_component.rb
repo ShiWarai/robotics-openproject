@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,25 +30,51 @@
 
 module Boards
   class RowComponent < ::RowComponent
-    def project_id
+    def project_name
       helpers.link_to_project model.project, {}, {}, false
     end
 
     def name
-      link_to model.name, project_work_package_boards_path(model.project, model)
+      link_to model.name, project_work_package_board_path(model.project, model), data: { turbo: false }
     end
 
     def created_at
-      safe_join([helpers.format_date(model.created_at), helpers.format_time(model.created_at, false)], " ")
+      safe_join([helpers.format_date(model.created_at), helpers.format_time(model.created_at, include_date: false)], " ")
     end
 
     def type
       case model.board_type
       when :action
-        t('boards.board_types.action', attribute: t(model.board_type_attribute, scope: 'boards.board_type_attributes'))
+        t("boards.board_types.action", attribute: t(model.board_type_attribute, scope: "boards.board_type_attributes"))
       else
-        t('boards.board_types.free')
+        t("boards.board_types.free")
       end
+    end
+
+    def button_links
+      [delete_link].compact
+    end
+
+    def delete_link
+      if render_delete_link?
+        link_to(
+          "",
+          project_work_package_board_path(model.project, model),
+          class: "icon icon-delete",
+          data: {
+            turbo_method: :delete,
+            turbo_confirm: I18n.t(:text_are_you_sure),
+            "test-selector": "board-remove-#{model.id}"
+          },
+          title: t(:button_delete)
+        )
+      end
+    end
+
+    private
+
+    def render_delete_link?
+      table.current_project && table.current_user.allowed_in_project?(:manage_board_views, table.current_project)
     end
   end
 end

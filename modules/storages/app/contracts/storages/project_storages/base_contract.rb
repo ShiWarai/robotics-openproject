@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +30,7 @@
 
 # A "contract" is an OpenProject pattern used to validate parameters
 # before actually creating, updating, or deleting a model.
-# Used by: projects_storages_controller.rb and in the API
+# Used by: project_storages_controller.rb and in the API
 module Storages::ProjectStorages
   class BaseContract < ::ModelContract
     # "Concern" just injects a permission checking routine.
@@ -46,20 +48,45 @@ module Storages::ProjectStorages
     attribute :project_folder_id
     validates :project_folder_id, presence: true, if: :project_folder_mode_manual?
 
+    # For automatically managed folders, the project_folder_id should not even be choosable by the user, but in any case
+    # we have to make sure to not introduce duplicates, because this could lead to one project taking ownership of a folder
+    # that already belongs to another project
+    validate :project_folder_id_unique, if: :project_folder_mode_automatic?
+
     attribute :project_folder_mode do
       if Storages::ProjectStorage.project_folder_modes.keys.exclude?(@model.project_folder_mode)
         errors.add :project_folder_mode, :invalid
       end
     end
 
-    def assignable_storages
-      Storages::Storage.visible(user).where.not(id: @model.project.projects_storages.pluck(:storage_id))
-    end
+    validate :project_folder_mode_available_for_storage, unless: -> { errors.include?(:project_folder_mode) }
 
     private
 
     def project_folder_mode_manual?
       @model.project_folder_manual?
+    end
+
+    def project_folder_mode_automatic?
+      @model.project_folder_automatic?
+    end
+
+    def project_folder_mode_available_for_storage
+      if storage&.available_project_folder_modes&.exclude?(@model.project_folder_mode)
+        errors.add :project_folder_mode, :mode_unavailable
+      end
+    end
+
+    def project_folder_id_unique
+      return if @model.project_folder_id.blank?
+      return if @model.storage.blank?
+
+      collision = ::Storages::ProjectStorage
+                    .where(storage_id: @model.storage_id, project_folder_id: @model.project_folder_id)
+                    .where.not(id: @model.id)
+                    .exists?
+
+      errors.add(:project_folder_id, :taken) if collision
     end
   end
 end

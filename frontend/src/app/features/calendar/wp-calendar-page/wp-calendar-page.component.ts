@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -29,6 +29,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  Input,
+  OnInit,
   ViewChild,
 } from '@angular/core';
 import { WorkPackagesCalendarComponent } from 'core-app/features/calendar/wp-calendar/wp-calendar.component';
@@ -45,13 +47,11 @@ import { WorkPackageSettingsButtonComponent } from 'core-app/features/work-packa
 import { QueryResource } from 'core-app/features/hal/resources/query-resource';
 import { QueryParamListenerService } from 'core-app/features/work-packages/components/wp-query/query-param-listener.service';
 import { OpProjectIncludeComponent } from 'core-app/shared/components/project-include/project-include.component';
-import { teamPlannerPageRefresh } from 'core-app/features/team-planner/team-planner/planner/team-planner.actions';
 import { calendarRefreshRequest } from 'core-app/features/calendar/calendar.actions';
-import { ActionsService } from 'core-app/core/state/actions/actions.service';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
 
 @Component({
-  templateUrl: '../../work-packages/routing/partitioned-query-space-page/partitioned-query-space-page.component.html',
+  selector: 'op-wp-calendar-page',
+  templateUrl: '../../work-packages/routing/partitioned-query-space-page/primerized-partitioned-query-space-page.component.html',
   styleUrls: [
     '../../work-packages/routing/partitioned-query-space-page/partitioned-query-space-page.component.sass',
   ],
@@ -59,9 +59,10 @@ import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decora
   providers: [
     QueryParamListenerService,
   ],
+  standalone: false,
 })
-export class WorkPackagesCalendarPageComponent extends PartitionedQuerySpacePageComponent {
-  @InjectField(ActionsService) actions$:ActionsService;
+export class WorkPackagesCalendarPageComponent extends PartitionedQuerySpacePageComponent implements OnInit {
+  @Input() queryId:string;
 
   @ViewChild(WorkPackagesCalendarComponent, { static: true }) calendarElement:WorkPackagesCalendarComponent;
 
@@ -70,8 +71,13 @@ export class WorkPackagesCalendarPageComponent extends PartitionedQuerySpacePage
     unsaved_title: this.I18n.t('js.calendar.unsaved_title'),
   };
 
-  /** Go back using back-button */
-  backButtonCallback:() => void;
+  breadcrumbItems() {
+    return [
+      { href: this.pathHelperService.projectPath(this.currentProject.identifier!), text: (this.currentProject.name) },
+      { href: this.pathHelperService.projectCalendarPath(this.currentProject.identifier!), text: this.I18n.t('js.calendar.label_calendar_plural') },
+      this.selectedTitle?? '',
+    ];
+  }
 
   /** Current query title to render */
   selectedTitle = this.text.unsaved_title;
@@ -108,13 +114,27 @@ export class WorkPackagesCalendarPageComponent extends PartitionedQuerySpacePage
     },
     {
       component: WorkPackageSettingsButtonComponent,
-      containerClasses: 'hidden-for-mobile',
+      containerClasses: 'hidden-for-tablet',
       inputs: {
         hideTableOptions: true,
         showCalendarSharingOption: true,
       },
     },
   ];
+
+  override ngOnInit():void {
+    super.ngOnInit();
+    // Fix showToolbarSaveButton from actual URL params (not uiRouter state)
+    this.showToolbarSaveButton = !!new URLSearchParams(window.location.search).get('query_props');
+
+    // Update save button reactively when query_props changes via pushState (non-uiRouter pages)
+    this.wpListChecksumService.visibleChecksum$
+      .pipe(this.untilDestroyed())
+      .subscribe((checksum) => {
+        this.showToolbarSaveButton = !!checksum;
+        this.cdRef.detectChanges();
+      });
+  }
 
   /**
    * We need to set the current partition to the grid to ensure

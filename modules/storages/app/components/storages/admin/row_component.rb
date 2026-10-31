@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,16 +36,24 @@ module Storages::Admin
       row
     end
 
-    delegate :created_at, to: :storage
-
-    def name
-      link_to storage.name, admin_settings_storage_path(storage)
-    end
-
     # Delegate delegates the execution of certain methods to :storage.
     # https://www.rubydoc.info/gems/activesupport/Module:delegate
-    delegate :host, to: :storage
-    delegate :provider_type, to: :storage
+    delegate :created_at, :host, :provider_type, :configured?, to: :storage
+
+    def row_css_id
+      helpers.dom_id storage
+    end
+
+    def name
+      if configured?
+        storage.name
+      else
+        render(Primer::Beta::Octicon.new(:"alert-fill", size: :small, color: :severe)) +
+          content_tag(:span,
+                      storage.name,
+                      class: "pl-2")
+      end
+    end
 
     def creator
       icon = helpers.avatar storage.creator, size: :mini
@@ -55,18 +65,17 @@ module Storages::Admin
     end
 
     def delete_link
-      link_to '',
+      link_to "",
               admin_settings_storage_path(storage),
-              class: 'icon icon-delete',
-              data: { confirm: I18n.t('storages.delete_warning.storage') },
-              title: I18n.t(:button_delete),
-              method: :delete
+              class: "icon icon-delete",
+              data: { turbo_method: :delete, turbo_confirm: I18n.t("storages.delete_warning.storage") },
+              title: I18n.t(:button_delete)
     end
 
     def edit_link
-      link_to '',
+      link_to "",
               edit_admin_settings_storage_path(storage),
-              class: 'icon icon-edit',
+              class: "icon icon-edit",
               accesskey: helpers.accesskey(:edit),
               title: I18n.t(:button_edit)
     end

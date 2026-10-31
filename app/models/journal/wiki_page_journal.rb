@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,9 +29,9 @@
 #++
 
 class Journal::WikiPageJournal < Journal::BaseJournal
-  belongs_to :author, class_name: 'User'
+  belongs_to :author, class_name: "User"
 
-  self.table_name = 'wiki_page_journals'
+  self.table_name = "wiki_page_journals"
 
   # The project does not change over the course of a wiki page lifetime
   delegate :project, to: :journal

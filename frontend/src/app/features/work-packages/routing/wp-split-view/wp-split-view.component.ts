@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,30 +21,40 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Injector,
-  OnInit,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, Input, OnInit, Type, inject } from '@angular/core';
 import { StateService } from '@uirouter/core';
-import { WorkPackageViewFocusService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-focus.service';
+import {
+  WorkPackageViewFocusService,
+} from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-focus.service';
 import { States } from 'core-app/core/states/states.service';
 import { FirstRouteService } from 'core-app/core/routing/first-route-service';
-import { KeepTabService } from 'core-app/features/work-packages/components/wp-single-view-tabs/keep-tab/keep-tab.service';
-import { WorkPackageViewSelectionService } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-selection.service';
-import { WorkPackageSingleViewBase } from 'core-app/features/work-packages/routing/wp-view-base/work-package-single-view.base';
+import {
+  KeepTabService,
+} from 'core-app/features/work-packages/components/wp-single-view-tabs/keep-tab/keep-tab.service';
+import {
+  WorkPackageViewSelectionService,
+} from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-view-selection.service';
+import {
+  WorkPackageSingleViewBase,
+} from 'core-app/features/work-packages/routing/wp-view-base/work-package-single-view.base';
 import { HalResourceNotificationService } from 'core-app/features/hal/services/hal-resource-notification.service';
-import { WorkPackageNotificationService } from 'core-app/features/work-packages/services/notifications/work-package-notification.service';
+import {
+  WorkPackageNotificationService,
+} from 'core-app/features/work-packages/services/notifications/work-package-notification.service';
 import { BackRoutingService } from 'core-app/features/work-packages/components/back-routing/back-routing.service';
 import { WpSingleViewService } from 'core-app/features/work-packages/routing/wp-view-base/state/wp-single-view.service';
-import { CommentService } from 'core-app/features/work-packages/components/wp-activity/comment-service';
 import { RecentItemsService } from 'core-app/core/recent-items.service';
+import { UrlParamsService } from 'core-app/core/navigation/url-params.service';
+import {
+  WorkPackageTabsService,
+} from 'core-app/features/work-packages/components/wp-tabs/services/wp-tabs/wp-tabs.service';
+import { TabComponent } from 'core-app/features/work-packages/components/wp-tabs/components/wp-tab-wrapper/tab';
+import { resolveRoutingId } from 'core-app/features/work-packages/helpers/work-package-id-resolvers';
 
 @Component({
   templateUrl: './wp-split-view.html',
@@ -52,69 +62,87 @@ import { RecentItemsService } from 'core-app/core/recent-items.service';
   selector: 'op-wp-split-view',
   providers: [
     WpSingleViewService,
-    CommentService,
     { provide: HalResourceNotificationService, useClass: WorkPackageNotificationService },
   ],
+  standalone: false,
 })
 export class WorkPackageSplitViewComponent extends WorkPackageSingleViewBase implements OnInit {
-  /** Reference to the base route e.g., work-packages.partitioned.list or bim.partitioned.split */
-  private baseRoute:string = this.$state.current.data.baseRoute;
+  states = inject(States);
+  firstRoute = inject(FirstRouteService);
+  keepTab = inject(KeepTabService);
+  wpTableSelection = inject(WorkPackageViewSelectionService);
+  wpTableFocus = inject(WorkPackageViewFocusService);
+  recentItemsService = inject(RecentItemsService);
+  readonly $state = inject(StateService);
+  readonly urlParams = inject(UrlParamsService);
+  readonly backRouting = inject(BackRoutingService);
+  readonly wpTabs = inject(WorkPackageTabsService);
 
-  constructor(
-    public injector:Injector,
-    public states:States,
-    public firstRoute:FirstRouteService,
-    public keepTab:KeepTabService,
-    public wpTableSelection:WorkPackageViewSelectionService,
-    public wpTableFocus:WorkPackageViewFocusService,
-    public recentItemsService:RecentItemsService,
-    readonly $state:StateService,
-    readonly backRouting:BackRoutingService,
-  ) {
-    super(injector, $state.params.workPackageId);
+  hasState = !!this.$state.current;
+  /** Reference to the base route e.g., work-packages.partitioned.list or bim.partitioned.split */
+  private baseRoute = (this.$state.current?.data as { baseRoute?:string } | undefined)?.baseRoute ?? '';
+
+  @Input() showTabs = true;
+
+  @Input() resizerClass = 'work-packages-partitioned-page--content-right';
+
+    // enable other parts of the application to trigger an immediate update
+  // e.g. a stimulus controller
+  // currently used by the new activities tab which does its own polling
+  @HostListener('document:ian-update-immediate')
+  triggerImmediateUpdate() {
+    this.storeService.reload();
   }
 
   ngOnInit():void {
     this.observeWorkPackage();
 
-    const wpId = this.$state.params.workPackageId as string;
-    const focusedWP = this.wpTableFocus.focusedWorkPackage;
-
-    if (!focusedWP) {
-      // Focus on the work package if we're the first route
-      const isFirstRoute = this.firstRoute.name === `${this.baseRoute}.details.overview`;
-      const isSameID = this.firstRoute.params && wpId === this.firstRoute.params.workPackageI;
-      this.wpTableFocus.updateFocus(wpId, (isFirstRoute && isSameID));
-    } else {
-      this.wpTableFocus.updateFocus(wpId, false);
-    }
-
-    if (this.wpTableSelection.isEmpty) {
-      this.wpTableSelection.setRowState(wpId, true);
-    }
-
-    this.wpTableFocus.whenChanged()
+    this.wpTableFocus.whenNavigationRequested()
       .pipe(
         this.untilDestroyed(),
       )
       .subscribe((newId) => {
-        const idSame = wpId.toString() === newId.toString();
+        const currentId = this.workPackage?.id ?? this.workPackageId;
+        const idSame = currentId.toString() === newId.toString();
         if (!idSame && this.$state.includes(`${this.baseRoute}.details`)) {
-          this.$state.go(
-            (this.$state.current.name as string),
-            { workPackageId: newId, focus: false },
+          void this.$state.go(
+            (this.$state.current.name!),
+            { workPackageId: resolveRoutingId(this.states, newId.toString()), focus: false },
           );
         }
       });
-    this.recentItemsService.add(wpId);
   }
 
-  get shouldFocus():boolean {
-    return this.$state.params.focus === true;
+  /**
+   * Set focus, selection, and recent-items after the WP has loaded.
+   *
+   * Intentionally deferred from ngOnInit because the route param
+   * (this.workPackageId) may be a semantic identifier like "PROJ-7",
+   * but focus/selection services are keyed by numeric PK. By the time
+   * init() runs, this.workPackage.id is guaranteed to be the numeric PK.
+   */
+  protected override init():void {
+    super.init();
+    const numericId = this.workPackage.id!;
+    this.wpTableFocus.updateFocus(numericId, false);
+
+    if (this.wpTableSelection.isEmpty) {
+      this.wpTableSelection.setRowState(numericId, true);
+    }
+
+    this.recentItemsService.add(numericId);
+  }
+
+  get activeTabComponent():Type<TabComponent>|undefined {
+    return this
+      .wpTabs
+      .tabs
+      .find((tab) => tab.id === this.activeTab)
+      ?.component;
   }
 
   showBackButton():boolean {
-    return this.baseRoute.includes('bim');
+    return this.baseRoute?.includes('bim');
   }
 
   backToList():void {

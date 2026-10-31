@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,18 +28,5 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 module Standard
-  class BasicDataSeeder < ::BasicDataSeeder
-    def data_seeder_classes
-      [
-        ::BasicData::BuiltinUsersSeeder,
-        ::BasicData::RoleSeeder,
-        ::BasicData::TimeEntryActivitySeeder,
-        ::BasicData::ColorSeeder,
-        ::BasicData::ColorSchemeSeeder,
-        ::BasicData::WorkflowSeeder,
-        ::BasicData::PrioritySeeder,
-        ::BasicData::SettingSeeder
-      ]
-    end
-  end
+  class BasicDataSeeder < ::BasicDataSeeder; end
 end

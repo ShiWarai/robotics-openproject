@@ -34,14 +34,28 @@ nl:
           name: Grijs (donker)
         item_13:
           name: Zwart
-      document_categories:
+      project_phase_colors:
         item_0:
-          name: Documentatie
+          name: PM2 Orange
         item_1:
-          name: Specificatie
+          name: PM2 Red
         item_2:
-          name: Overige
-      roles:
+          name: PM2 Magenta
+        item_3:
+          name: PM2 Green Yellow
+      project_query_roles:
+        item_0:
+          name: Project query viewer
+        item_1:
+          name: Project query editor
+      work_package_roles:
+        item_0:
+          name: Werkpakket-editor
+        item_1:
+          name: Work package commenter
+        item_2:
+          name: Work package viewer
+      project_roles:
         item_0:
           name: Derde
         item_1:
@@ -52,9 +66,33 @@ nl:
           name: Lezer
         item_4:
           name: Project admin
-        item_5:
+      global_roles:
+        item_0:
           name: Medewerker en projectbeheerder
+        item_1:
+          name: Standard global role
+      ai_text_transform_actions:
+        item_0:
+          label: Fix grammar
+        item_1:
+          label: Make concise
+        item_2:
+          label: Translate to English
+        item_3:
+          label: Sort into template
     standard:
+      project_phases:
+        item_0:
+          name: Initiating
+        item_1:
+          name: Planning
+          start_gate: Ready for Planning
+        item_2:
+          name: Executing
+          start_gate: Ready for Executing
+        item_3:
+          name: Closing
+          start_gate: Ready for Closing
       priorities:
         item_0:
           name: Laag
@@ -64,81 +102,26 @@ nl:
           name: Hoog
         item_3:
           name: Onmiddellijk
-      statuses:
+      departments:
         item_0:
-          name: Nieuw
+          name: Marketing & Communications
         item_1:
-          name: In specificatie
+          name: Public Relations
         item_2:
-          name: Gespecificeerd
+          name: Design & Content
         item_3:
-          name: Bevestigd
+          name: Events & Operations
         item_4:
-          name: Om ingepland te worden
+          name: Web & IT
         item_5:
-          name: Gepland
+          name: Finance & Administration
         item_6:
-          name: In behandeling
-        item_7:
-          name: Ontwikkel
-        item_8:
-          name: In test
-        item_9:
-          name: Getest
-        item_10:
-          name: Test is mislukt
-        item_11:
-          name: Gesloten
-        item_12:
-          name: In de wacht
-        item_13:
-          name: Afgewezen
-      time_entry_activities:
-        item_0:
-          name: Beheer
-        item_1:
-          name: Specificatie
-        item_2:
-          name: Ontwikkeling
-        item_3:
-          name: Testen
-        item_4:
-          name: Ondersteuning
-        item_5:
-          name: Overige
-      types:
-        item_0:
-          name: Taak
-        item_1:
-          name: Mijlpaal
-        item_2:
-          name: Fase
-        item_3:
-          name: Functie
-        item_4:
-          name: Episch
-        item_5:
-          name: Gebruikersverhaal
-        item_6:
-          name: Fout
-      welcome:
-        title: Welkom bij OpenProject!
-        text: |
-          Select one of the demo projects to get started with some demo data we have prepared for you.
-
-          * [Demo project]({{opSetting:base_url}}/projects/demo-project): to get an overview about classical project management.
-          * [Scrum project]({{opSetting:base_url}}/projects/your-scrum-project): to learn about Agile and Scrum project management.
-
-          Also, you can create a blank [new project]({{opSetting:base_url}}/projects/new).
-
-          Never stop collaborating. With open source and open mind.
-
-          You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).
+          name: Quality Assurance
       projects:
         demo-project:
-          name: Demo project
+          name: Demo-project
           status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
-          description: This is a short summary of the goals of this demo project.
+          description: Dit is een korte samenvatting van de doelen van dit demo-project.
           news:
             item_0:
               title: Welkom bij uw demo-project
@@ -147,10 +130,10 @@ nl:
                 In this module you can communicate project news to your team members.
               description: Het actuele nieuws
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: Categorie 1 (te wijzigen in Projectinstellingen)
           queries:
             item_0:
-              name: Project plan
+              name: Project abonnement
             item_1:
               name: Mijlpalen
             item_2:
@@ -205,7 +188,7 @@ nl:
                   name: Mijlpalen
           work_packages:
             item_0:
-              subject: Start of project
+              subject: Start van project
             item_1:
               subject: Open source conferentie organiseren
               children:
@@ -223,12 +206,14 @@ nl:
                 item_2:
                   subject: Setup conference website
             item_2:
-              subject: Conferentie
+              subject: Test and quality-check the conference website
             item_3:
+              subject: Conference
+            item_4:
               subject: Follow-up tasks
               children:
                 item_0:
-                  subject: Upload presentaties naar website
+                  subject: Upload presentations to website
                 item_1:
                   subject: Party for conference supporters :-)
                   description: |-
@@ -236,8 +221,23 @@ nl:
                     *   [ ] Snacks
                     *   [ ] Music
                     *   [ ] Even more beer
-            item_4:
-              subject: Einde van project
+            item_5:
+              subject: End of project
+          wiki: |
+            _In this wiki you can collaboratively create and edit pages and sub-pages to create a project wiki._
+
+            **You can:**
+
+            * Insert text and images, also with copy and paste from other documents
+            * Create a page hierarchy with parent pages
+            * Include wiki pages to the project menu
+            * Use macros to include, e.g. table of contents, work package lists, or Gantt charts
+            * Include wiki pages in other text fields, e.g. project overview page
+            * Include links to other documents
+            * View the change history
+            * View as Markdown
+
+            More information: [https://www.openproject.org/docs/user-guide/wiki/](https://www.openproject.org/docs/user-guide/wiki/)
         scrum-project:
           name: Scrum project
           status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
@@ -258,58 +258,58 @@ nl:
               wiki:
                 title: Sprint 1
                 content: |
-                  ### Sprint planning meeting
+                  ### Sprintplanningsvergadering
 
-                  _Please document here topics to the Sprint planning meeting_
+                  _Gelieve hier de agendapunten voor de sprintplanningsvergadering vast te leggen_
 
-                  * Time boxed (8 h)
-                  * Input: Product Backlog
-                  * Output: Sprint Backlog
+                  * Tijdslimiet (8 uur)
+                  * Input: Productbacklog
+                  * Output: Sprintbacklog
 
-                  * Divided into two additional time boxes of 4 h:
+                  * Opgesplitst in twee extra tijdsblokken van 4 uur:
 
-                      * The Product Owner presents the [Product Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) and the priorities to the team and explains the Sprint Goal, to which the team must agree. Together, they prioritize the topics from the Product Backlog which the team will take care of in the next sprint. The team commits to the discussed delivery.
-                      * The team plans autonomously (without the Product Owner) in detail and breaks down the tasks from the discussed requirements to consolidate a [Sprint Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs).
-
-
-                  ### Daily Scrum meeting
-
-                  _Please document here topics to the Daily Scrum meeting_
-
-                  * Short, daily status meeting of the team.
-                  * Time boxed (max. 15 min).
-                  * Stand-up meeting to discuss the following topics from the [Task board](##sprint:scrum_project__version__sprint_1).
-                      * What do I plan to do until the next Daily Scrum?
-                      * What has blocked my work (Impediments)?
-                  * Scrum Master moderates and notes down [Sprint Impediments](##sprint:scrum_project__version__sprint_1).
-                  * Product Owner may participate may participate in order to stay informed.
-
-                  ### Sprint Review meeting
-
-                  _Please document here topics to the Sprint Review meeting_
-
-                  * Time boxed (4 h).
-                  * A maximum of one hour of preparation time per person.
-                  * The team shows the product owner and other interested persons what has been achieved in this sprint.
-                  * Important: no dummies and no PowerPoint! Just finished product functionality (Increments) should be demonstrated.
-                  * Feedback from Product Owner, stakeholders and others is desired and will be included in further work.
-                  * Based on the demonstrated functionalities, the Product Owner decides to go live with this increment or to develop it further. This possibility allows an early ROI.
+                      * De Product Owner presenteert de [Product Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) en de prioriteiten aan het team en licht het Sprintdoel toe, waarmee het team moet instemmen. Gezamenlijk stellen zij de prioriteiten vast voor de onderwerpen uit de Product Backlog die het team in de volgende sprint zal afhandelen. Het team verbindt zich tot de besproken oplevering.
+                      * Het team maakt zelfstandig (zonder de Product Owner) een gedetailleerd plan en splitst de taken uit de besproken vereisten op om een [Sprint Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) samen te stellen.
 
 
-                  ### Sprint Retrospective
+                  ### Dagelijkse Scrum-vergadering
 
-                  _Please document here topics to the Sprint Retrospective meeting_
+                  _Gelieve hier de onderwerpen voor de dagelijkse Scrum-vergadering te noteren_
 
-                  * Time boxed (3 h).
-                  * After Sprint Review, will be moderated by Scrum Master.
-                  * The team discusses the sprint: what went well, what needs to be improved to be more productive for the next sprint or even have more fun.
+                  * Korte, dagelijkse statusvergadering van het team.
+                  * Tijdslimiet (max. 15 min).
+                  * Stand-upvergadering om de volgende onderwerpen van het takenbord te bespreken.
+                      * Wat ben ik van plan te doen tot de volgende dagelijkse scrumvergadering?
+                      * Wat heeft mijn werk belemmerd (belemmeringen)?
+                  * De scrummaster treedt op als moderator en noteert sprintbelemmeringen.
+                  * De producteigenaar kan deelnemen om op de hoogte te blijven.
+
+                  ### Sprint Review-bijeenkomst
+
+                  _Gelieve hier de onderwerpen voor de Sprint Review-bijeenkomst vast te leggen_
+
+                  * Tijdslimiet (4 uur).
+                  * Maximaal één uur voorbereidingstijd per persoon.
+                  * Het team toont de Product Owner en andere geïnteresseerden wat er in deze sprint is gerealiseerd.
+                  * Belangrijk: geen dummy’s en geen PowerPoint! Alleen voltooide productfunctionaliteiten (Increments) mogen worden gedemonstreerd.
+                  * Feedback van de Product Owner, belanghebbenden en anderen is gewenst en zal worden meegenomen in het verdere werk.
+                  * Op basis van de gedemonstreerde functionaliteiten besluit de Product Owner om dit increment live te zetten of verder te ontwikkelen. Deze mogelijkheid maakt een vroege ROI mogelijk.
+
+
+                  ### Sprint Retrospectieve
+
+                  _Gelieve hier onderwerpen voor de Sprint Retrospectieve-bijeenkomst te documenteren_
+
+                  * Tijdslimiet (3 uur).
+                  * Volgt na de Sprint Review en wordt gemodereerd door de Scrum Master.
+                  * Het team bespreekt de sprint: wat ging er goed, wat moet er worden verbeterd om productiever te zijn voor de volgende sprint of zelfs om meer plezier te hebben.
             item_3:
               name: Sprint 2
           categories:
-            item_0: Category 1 (to be changed in Project settings)
+            item_0: Categorie 1 (te wijzigen in Projectinstellingen)
           queries:
             item_0:
-              name: Project plan
+              name: Project abonnement
             item_1:
               name: Product backlog
             item_2:
@@ -341,8 +341,6 @@ nl:
                   text: |
                     We are glad you joined! We suggest to try a few things to get started in OpenProject.
 
-                    Discover the most important features with our [Guided Tour]({{opSetting:base_url}}/projects/your-scrum-project/backlogs?start_scrum_onboarding_tour=true).
-
                     _Try the following steps:_
 
                     1. *Invite new members to your project*: &rightarrow; Go to [Members]({{opSetting:base_url}}/projects/your-scrum-project/members) in the project navigation.
@@ -360,26 +358,26 @@ nl:
                   name: Werkpakketten
               item_6:
                 options:
-                  name: Project plan
+                  name: Project abonnement
           work_packages:
             item_0:
-              subject: New login screen
+              subject: Nieuw inlogscherm
             item_1:
               subject: Password reset does not send email
             item_2:
-              subject: New website
+              subject: Nieuwe website
               children:
                 item_0:
-                  subject: Newsletter registration form
+                  subject: Inschrijfformulier nieuwsbrief
                 item_1:
                   subject: Implement product tour
                 item_2:
-                  subject: New landing page
+                  subject: Nieuwe landingspagina
                   children:
                     item_0:
                       subject: Create wireframes for new landing page
             item_3:
-              subject: Contact form
+              subject: Contactformulier
             item_4:
               subject: Feature carousel
               children:
@@ -392,69 +390,158 @@ nl:
             item_7:
               subject: Set-up Staging environment
             item_8:
-              subject: Choose a content management system
+              subject: Kies een contentmanagementsysteem
             item_9:
-              subject: Website navigation structure
+              subject: Website navigatiestructuur
               children:
                 item_0:
                   subject: Set up navigation concept for website.
             item_10:
-              subject: Internal link structure
+              subject: Interne linkstructuur
             item_11:
-              subject: Develop v1.0
+              subject: Ontwikkel v1.0
             item_12:
               subject: Release v1.0
             item_13:
               subject: Develop v1.1
             item_14:
-              subject: Release v1.1
+              subject: Versie v1.1
             item_15:
               subject: Develop v2.0
             item_16:
               subject: Release v2.0
           wiki: |
-            ### Sprint planning meeting
+            ### Sprintplanningsvergadering
 
-            _Please document here topics to the Sprint planning meeting_
+            _Gelieve hier de agendapunten voor de sprintplanningsvergadering vast te leggen_
 
-            * Time boxed (8 h)
-            * Input: Product Backlog
-            * Output: Sprint Backlog
+            * Tijdslimiet (8 uur)
+            * Input: Productbacklog
+            * Output: Sprintbacklog
 
-            * Divided into two additional time boxes of 4 h:
+            * Opgesplitst in twee extra tijdsblokken van 4 uur:
 
-                * The Product Owner presents the [Product Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) and the priorities to the team and explains the Sprint Goal, to which the team must agree. Together, they prioritize the topics from the Product Backlog which the team will take care of in the next sprint. The team commits to the discussed delivery.
-                * The team plans autonomously (without the Product Owner) in detail and breaks down the tasks from the discussed requirements to consolidate a [Sprint Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs).
-
-
-            ### Daily Scrum meeting
-
-            _Please document here topics to the Daily Scrum meeting_
-
-            * Short, daily status meeting of the team.
-            * Time boxed (max. 15 min).
-            * Stand-up meeting to discuss the following topics from the Task board.
-                * What do I plan to do until the next Daily Scrum?
-                * What has blocked my work (Impediments)?
-            * Scrum Master moderates and notes down Sprint Impediments.
-            * Product Owner may participate may participate in order to stay informed.
-
-            ### Sprint Review meeting
-
-            _Please document here topics to the Sprint Review meeting_
-
-            * Time boxed (4 h).
-            * A maximum of one hour of preparation time per person.
-            * The team shows the product owner and other interested persons what has been achieved in this sprint.
-            * Important: no dummies and no PowerPoint! Just finished product functionality (Increments) should be demonstrated.
-            * Feedback from Product Owner, stakeholders and others is desired and will be included in further work.
-            * Based on the demonstrated functionalities, the Product Owner decides to go live with this increment or to develop it further. This possibility allows an early ROI.
+                * De Product Owner presenteert de [Product Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) en de prioriteiten aan het team en licht het Sprintdoel toe, waarmee het team moet instemmen. Gezamenlijk stellen zij de prioriteiten vast voor de onderwerpen uit de Product Backlog die het team in de volgende sprint zal afhandelen. Het team verbindt zich tot de besproken oplevering.
+                * Het team maakt zelfstandig (zonder de Product Owner) een gedetailleerd plan en splitst de taken uit de besproken vereisten op om een [Sprint Backlog]({{opSetting:base_url}}/projects/your-scrum-project/backlogs) samen te stellen.
 
 
-            ### Sprint Retrospective
+            ### Dagelijkse Scrum-vergadering
 
-            _Please document here topics to the Sprint Retrospective meeting_
+            _Gelieve hier de onderwerpen voor de dagelijkse Scrum-vergadering te noteren_
 
-            * Time boxed (3 h).
-            * After Sprint Review, will be moderated by Scrum Master.
-            * The team discusses the sprint: what went well, what needs to be improved to be more productive for the next sprint or even have more fun.
+            * Korte, dagelijkse statusvergadering van het team.
+            * Tijdslimiet (max. 15 min).
+            * Stand-upvergadering om de volgende onderwerpen van het takenbord te bespreken.
+                * Wat ben ik van plan te doen tot de volgende dagelijkse scrumvergadering?
+                * Wat heeft mijn werk belemmerd (belemmeringen)?
+            * De scrummaster treedt op als moderator en noteert sprintbelemmeringen.
+            * De producteigenaar kan deelnemen om op de hoogte te blijven.
+
+            ### Sprint Review-bijeenkomst
+
+            _Gelieve hier de onderwerpen voor de Sprint Review-bijeenkomst vast te leggen_
+
+            * Tijdslimiet (4 uur).
+            * Maximaal één uur voorbereidingstijd per persoon.
+            * Het team toont de Product Owner en andere geïnteresseerden wat er in deze sprint is gerealiseerd.
+            * Belangrijk: geen dummy’s en geen PowerPoint! Alleen voltooide productfunctionaliteiten (Increments) mogen worden gedemonstreerd.
+            * Feedback van de Product Owner, belanghebbenden en anderen is gewenst en zal worden meegenomen in het verdere werk.
+            * Op basis van de gedemonstreerde functionaliteiten besluit de Product Owner om dit increment live te zetten of verder te ontwikkelen. Deze mogelijkheid maakt een vroege ROI mogelijk.
+
+
+            ### Sprint Retrospectieve
+
+            _Gelieve hier onderwerpen voor de Sprint Retrospectieve-bijeenkomst te documenteren_
+
+            * Tijdslimiet (3 uur).
+            * Volgt na de Sprint Review en wordt gemodereerd door de Scrum Master.
+            * Het team bespreekt de sprint: wat ging er goed, wat moet er worden verbeterd om productiever te zijn voor de volgende sprint of zelfs om meer plezier te hebben.
+      statuses:
+        item_0:
+          name: Nieuw
+        item_1:
+          name: In specificatie
+        item_2:
+          name: Gespecificeerd
+        item_3:
+          name: Bevestigd
+        item_4:
+          name: Om ingepland te worden
+        item_5:
+          name: Gepland
+        item_6:
+          name: In behandeling
+        item_7:
+          name: Ontwikkel
+        item_8:
+          name: In test
+        item_9:
+          name: Getest
+        item_10:
+          name: Test is mislukt
+        item_11:
+          name: Gesloten
+        item_12:
+          name: In de wacht
+        item_13:
+          name: Afgewezen
+      time_entry_activities:
+        item_0:
+          name: Beheer
+        item_1:
+          name: Specificatie
+        item_2:
+          name: Ontwikkeling
+        item_3:
+          name: Testen
+        item_4:
+          name: Ondersteuning
+        item_5:
+          name: Overige
+      types:
+        item_0:
+          name: Taak
+        item_1:
+          name: Mijlpaal
+        item_2:
+          name: Summary task
+        item_3:
+          name: Functie
+        item_4:
+          name: Episch
+        item_5:
+          name: Gebruikersverhaal
+        item_6:
+          name: Fout
+      global_queries:
+        item_0:
+          name: 'Epic children: User stories and bugs'
+        item_1:
+          name: 'User story children: Tasks'
+      type_configuration:
+        item_0:
+          form_configuration:
+            item_0:
+              group_name: User stories and bugs
+        item_1:
+          form_configuration:
+            item_0:
+              group_name: Tasks
+      welcome:
+        title: Welkom bij OpenProject!
+        text: |
+          OpenProject is the leading open source project management software. It supports classic, agile as well as hybrid project management and gives you full control over your data.
+
+          Core features and use cases:
+
+          * [Project Portfolio Management](https://www.openproject.org/collaboration-software-features/project-portfolio-management/)
+          * [Project Planning and Scheduling](https://www.openproject.org/collaboration-software-features/project-planning-scheduling/)
+          * [Task Management and Issue Tracking](https://www.openproject.org/collaboration-software-features/task-management/)
+          * [Agile Boards (Scrum and Kanban)](https://www.openproject.org/collaboration-software-features/agile-project-management/)
+          * [Requirements Management and Release Planning](https://www.openproject.org/collaboration-software-features/product-development/)
+          * [Time and Cost Tracking, Budgets](https://www.openproject.org/collaboration-software-features/time-tracking/)
+          * [Team Collaboration and Documentation](https://www.openproject.org/collaboration-software-features/team-collaboration/)
+
+          Welcome to the future of project management.
+
+          For Admins: You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).

@@ -1,12 +1,12 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -54,15 +54,15 @@ module TeamPlanner
     end
 
     def delete_link
-      if table.current_user.allowed_to?(:manage_team_planner, project)
+      if table.current_user.allowed_in_project?(:manage_team_planner, project)
         link_to(
-          '',
+          "",
           project_team_planner_path(project, query.id),
-          class: 'spot-link icon icon-delete',
-          method: :delete,
+          class: "spot-link icon icon-delete",
           data: {
-            confirm: I18n.t(:text_are_you_sure),
-            'qa-selector': "team-planner-remove-#{query.id}"
+            turbo_method: :delete,
+            turbo_confirm: I18n.t(:text_are_you_sure),
+            "test-selector": "team-planner-remove-#{query.id}"
           },
           title: t(:button_delete)
         )

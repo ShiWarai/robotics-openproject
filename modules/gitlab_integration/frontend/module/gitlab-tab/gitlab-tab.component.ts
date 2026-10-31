@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -27,7 +27,7 @@
 // See docs/COPYRIGHT.rdoc for more details.
 //++
 
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject, ChangeDetectionStrategy } from '@angular/core';
 import { WorkPackageResource } from "core-app/features/hal/resources/work-package-resource";
 import { TabComponent } from "core-app/features/work-packages/components/wp-tabs/components/wp-tab-wrapper/tab";
 import { I18nService } from "core-app/core/i18n/i18n.service";
@@ -35,12 +35,16 @@ import { PathHelperService } from "core-app/core/path-helper/path-helper.service
 
 @Component({
   selector: 'gitlab-tab',
-  templateUrl: './gitlab-tab.template.html'
+  templateUrl: './gitlab-tab.template.html',
+  styleUrls: [
+    './gitlab-tab.component.sass',
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
 export class GitlabTabComponent implements TabComponent {
-  @Input() public workPackage:WorkPackageResource;
+  readonly PathHelper = inject(PathHelperService);
+  readonly I18n = inject(I18nService);
 
-  constructor(readonly PathHelper:PathHelperService,
-              readonly I18n:I18nService) {
-  }
+  @Input() public workPackage:WorkPackageResource;
 }

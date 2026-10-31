@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,35 +36,35 @@ module Components
       include RSpec::Matchers
 
       def expect_active
-        expect(page).to have_selector('[data-qa-selector="timer-active"]', wait: 10)
+        expect(page).to have_css('[data-test-selector="timer-active"]', wait: 10)
       end
 
       def expect_inactive
-        expect(page).to have_selector('[data-qa-selector="timer-inactive"]', wait: 10)
+        expect(page).to have_css('[data-test-selector="timer-inactive"]', wait: 10)
       end
 
       def expect_time(text)
-        expect(page).to have_selector('[data-qa-selector="timer-active"]', wait: 10, text:)
+        expect(page).to have_css('[data-test-selector="timer-active"]', wait: 10, text:)
       end
 
       def expect_visible(visible: true)
         if visible
-          expect(page).to have_selector('op-wp-timer-button')
+          expect(page).to have_css("op-wp-timer-button")
         else
-          expect(page).not_to have_selector('op-wp-timer-button')
+          expect(page).to have_no_css("op-wp-timer-button")
         end
       end
 
       def start
         close_dropdown
-        page.within('op-wp-timer-button') do
-          find('[data-qa-selector="timer-inactive"]').click
+        page.within("op-wp-timer-button") do
+          find('[data-test-selector="timer-inactive"]').click
         end
       end
 
       def stop
-        page.within('op-wp-timer-button') do
-          find('[data-qa-selector="timer-active"]').click
+        page.within("op-wp-timer-button") do
+          find('[data-test-selector="timer-active"]').click
         end
       end
 

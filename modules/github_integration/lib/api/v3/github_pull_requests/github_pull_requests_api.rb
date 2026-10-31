@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,7 +31,7 @@ module API
     module GithubPullRequests
       class GithubPullRequestsAPI < ::API::OpenProjectAPI
         resources :github_pull_requests do
-          route_param :id, type: Integer, desc: 'Pull Request ID' do
+          route_param :id, type: Integer, desc: "Pull Request ID" do
             after_validation do
               @pull_request = GithubPullRequest.find(declared_params[:id])
 

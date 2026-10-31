@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,21 +28,21 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe AdditionalUrlHelpers do
-  describe '#configurable_home_url' do
+  describe "#configurable_home_url" do
     subject { helper.send :configurable_home_url }
 
-    context 'when home_url is defined', with_settings: { home_url: 'https://example.com/foo/bar' } do
-      it 'outputs that' do
-        expect(subject).to eq 'https://example.com/foo/bar'
+    context "when home_url is defined", with_settings: { home_url: "https://example.com/foo/bar" } do
+      it "outputs that" do
+        expect(subject).to eq "https://example.com/foo/bar"
       end
     end
 
-    context 'when home_url is not defined', with_settings: { home_url: nil } do
-      it 'falls back to the default' do
-        expect(subject).to eq 'http://test.host/'
+    context "when home_url is not defined", with_settings: { home_url: nil } do
+      it "falls back to the default" do
+        expect(subject).to eq "http://test.host/"
       end
     end
   end

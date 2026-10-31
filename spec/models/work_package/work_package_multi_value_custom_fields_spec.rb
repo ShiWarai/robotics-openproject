@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe WorkPackage do
   let(:type) { create(:type) }
@@ -62,38 +64,38 @@ RSpec.describe WorkPackage do
   end
 
   let(:values) { work_package.custom_value_for(custom_field) }
-  let(:typed_values) { work_package.typed_custom_value_for(custom_field.id) }
+  let(:typed_values) { work_package.typed_custom_value_for(custom_field) }
 
-  it 'returns the properly typed values' do
-    expect(values.map { |cv| cv.value }).to eq(custom_values)
+  it "returns the properly typed values" do
+    expect(values.map(&:value)).to eq(custom_values)
     expect(typed_values).to eq(%w(ham onions pineapple))
   end
 
-  context 'when value not present' do
+  context "when value not present" do
     let(:work_package) { create(:work_package, project:, type:) }
 
-    it 'returns nil properly' do
-      expect(values).to be_nil
-      expect(typed_values).to be_nil
+    it "returns nil properly" do
+      expect(values.map(&:value)).to eq([nil])
+      expect(typed_values).to eq([nil])
     end
   end
 
-  describe 'setting and reading values' do
-    shared_examples_for 'custom field values updates' do
+  describe "setting and reading values" do
+    shared_examples_for "custom field values updates" do
       before do
         # Reload to reset i.e. the saved_changes filter on custom_values
         work_package.reload
       end
 
-      it 'touches the work_package' do
+      it "touches the work_package" do
         expect do
           work_package.custom_field_values = { custom_field.id => ids }
           work_package.save
         end
-          .to(change { work_package.lock_version })
+          .to(change(work_package, :lock_version))
       end
 
-      it 'sets the values' do
+      it "sets the values" do
         work_package.custom_field_values = { custom_field.id => ids }
         work_package.save
 
@@ -102,22 +104,22 @@ RSpec.describe WorkPackage do
       end
     end
 
-    context 'when removing some custom values' do
-      it_behaves_like 'custom field values updates' do
+    context "when removing some custom values" do
+      it_behaves_like "custom field values updates" do
         let(:ids) { [custom_values.first.to_s] }
-        let(:values) { ['ham'] }
+        let(:values) { ["ham"] }
       end
     end
 
-    context 'when removing all custom values' do
-      it_behaves_like 'custom field values updates' do
+    context "when removing all custom values" do
+      it_behaves_like "custom field values updates" do
         let(:ids) { [] }
         let(:values) { [nil] }
       end
     end
 
-    context 'when adding values' do
-      it_behaves_like 'custom field values updates' do
+    context "when adding values" do
+      it_behaves_like "custom field values updates" do
         let(:ids) do
           CustomOption.where(value: ["ham", "onions", "pineapple", "mushrooms"]).pluck(:id).map(&:to_s)
         end
@@ -125,10 +127,10 @@ RSpec.describe WorkPackage do
       end
     end
 
-    context 'when first having no values and then adding some' do
+    context "when first having no values and then adding some" do
       let(:custom_values) { [] }
 
-      it_behaves_like 'custom field values updates' do
+      it_behaves_like "custom field values updates" do
         let(:ids) do
           CustomOption.where(value: ["ham", "mushrooms"]).pluck(:id).map(&:to_s)
         end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,35 +32,26 @@ class NextcloudApplicationCredentialsValidator
 
   def initialize(contract)
     @contract = contract
-    @uri = URI(contract.host).normalize
   end
 
+  # rubocop:disable Metrics/AbcSize
   def call
     return unless contract.model.password_changed?
 
-    case make_http_head_request_from(build_http_head_request)
-    when Net::HTTPSuccess
+    response = OpenProject
+                 .httpx
+                 .plugin(:basic_auth)
+                 .basic_auth(contract.username, contract.password)
+                 .head(Storages::UrlBuilder.url(contract.model.uri, "remote.php/dav"))
+    case response
+    in { status: 200..299 }
       true
-    when Net::HTTPUnauthorized
+    in { status: 401 }
       contract.errors.add(:password, :invalid_password)
     else
       contract.errors.add(:password, :unknown_error)
     end
   end
 
-  private
-
-  def build_http_head_request
-    request = Net::HTTP::Head.new Storages::Peripherals::StorageInteraction::Nextcloud::Util
-      .join_uri_path(uri, "remote.php/dav")
-    request.initialize_http_header Storages::Peripherals::StorageInteraction::Nextcloud::Util
-      .basic_auth_header(contract.username, contract.password)
-    request
-  end
-
-  def make_http_head_request_from(request)
-    Storages::Peripherals::StorageInteraction::Nextcloud::Util
-      .http(uri)
-      .request(request)
-  end
+  # rubocop:enable Metrics/AbcSize
 end

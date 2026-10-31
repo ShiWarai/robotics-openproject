@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,43 +21,27 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
+import { keyBy } from 'lodash-es';
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
   EventEmitter,
   forwardRef,
   HostBinding,
-  Injector,
   Input,
+  OnInit,
   Output,
-  ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import {
-  ControlValueAccessor,
-  NG_VALUE_ACCESSOR,
-} from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { merge, Observable, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { ID } from '@datorama/akita';
-import { HalResourceService } from 'core-app/features/hal/services/hal-resource.service';
-import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
-import { I18nService } from 'core-app/core/i18n/i18n.service';
-import { HalResourceNotificationService } from 'core-app/features/hal/services/hal-resource-notification.service';
-import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
-import {
-  ApiV3ListFilter,
-  listParamsString,
-} from 'core-app/core/apiv3/paths/apiv3-list-resource.interface';
-import { populateInputsFromDataset } from 'core-app/shared/components/dataset-inputs';
-
 import { IProjectAutocompleteItem } from './project-autocomplete-item';
 import { flattenProjectTree } from './flatten-project-tree';
 import { getPaginatedResults } from 'core-app/core/apiv3/helpers/get-paginated-results';
@@ -65,6 +49,15 @@ import { IProject } from 'core-app/core/state/projects/project.model';
 import { IHALCollection } from 'core-app/core/apiv3/types/hal-collection.type';
 import { buildTree } from 'core-app/shared/components/autocompleter/project-autocompleter/insert-in-list';
 import { recursiveSort } from 'core-app/shared/components/autocompleter/project-autocompleter/recursive-sort';
+import {
+  OpAutocompleterComponent,
+} from 'core-app/shared/components/autocompleter/op-autocompleter/op-autocompleter.component';
+import { ApiV3FilterBuilder } from 'core-app/shared/helpers/api-v3/api-v3-filter-builder';
+import {
+  ProjectAutocompleterTemplateComponent,
+} from 'core-app/shared/components/autocompleter/project-autocompleter/project-autocompleter-template.component';
+import { addFiltersToPath } from 'core-app/core/apiv3/helpers/add-filters-to-path';
+import { TOpAutocompleterResource } from 'core-app/shared/components/autocompleter/op-autocompleter/typings';
 
 export const projectsAutocompleterSelector = 'op-project-autocompleter';
 
@@ -75,7 +68,7 @@ export interface IProjectAutocompleterData {
 }
 
 @Component({
-  templateUrl: './project-autocompleter.component.html',
+  templateUrl: '../op-autocompleter/op-autocompleter.component.html',
   styleUrls: ['./project-autocompleter.component.sass'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -85,8 +78,9 @@ export interface IProjectAutocompleterData {
     useExisting: forwardRef(() => ProjectAutocompleterComponent),
     multi: true,
   }],
+  standalone: false,
 })
-export class ProjectAutocompleterComponent implements ControlValueAccessor {
+export class ProjectAutocompleterComponent extends OpAutocompleterComponent<IProjectAutocompleterData> implements OnInit, ControlValueAccessor {
   @HostBinding('class.op-project-autocompleter') public className = true;
 
   @HostBinding('class.op-project-autocompleter_inline')
@@ -94,40 +88,12 @@ export class ProjectAutocompleterComponent implements ControlValueAccessor {
     return this.isInlineContext;
   }
 
-  projectTracker = (item:IProjectAutocompleteItem):ID => item.href || item.id;
-
   // Load all projects as default
   @Input() public url:string = this.apiV3Service.projects.path;
 
-  @Input() public name = '';
-
-  @Input() public focusDirectly = false;
-
-  @Input() public openDirectly = false;
-
-  @Input() public multiple = false;
-
-  @Input() public dropdownPosition:'bottom'|'top'|'auto' = 'auto';
-
-  // ID that should be set on the input HTML element. It is used with
-  // <label> tags that have `for=""` set
-  @Input() public labelForId = '';
-
-  @Input() public apiFilters:ApiV3ListFilter[] = [];
-
-  @Input() public placeholder:string = this.I18n.t('js.autocompleter.project.placeholder');
-
-  @Input() public appendTo = '';
-
   @Input() public isInlineContext = false;
 
-  @Input() public hiddenFieldAction = '';
-
-  @Input() public clearable?:boolean = true;
-
-  dataLoaded = false;
-
-  projects:IProjectAutocompleteItem[];
+  @Input() public disabledProjects:Record<string, string|boolean> = {};
 
   // This function allows mapping of the results before they are fed to the tree
   // structuring and destructuring algorithms used internally the this component
@@ -137,46 +103,23 @@ export class ProjectAutocompleterComponent implements ControlValueAccessor {
   @Input()
   public mapResultsFn:(projects:IProjectAutocompleteItem[]) => IProjectAutocompleteItem[] = (projects) => projects;
 
-  /* eslint-disable-next-line @angular-eslint/no-input-rename */
-  @Input('value') public _value:IProjectAutocompleterData|IProjectAutocompleterData[]|null = null;
-
-  get value():IProjectAutocompleterData|IProjectAutocompleterData[]|null {
-    return this._value;
-  }
-
-  set value(value:IProjectAutocompleterData|IProjectAutocompleterData[]|null) {
-    this._value = value;
-    this.onChange(value);
-    this.valueChange.emit(value);
-    this.onTouched(value);
-    setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-call
-      this.hiddenInput.nativeElement?.dispatchEvent(new Event('change'));
-    }, 100);
-  }
-
-  get plainValue():ID|ID[] {
-    return (Array.isArray(this.value) ? this.value?.map((i) => i.id) : this.value?.id) || '';
-  }
-
   /* eslint-disable-next-line @angular-eslint/no-output-rename */
   @Output('valueChange') valueChange = new EventEmitter<IProjectAutocompleterData|IProjectAutocompleterData[]|null>();
 
-  @Output() cancel = new EventEmitter();
+  projectTracker = (item:IProjectAutocompleteItem):ID => item.href || item.id;
 
-  @ViewChild('hiddenInput') hiddenInput:ElementRef;
+  getOptionsFn = this.getAvailableProjects.bind(this);
 
-  constructor(
-    public elementRef:ElementRef,
-    protected halResourceService:HalResourceService,
-    protected I18n:I18nService,
-    protected halNotification:HalResourceNotificationService,
-    readonly http:HttpClient,
-    readonly pathHelper:PathHelperService,
-    readonly apiV3Service:ApiV3Service,
-    readonly injector:Injector,
-  ) {
-    populateInputsFromDataset(this);
+  dataLoaded = false;
+
+  resource:TOpAutocompleterResource = 'projects';
+
+  projects:IProjectAutocompleteItem[];
+
+  ngOnInit() {
+    super.ngOnInit();
+
+    this.applyTemplates(ProjectAutocompleterTemplateComponent, {});
   }
 
   private matchingItems(elements:IProjectAutocompleteItem[], matching:string):Observable<IProjectAutocompleteItem[]> {
@@ -194,25 +137,28 @@ export class ProjectAutocompleterComponent implements ControlValueAccessor {
 
   private disableSelectedItems(
     projects:IProjectAutocompleteItem[],
-    value:IProjectAutocompleterData|IProjectAutocompleterData[]|null,
+    value:IProjectAutocompleterData|IProjectAutocompleterData[]|null|undefined,
   ) {
     if (!this.multiple) {
       return projects;
     }
 
-    const normalizedValue = (value || []);
+    const normalizedValue = (value ?? []);
     const arrayedValue = (Array.isArray(normalizedValue) ? normalizedValue : [normalizedValue]).map((p) => p.href || p.id);
     return projects.map((project) => {
       const isSelected = !!arrayedValue.find((selected) => selected === this.projectTracker(project));
+      const id = project.id.toString();
+      const disabled = isSelected || project.disabled || !!this.disabledProjects[id];
       return {
         ...project,
-        disabled: isSelected || project.disabled,
+        disabled,
+        disabledReason: (typeof this.disabledProjects[id] === 'string') ? this.disabledProjects[id] : '',
       };
     });
   }
 
   public getAvailableProjects(searchTerm:string):Observable<IProjectAutocompleteItem[]> {
-    if (this.dataLoaded === true) {
+    if (this.dataLoaded) {
       return this.matchingItems(this.projects, searchTerm).pipe(
         map(this.mapResultsFn),
         map((projects) => projects.sort((a, b) => a.ancestors.length - b.ancestors.length)),
@@ -221,48 +167,40 @@ export class ProjectAutocompleterComponent implements ControlValueAccessor {
         map((projectTreeItems) => flattenProjectTree(projectTreeItems)),
         switchMap(
           (projects) => merge(of([]), this.valueChange).pipe(
-            map(() => this.disableSelectedItems(projects, this.value)),
+            map(() => this.disableSelectedItems(projects, this.model)),
           ),
         ),
       );
     }
     return getPaginatedResults<IProject>(
       (params) => {
-        const filters:ApiV3ListFilter[] = [...this.apiFilters];
+        const filteredURL = this.buildFilteredURL(searchTerm);
 
-        if (searchTerm.length) {
-          filters.push(['typeahead', '**', [searchTerm]]);
-        }
+        filteredURL.searchParams.set('pageSize', params.pageSize?.toString() || '-1');
+        filteredURL.searchParams.set('offset', params.offset?.toString() || '1');
+        filteredURL.searchParams.set('select', 'elements/id,elements/name,elements/identifier,elements/self,elements/ancestors,elements/_type,total,count,pageSize');
 
-        const url = new URL(this.url, window.location.origin);
-        const fullParams = {
-          filters,
-          select: [
-            'elements/id',
-            'elements/name',
-            'elements/identifier',
-            'elements/self',
-            'elements/ancestors',
-            'total',
-            'count',
-            'pageSize',
-          ],
-          ...params,
-        };
-        const collectionURL = `${listParamsString(fullParams)}&${url.searchParams.toString()}`;
-        url.search = '';
-        return this.http.get<IHALCollection<IProject>>(url.toString() + collectionURL);
+        return this
+          .http
+          .get<IHALCollection<IProject>>(filteredURL.toString());
       },
     )
       .pipe(
-        map((projects) => projects.map((project) => ({
-          id: project.id,
-          href: project._links.self.href,
-          name: project.name,
-          disabled: false,
-          ancestors: project._links.ancestors,
-          children: [],
-        }))),
+        map((projects) => projects.map((project) => {
+          const id = project.id.toString();
+          const disabled = !!this.disabledProjects[id];
+
+          return {
+            id: project.id,
+            href: project._links.self.href,
+            name: project.name,
+            _type: project._type,
+            disabled,
+            disabledReason: (typeof this.disabledProjects[id] === 'string') ? this.disabledProjects[id] : '',
+            ancestors: project._links.ancestors,
+            children: [],
+          };
+        })),
         map(this.mapResultsFn),
         map((projects) => {
           this.dataLoaded = true;
@@ -274,25 +212,21 @@ export class ProjectAutocompleterComponent implements ControlValueAccessor {
         map((projectTreeItems) => flattenProjectTree(projectTreeItems)),
         switchMap(
           (projects) => merge(of([]), this.valueChange).pipe(
-            map(() => this.disableSelectedItems(projects, this.value)),
+            map(() => this.disableSelectedItems(projects, this.model)),
           ),
         ),
       );
   }
 
-  writeValue(value:IProjectAutocompleterData|null):void {
-    this.value = value;
-  }
+  // Todo: Reduce duplication with method from user-autocompleter
+  protected buildFilteredURL(searchTerm?:string):URL {
+    const filterObject = keyBy(this.filters, 'name');
+    const searchFilters = ApiV3FilterBuilder.fromFilterObject(filterObject);
 
-  onChange = (_:IProjectAutocompleterData|IProjectAutocompleterData[]|null):void => {};
+    if (searchTerm?.length) {
+      searchFilters.add('typeahead', '**', [searchTerm]);
+    }
 
-  onTouched = (_:IProjectAutocompleterData|IProjectAutocompleterData[]|null):void => {};
-
-  registerOnChange(fn:(_:IProjectAutocompleterData|IProjectAutocompleterData[]|null) => void):void {
-    this.onChange = fn;
-  }
-
-  registerOnTouched(fn:(_:IProjectAutocompleterData|IProjectAutocompleterData[]|null) => void):void {
-    this.onTouched = fn;
+    return addFiltersToPath(this.url, searchFilters);
   }
 }

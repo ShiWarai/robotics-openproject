@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -36,31 +36,26 @@ export class GitActionsService {
     // See https://stackoverflow.com/a/3651867 for how these rules came in.
     // This sanitization tries to be harsher than those rules
     return str
-      .replace(/&/g, 'and ') // & becomes and
-      .replace(/ +/g, '-') // Spaces become dashes
-      .replace(/[\000-\039]/g, '') // ASCII control characters are out
-      .replace(/\177/g, '') // DEL is out
-      .replace(/[#\\\/\?\*\~\^\:\{\}@\.\[\]'"]/g, '') // Some other characters with special rules are out
-      .replace(/^[-]+/g, '') // Dashes at the start are removed
-      .replace(/[-]+$/g, '') // Dashes at the end are removed
-      .replace(/-+/g, '-') // Multiple dashes in a row are deduped
+      .replace(/&/g, "and ") // & becomes and
+      .replace(/\W+/g, "-") // Replace any consecutive non ascii characters by a single dash as they might make trouble in some tools.
+      .replace(/^-/g, "") // Dash at the start is removed
+      .replace(/-$/g, "") // Dash at the end is removed
       .trim();
   }
 
   private formattingInput(workPackage: WorkPackageResource) {
     const type = workPackage.type.name || '';
-    const id = workPackage.id || '';
+    const id = workPackage.displayId;
+    const formattedId = workPackage.formattedId;
     const title = workPackage.subject;
-    const url = window.location.origin + workPackage.pathHelper.workPackagePath(id);
+    const url = window.location.origin + workPackage.pathHelper.workPackageShortPath(id);
     const description = '';
 
-    return({
-      id, type, title, url, description
-    });
+    return { id, formattedId, type, title, url, description };
   }
 
   private sanitizeShellInput(str:string):string {
-    return `${str.replace(/'/g, '\\\'')}`;
+    return str.replace(/'/g, "'\\''");
   }
 
   public branchName(workPackage:WorkPackageResource):string {
@@ -68,19 +63,19 @@ export class GitActionsService {
     return `${this.sanitizeBranchString(type)}/${id}-${this.sanitizeBranchString(title)}`.toLocaleLowerCase();
   }
 
+  private commitMessageParts(workPackage:WorkPackageResource):string[] {
+    const { title, formattedId, description, url } = this.formattingInput(workPackage);
+    return [`[${formattedId}] ${title}`, description, url].filter(Boolean);
+  }
+
   public commitMessage(workPackage:WorkPackageResource):string {
-    const { title, id, description, url } = this.formattingInput(workPackage);
-    return `[#${id}] ${title}
-
-${description}
-
-${url}
-`.replace(/\n\n+/g, '\n\n');
+    return this.commitMessageParts(workPackage).join("\n\n");
   }
 
   public gitCommand(workPackage:WorkPackageResource):string {
     const branch = this.branchName(workPackage);
-    const commit = this.commitMessage(workPackage);
-    return `git checkout -b '${this.sanitizeShellInput(branch)}' && git commit --allow-empty -m '${this.sanitizeShellInput(commit)}'`;
+    const messageParts = this.commitMessageParts(workPackage);
+    const messages = messageParts.map((part) => `-m '${this.sanitizeShellInput(part)}'`).join(' ');
+    return `git checkout -b '${this.sanitizeShellInput(branch)}' && git commit --allow-empty ${messages}`;
   }
 }

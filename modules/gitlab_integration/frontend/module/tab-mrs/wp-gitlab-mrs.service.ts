@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -27,18 +27,17 @@
 // See docs/COPYRIGHT.rdoc for more details.
 //++
 
+import { sortBy } from 'lodash-es';
 import { WorkPackageResource } from "core-app/features/hal/resources/work-package-resource";
 import { HalResource } from "core-app/features/hal/resources/hal-resource";
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { ConfigurationService } from "core-app/core/config/configuration.service";
 import { WorkPackageLinkedResourceCache } from 'core-app/features/work-packages/components/wp-single-view-tabs/wp-linked-resource-cache.service';
 
 @Injectable()
 export class WorkPackagesGitlabMrsService extends WorkPackageLinkedResourceCache<HalResource[]> {
+  ConfigurationService = inject(ConfigurationService);
 
-  constructor(public ConfigurationService:ConfigurationService) {
-    super();
-  }
 
   protected load(workPackage:WorkPackageResource):Promise<HalResource[]> {
     return workPackage.gitlab_merge_requests.$update().then((data:any) => {
@@ -47,6 +46,6 @@ export class WorkPackagesGitlabMrsService extends WorkPackageLinkedResourceCache
   }
 
   protected sortList(mergeRequests:HalResource[], attr = 'createdAt'):HalResource[] {
-    return _.sortBy(_.flatten(mergeRequests), attr);
+    return sortBy(mergeRequests.flat(), attr);
   }
 }

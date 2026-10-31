@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,22 +28,64 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Queries::Projects::Filters::NameFilter do
-  include_context 'filter tests'
-  let(:values) { ['A name'] }
+  include_context "filter tests"
+  let(:values) { ["A name", "Another name"] }
   let(:model) { Project }
 
-  it_behaves_like 'basic query filter' do
+  it_behaves_like "basic query filter" do
     let(:class_key) { :name }
-    let(:human_name) { 'Name' }
+    let(:human_name) { "Name" }
     let(:type) { :string }
     let(:model) { Project }
 
-    describe '#allowed_values' do
-      it 'is nil' do
+    describe "#allowed_values" do
+      it "is nil" do
         expect(instance.allowed_values).to be_nil
+      end
+    end
+  end
+
+  describe "#apply_to" do
+    context 'for "="' do
+      let(:operator) { "=" }
+
+      it "is the same as handwriting the query" do
+        expected = model.where("LOWER(projects.name) IN ('a name', 'another name')")
+
+        expect(instance.apply_to(model).to_sql).to eql expected.to_sql
+      end
+    end
+
+    context 'for "!"' do
+      let(:operator) { "!" }
+
+      it "is the same as handwriting the query" do
+        expected = model.where("LOWER(projects.name) NOT IN ('a name', 'another name')")
+
+        expect(instance.apply_to(model).to_sql).to eql expected.to_sql
+      end
+    end
+
+    context 'for "~"' do
+      let(:operator) { "~" }
+
+      it "is the same as handwriting the query" do
+        expected = model.where("LOWER(projects.name) LIKE '%a name%'")
+
+        expect(instance.apply_to(model).to_sql).to eql expected.to_sql
+      end
+    end
+
+    context 'for "!~"' do
+      let(:operator) { "!~" }
+
+      it "is the same as handwriting the query" do
+        expected = model.where("LOWER(projects.name) NOT LIKE '%a name%'")
+
+        expect(instance.apply_to(model).to_sql).to eql expected.to_sql
       end
     end
   end

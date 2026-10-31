@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -47,7 +49,9 @@ module API::V3::StorageFiles
                exec_context: :decorator
 
     property :parent,
-             getter: ->(*) { API::V3::StorageFiles::StorageFileRepresenter.new(represented.parent, @storage, current_user:) },
+             getter: ->(*) do
+               API::V3::StorageFiles::StorageFileRepresenter.new(represented.parent, @storage, current_user:)
+             end,
              exec_context: :decorator
 
     collection :ancestors,
@@ -59,7 +63,7 @@ module API::V3::StorageFiles
                exec_context: :decorator
 
     def _type
-      'StorageFiles'
+      "StorageFiles"
     end
   end
 end

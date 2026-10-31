@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 #-- copyright
 
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -32,7 +34,9 @@ module DemoData
     alias_method :project_data, :seed_data
 
     self.needs = WorkPackageSeeder.needs + [
-      BasicData::RoleSeeder
+      BasicData::ProjectRoleSeeder,
+      BasicData::GlobalRoleSeeder,
+      BasicData::ProjectPhaseDefinitionSeeder
     ]
 
     def seed_data!
@@ -51,10 +55,20 @@ module DemoData
     # override to add additional seeders
     def project_content_seeder_classes
       [
+        DemoData::ProjectPhaseSeeder,
         DemoData::WikiSeeder,
         DemoData::WorkPackageSeeder,
-        DemoData::WorkPackageBoardSeeder
+        DemoData::WorkPackageBoardSeeder,
+        ::Meetings::DemoData::MeetingSeriesSeeder,
+        ::Meetings::DemoData::MeetingAgendaItemsSeeder,
+        ::Meetings::DemoData::MeetingParticipantsSeeder,
+        ::Meetings::DemoData::MeetingSeriesFinalizerSeeder,
+        ::Meetings::DemoData::MeetingOccurrencesSeeder
       ]
+    end
+
+    def all_required_references
+      [:default_role_project_admin] + types_seed_data
     end
 
     private
@@ -62,13 +76,13 @@ module DemoData
     attr_writer :project
 
     def reset_project
-      print_status '   -Creating/Resetting project'
+      print_status "   -Creating/Resetting project"
       delete_project
       create_project
     end
 
     def delete_project
-      project_to_delete = Project.find_by(identifier: project_data.lookup('identifier'))
+      project_to_delete = Project.find_by(identifier: project_data.lookup("identifier"))
       project_to_delete&.destroy
     end
 
@@ -77,7 +91,7 @@ module DemoData
     end
 
     def set_members
-      print_status '   -Setting members.'
+      print_status "   -Setting members."
 
       role = seed_data.find_reference(:default_role_project_admin)
 
@@ -86,46 +100,75 @@ module DemoData
         principal: admin_user,
         roles: [role]
       )
+
+      seed_additional_members
+    end
+
+    # Adds the members configured via the project's `members` seed data. A principal can be a
+    # user (added directly) or a department (added as a group, with its users inheriting the role).
+    # References may be missing when the departments were not (re-)seeded, in which case we skip them.
+    def seed_additional_members
+      project_data.each("members") do |member_data|
+        principal = seed_data.find_reference(member_data["principal"], default: nil)
+        next if principal.nil?
+
+        role = seed_data.find_reference(member_data["role"])
+        Member.create!(project:, principal:, roles: [role])
+
+        inherit_group_roles(principal) if principal.is_a?(Group)
+      end
+    end
+
+    def inherit_group_roles(group)
+      Groups::CreateInheritedRolesService
+        .new(group, current_user: admin_user)
+        .call(user_ids: group.user_ids, project_ids: [project.id])
     end
 
     def set_types
-      print_status '   -Assigning types.'
+      print_status "   -Assigning types."
 
-      project.types = seed_data.find_references(project_data.lookup('types'))
+      # TODO: should go through Projects::Types::AddService, which owns the family conflict
+      # rules and enables the types' work package custom fields.
+      project.project_types = base_variant_rows_for(seed_data.find_references(types_seed_data))
+    end
+
+    def base_variant_rows_for(types)
+      types.map { |type| ProjectType.new(type:) }
     end
 
     def seed_categories
-      print_status '   -Creating categories'
+      print_status "   -Creating categories"
 
-      Array(project_data.lookup('categories')).each do |cat_name|
+      Array(project_data.lookup("categories")).each do |cat_name|
         project.categories.create name: cat_name
       end
     end
 
     def seed_news
-      print_status '   -Creating news.'
+      print_status "   -Creating news."
 
-      project_data.each('news') do |news|
+      project_data.each("news") do |news|
         News.create!(project:,
                      author: admin_user,
-                     title: news['title'],
-                     summary: news['summary'],
-                     description: news['description'])
+                     title: news["title"],
+                     summary: news["summary"],
+                     description: news["description"])
       end
     end
 
     def seed_queries
-      print_status '   -Creating queries.'
+      print_status "   -Creating queries."
 
-      Array(project_data.lookup('queries')).each do |config|
+      Array(project_data.lookup("queries")).each do |config|
         QueryBuilder.new(config, project:, user: admin_user, seed_data:).create!
       end
     end
 
     def seed_versions
-      print_status '   -Creating versions.'
+      print_status "   -Creating versions."
 
-      project_data.each('versions') do |attributes|
+      project_data.each("versions") do |attributes|
         VersionBuilder.new(attributes, project:, user: admin_user, seed_data:).create!
       end
     end
@@ -139,17 +182,21 @@ module DemoData
       end
     end
 
-    def project_attributes
-      parent = Project.find_by(identifier: project_data.lookup('parent'))
+    def types_seed_data
+      seed_data.lookup("types") || []
+    end
+
+    def project_attributes # rubocop:disable Metrics/AbcSize
       {
-        name: project_data.lookup('name'),
-        identifier: project_data.lookup('identifier'),
-        status_code: project_data.lookup('status_code'),
-        status_explanation: project_data.lookup('status_explanation'),
-        description: project_data.lookup('description'),
-        enabled_module_names: project_data.lookup('modules'),
-        types: Type.all,
-        parent:
+        name: project_data.lookup("name"),
+        identifier: project_data.lookup("identifier"),
+        status_code: project_data.lookup("status_code"),
+        status_explanation: project_data.lookup("status_explanation"),
+        description: project_data.lookup("description"),
+        enabled_module_names: project_data.lookup("modules"),
+        project_types: base_variant_rows_for(Type.all),
+        parent: Project.find_by(identifier: project_data.lookup("parent")),
+        workspace_type: "project"
       }
     end
   end

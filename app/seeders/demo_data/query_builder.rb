@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -37,7 +39,7 @@ module DemoData
 
     def create!
       create_query.tap do |query|
-        seed_data.store_reference(config['reference'], query)
+        seed_data.store_reference(config["reference"], query)
       end
     end
 
@@ -65,7 +67,9 @@ module DemoData
       set_filters! attr
       set_display_representation! attr
 
-      query = Query.create! attr
+      query = Query.new attr
+      # Skip validations while seeding: some seed queries reference columns requiring permissions.
+      query.save!(validate: false)
 
       create_view(query) unless config[:hidden]
 
@@ -73,7 +77,7 @@ module DemoData
     end
 
     def create_view(query)
-      type = config.fetch(:module, 'work_packages_table')
+      type = config.fetch(:module, "work_packages_table")
       View.create!(
         type:,
         query:
@@ -81,7 +85,7 @@ module DemoData
 
       # Save information that a view has been seeded.
       # This information can be used for example in the onboarding tour
-      Setting["demo_view_of_type_#{type}_seeded"] = 'true'
+      Setting["demo_view_of_type_#{type}_seeded"] = "true"
     end
 
     def set_project!(attr)
@@ -102,8 +106,14 @@ module DemoData
 
     def set_sort_by!(attr)
       sort_by = config[:sort_by]
+      return if sort_by.blank?
 
-      attr[:sort_criteria] = [[sort_by, "asc"]] if sort_by
+      attr[:sort_criteria] =
+        if sort_by.is_a?(Array)
+          sort_by.map { |criterion| Array(criterion).map(&:to_s) }
+        else
+          [[sort_by.to_s, "asc"]]
+        end
     end
 
     def set_group_by!(attr)
@@ -137,6 +147,7 @@ module DemoData
     def set_version_filter!(filters)
       version = seed_data.find_reference(config[:version])
       if version
+        # TODO(COMMS-863): use version_id filter until we migrate to target_versions
         filters[:version_id] = {
           operator: "=",
           values: [version.id]

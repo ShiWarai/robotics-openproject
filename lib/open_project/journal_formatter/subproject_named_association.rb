@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,7 +29,7 @@
 class OpenProject::JournalFormatter::SubprojectNamedAssociation < JournalFormatter::NamedAssociation
   private
 
-  def format_details(key, values, cache:)
+  def format_details(key, values)
     label = if values.first.nil?
               label(key)
             elsif values.last.nil?
@@ -38,16 +38,16 @@ class OpenProject::JournalFormatter::SubprojectNamedAssociation < JournalFormatt
               I18n.t("activity.item.parent_without_of")
             end
 
-    old_value, value = *format_values(values, key, cache:)
+    old_value, value = *format_values(values, key)
 
     [label, old_value, value]
   end
 
   def format_html_details(label, old_value, value)
     label = content_tag(:strong, label)
-    old_value = content_tag('i', h(old_value)) if old_value.present?
-    value = content_tag('i', h(value)) if value.present?
-    value ||= ''
+    old_value = content_tag("i", h(old_value)) if old_value.present?
+    value = content_tag("i", h(value)) if value.present?
+    value ||= ""
 
     [label, old_value, value]
   end

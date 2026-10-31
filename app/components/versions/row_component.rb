@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -75,17 +75,17 @@ module Versions
     end
 
     def wiki_page
-      return '' if wiki_page_title.blank? || version.project.wiki.nil?
+      return "" if wiki_page_title.blank? || version.project.wiki.nil?
 
       helpers.link_to_if_authorized(wiki_page_title,
-                                    controller: '/wiki',
-                                    action: 'show',
+                                    controller: "/wiki",
+                                    action: "show",
                                     project_id: version.project,
                                     id: wiki_page_title) || h(wiki_page_title)
     end
 
     def button_links
-      [edit_link, delete_link, backlogs_edit_link].compact
+      [edit_link, delete_link].compact
     end
 
     private
@@ -97,20 +97,19 @@ module Versions
     def edit_link
       return unless version.project == table.project
 
-      helpers.link_to_if_authorized '',
-                                    { controller: '/versions', action: 'edit', id: version },
-                                    class: 'icon icon-edit',
+      helpers.link_to_if_authorized "",
+                                    { controller: "/versions", action: "edit", id: version },
+                                    class: "icon icon-edit",
                                     title: t(:button_edit)
     end
 
     def delete_link
       return unless version.project == table.project
 
-      helpers.link_to_if_authorized '',
-                                    { controller: '/versions', action: 'destroy', id: version },
-                                    data: { confirm: t(:text_are_you_sure) },
-                                    method: :delete,
-                                    class: 'icon icon-delete',
+      helpers.link_to_if_authorized "",
+                                    { controller: "/versions", action: "destroy", id: version },
+                                    data: { turbo_method: :delete, turbo_confirm: t(:text_are_you_sure) },
+                                    class: "icon icon-delete",
                                     title: t(:button_delete)
     end
 

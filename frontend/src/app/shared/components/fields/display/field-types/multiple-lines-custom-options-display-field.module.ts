@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -31,9 +31,10 @@ import { ResourcesDisplayField } from './resources-display-field.module';
 
 export class MultipleLinesCustomOptionsDisplayField extends ResourcesDisplayField {
   public render(element:HTMLElement, displayText:string):void {
-    const values = this.value;
+    const values = this.stringValue;
     element.setAttribute('title', displayText);
     element.textContent = displayText;
+    element.classList.add('-multiline');
 
     element.innerHTML = '';
 
@@ -42,6 +43,10 @@ export class MultipleLinesCustomOptionsDisplayField extends ResourcesDisplayFiel
     } else {
       this.renderValues(values, element);
     }
+  }
+
+  public get valueString():string {
+    return this.stringValue.join(', ');
   }
 
   protected renderValues(values:string[], element:HTMLElement) {

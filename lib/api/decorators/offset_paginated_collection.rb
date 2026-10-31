@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -50,14 +52,14 @@ module API
 
       link :jumpTo do
         {
-          href: make_page_link(page: '{offset}', page_size: @per_page),
+          href: make_page_link(page: "{offset}", page_size: @per_page),
           templated: true
         }
       end
 
       link :changeSize do
         {
-          href: make_page_link(page: @page, page_size: '{size}'),
+          href: make_page_link(page: @page, page_size: "{size}"),
           templated: true
         }
       end
@@ -112,15 +114,42 @@ module API
           # save the round trip to the database.
           models.none
         else
-          # Using WillPaginate as we have used it before but avoid the builtin
-          # page(@page).per_page(@per_page) way of fetching
-          # as it will, on top of fetching the values, also do a count of all elements matching the query
-          # which we do not need at this place.
+          # Keeping the WillPaginate interface as before but avoid the builtin
+          # page(@page).per_page(@per_page) way of fetching.
+          # It would, on top of fetching the values, also do a count of all elements matching the query
+          # which we do not need at this point.
           page_number = ::WillPaginate::PageNumber(@page.nil? ? 1 : @page)
-          models
-            .offset(page_number.to_offset(@per_page).to_i)
-            .limit(@per_page)
+
+          paged_models = models
+                  .offset(page_number.to_offset(@per_page).to_i)
+                  .limit(@per_page)
+
+          if eager_load_for_element_decorator?
+            eager_loaded_paged_models(paged_models)
+          else
+            paged_models
+          end
         end
+      end
+
+      def eager_loaded_paged_models(models)
+        # Whenever eager loading and limit is combined, rails switches to issuing two SQL statement.
+        # This is done to avoid the potential duplicate records added by a 'LEFT JOIN' messing with the LIMIT.
+        # What is unfortunate is that both statements will have the complete where conditions included.
+        # This can be quite costly, especially when the where conditions are complex.
+        # To avoid this, we fetch the ids and then fetch the actual records reapplying the order.
+        ids = models.pluck(:id)
+
+        models
+          .model
+          .where(id: ids)
+          .eager_load(element_decorator.to_eager_load)
+          .preload(element_decorator.to_preload)
+          .order(*models.order_values)
+      end
+
+      def eager_load_for_element_decorator?
+        element_decorator.to_eager_load.present? || element_decorator.to_preload.present?
       end
     end
   end

@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -41,7 +41,7 @@ module CustomActions
     delegate :description, to: :action
 
     def sort
-      helpers.reorder_links('custom_action', { action: 'update', id: action }, method: :put)
+      helpers.reorder_links("custom_action", { action: "update", id: action }, method: :put)
     end
 
     def button_links
@@ -53,7 +53,7 @@ module CustomActions
 
     def edit_link
       link_to(
-        helpers.op_icon('icon icon-edit'),
+        helpers.op_icon("icon icon-edit"),
         helpers.edit_custom_action_path(action),
         title: t(:button_edit)
       )
@@ -61,10 +61,12 @@ module CustomActions
 
     def delete_link
       link_to(
-        helpers.op_icon('icon icon-delete'),
+        helpers.op_icon("icon icon-delete"),
         helpers.custom_action_path(action),
-        method: :delete,
-        data: { confirm: I18n.t(:text_are_you_sure) },
+        data: {
+          turbo_method: :delete,
+          turbo_confirm: I18n.t(:text_are_you_sure)
+        },
         title: t(:button_delete)
       )
     end

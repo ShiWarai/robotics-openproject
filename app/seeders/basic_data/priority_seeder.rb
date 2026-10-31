@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,14 +30,14 @@
 module BasicData
   class PrioritySeeder < ModelSeeder
     self.model_class = IssuePriority
-    self.seed_data_model_key = 'priorities'
+    self.seed_data_model_key = "priorities"
 
     def model_attributes(priority_data)
       {
-        name: priority_data['name'],
-        color_id: color_id(priority_data['color_name']),
-        is_default: true?(priority_data['is_default']),
-        position: priority_data['position']
+        name: priority_data["name"],
+        color_id: color_id(priority_data["color_name"]),
+        is_default: true?(priority_data["is_default"]),
+        position: priority_data["position"]
       }
     end
   end

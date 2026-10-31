@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -45,9 +45,9 @@ module Statuses
     def inline_create_link
       link_to new_status_path,
               aria: { label: t(:label_work_package_status_new) },
-              class: 'wp-inline-create--add-link',
+              class: "wp-inline-create--add-link",
               title: t(:label_work_package_status_new) do
-        helpers.op_icon('icon icon-add')
+        helpers.op_icon("icon icon-add")
       end
     end
 
@@ -59,15 +59,13 @@ module Statuses
       [
         [:name, { caption: Status.human_attribute_name(:name) }],
         [:color, { caption: Status.human_attribute_name(:color) }],
-        [:default?, { caption: Status.human_attribute_name(:is_default) }],
-        [:closed?, { caption: Status.human_attribute_name(:is_closed) }],
-        [:readonly?, { caption: Status.human_attribute_name(:is_readonly) }],
+        [:done_ratio, { caption: WorkPackage.human_attribute_name(:done_ratio) }],
+        [:default?, { caption: I18n.t("statuses.index.headers.is_default") }],
+        [:closed?, { caption: I18n.t("statuses.index.headers.is_closed") }],
+        [:readonly?, { caption: I18n.t("statuses.index.headers.is_readonly") }],
+        [:excluded_from_totals?, { caption: I18n.t("statuses.index.headers.excluded_from_totals") }],
         [:sort, { caption: I18n.t(:label_sort) }]
-      ].tap do |default|
-        if WorkPackage.use_status_for_done_ratio?
-          default.insert 2, [:done_ratio, { caption: WorkPackage.human_attribute_name(:done_ratio) }]
-        end
-      end
+      ]
     end
   end
 end

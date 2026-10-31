@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -45,10 +47,10 @@ module Components
         choose "Entire row by"
 
         # Open select field
-        within(page.all(".form--field")[1]) do
-          page.find('.ng-input input').click
+        within(page.all(".form--field")[3]) do
+          page.find(".ng-input input").click
         end
-        page.find('.ng-dropdown-panel .ng-option', text: label).click
+        page.find(".ng-dropdown-panel .ng-option", text: label).click
         apply
       end
 
@@ -57,15 +59,15 @@ module Components
         choose "Highlighted attribute(s)"
 
         # Open select field
-        within(page.all(".form--field")[0]) do
-          page.find('.ng-input input').click
+        within(page.all(".form--field")[1]) do
+          page.find(".ng-input input").click
         end
 
         # Delete all previously selected options
-        page.all('.ng-dropdown-panel .ng-option-selected').each { |option| option.click }
+        page.all(".ng-dropdown-panel .ng-option-selected").each { |option| option.click }
 
         labels.each do |label|
-          page.find('.ng-dropdown-panel .ng-option', text: label).click
+          page.find(".ng-dropdown-panel .ng-option", text: label).click
         end
 
         apply
@@ -74,15 +76,16 @@ module Components
       def apply
         @opened = false
 
-        click_button('Apply')
+        click_button("Apply")
       end
 
       def open_modal
         @opened = true
-        ::Components::WorkPackages::SettingsMenu.new.open_and_choose 'Configure view'
+        ::Components::WorkPackages::SettingsMenu.new.open_and_choose "Configure view"
 
         retry_block do
-          find(".op-tab-row--link", text: 'HIGHLIGHTING', wait: 10).click
+          find(".op-tab-row--link", text: "HIGHLIGHTING", wait: 10).click
+          expect(page).to have_css(".op-tab-row--link_selected", text: "HIGHLIGHTING", wait: 10)
         end
       end
 
@@ -93,7 +96,7 @@ module Components
       private
 
       def within_modal(&)
-        page.within('.wp-table--configuration-modal', &)
+        page.within(".wp-table--configuration-modal", &)
       end
 
       def modal_open?

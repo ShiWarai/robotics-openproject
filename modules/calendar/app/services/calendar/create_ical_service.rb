@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,14 +26,16 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'icalendar'
+require "icalendar"
 
 module Calendar
   class CreateICalService < ::BaseServices::BaseCallable
     include ActionView::Helpers::SanitizeHelper
     include TextFormattingHelper
 
-    def perform(work_packages:, calendar_name:)
+    def perform
+      work_packages = params.fetch(:work_packages)
+      calendar_name = params.fetch(:calendar_name)
       ical_string = create_ical_string(work_packages, calendar_name)
 
       ServiceResult.success(result: ical_string)
@@ -45,6 +47,7 @@ module Calendar
       calendar = Icalendar::Calendar.new
 
       calendar.prodid = "-//OpenProject GmbH//OpenProject Core Project//EN"
+      calendar.refresh_interval = "PT1H"
       calendar.x_wr_calname = calendar_name
 
       work_packages.each do |work_package|
@@ -60,7 +63,6 @@ module Calendar
     def add_values_to_event(event, work_package)
       %i[
         uid
-        organizer
         summary
         dtstamp
         dtstart
@@ -68,37 +70,23 @@ module Calendar
         location
         description
       ].each do |value|
-        event.send("#{value}=", send("#{value}_value", work_package))
+        event.send(:"#{value}=", send(:"#{value}_value", work_package))
       end
 
-      add_attendee_value(event, work_package)
+      event
     end
 
     def uid_value(work_package)
       "#{work_package.id}@#{host}"
     end
 
-    def attendee_value(work_package)
-      Icalendar::Values::CalAddress.new(
-        "mailto:#{work_package.assigned_to&.mail}",
-        cn: work_package.assigned_to&.name
-      )
-    end
-
-    def organizer_value(work_package)
-      Icalendar::Values::CalAddress.new(
-        "mailto:#{work_package.author&.mail}",
-        cn: work_package.author&.name
-      )
-    end
-
     def summary_value(work_package)
-      work_package.name
+      strip_tags work_package.name
     end
 
     def dtstamp_value(work_package)
       # https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2
-      Icalendar::Values::DateTime.new(work_package.updated_at, 'tzid' => 'UTC')
+      Icalendar::Values::DateTime.new(work_package.updated_at, "tzid" => "UTC")
     end
 
     def dtstart_value(work_package)
@@ -106,7 +94,7 @@ module Calendar
     end
 
     def start_date(work_package)
-      (work_package.start_date.presence || work_package.due_date)
+      work_package.start_date.presence || work_package.due_date
     end
 
     def dtend_value(work_package)
@@ -132,19 +120,13 @@ module Calendar
       OpenProject::StaticRouting::UrlHelpers.host
     end
 
-    def add_attendee_value(event, work_package)
-      # event.attendee = [work_package.assigned_to&.name] # causing thunderbird error "id is null"
-      event.attendee = attendee_value(work_package) if work_package.assigned_to.present?
-
-      event
-    end
-
     def description_value(work_package)
       %i[
         project
         type
         status
         assigned_to
+        author
         priority
       ].map do |attribute|
         translated_attribute_name_and_value(work_package, attribute)
@@ -166,7 +148,7 @@ module Calendar
         replace_newlines: false
       )
 
-      "\n#{WorkPackage.human_attribute_name(:description)}:\n #{stripped_text}"
+      "\n#{WorkPackage.human_attribute_name(:description)}:\n#{stripped_text}"
     end
   end
 end

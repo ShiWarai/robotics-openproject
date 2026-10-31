@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,35 +28,27 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-if OpenProject::Configuration.blacklisted_routes.any?
-  # Block logins from a bad user agent
-  Rack::Attack.blocklist('block forbidden routes') do |req|
-    regex = OpenProject::Configuration.blacklisted_routes.map! { |str| Regexp.new(str) }
-    regex.any? { |i| i =~ req.path }
-  end
+Rails.application.reloader.to_prepare do
+  # In test mode, enable rules and rack-attack using "with_rack_attack:" metadata
+  Rack::Attack.enabled = !Rails.env.test?
+  OpenProject::RateLimiting.set_defaults!
 
-  Rack::Attack.blocklisted_response = lambda do |_env|
-    # All blacklisted routes would return a 404.
-    [404, {}, ['Not found']]
-  end
-end
+  if OpenProject::Configuration.blacklisted_routes.any?
+    # Block logins from a bad user agent
+    Rack::Attack.blocklist("block forbidden routes") do |req|
+      regex = OpenProject::Configuration.blacklisted_routes.map! { |str| Regexp.new(str) }
+      regex.any? { |i| i =~ req.path }
+    end
 
-Rack::Attack.throttled_responder = lambda do |request|
-  match_data = request.env['rack.attack.match_data']
-  now = match_data[:epoch_time]
-  retry_after = match_data[:period] - (now % match_data[:period])
-
-  headers = {
-    'RateLimit-Limit' => match_data[:limit].to_s,
-    'RateLimit-Remaining' => '0',
-    'RateLimit-Reset' => (now + (match_data[:period] - (now % match_data[:period]))).to_s
-  }
-
-  [429, headers, ["Your request has been throttled. Try again at #{retry_after.seconds.from_now}.\n"]]
-end
-
-Rack::Attack.throttle("limit-lost-password", limit: 3, period: 1.hour.to_i) do |req|
-  if req.post? && req.path.end_with?('/account/lost_password')
-    req.env.dig "rack.request.form_hash", "mail"
+    # Route blocklist returns 404.
+    # All other blocklists (for example, login ban)
+    # use the RateLimiting dispatcher set up by set_defaults!
+    Rack::Attack.blocklisted_responder = lambda do |request|
+      if request.env["rack.attack.matched"] == "block forbidden routes"
+        [404, {}, ["Not found"]]
+      else
+        OpenProject::RateLimiting.blocklisted_response(request)
+      end
+    end
   end
 end

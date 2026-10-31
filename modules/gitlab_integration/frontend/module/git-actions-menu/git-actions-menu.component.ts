@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2021 Ben Tey
+// Copyright (C) 2023 Ben Tey
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -8,7 +8,7 @@
 // OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 // Copyright (C) 2006-2013 Jean-Philippe Lang
 // Copyright (C) 2010-2013 the ChiliProject Team
-// Copyright (C) 2012-2021 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -28,34 +28,35 @@
 //++
 
 import copy from 'copy-text-to-clipboard';
-import { Component, Inject, Input } from '@angular/core';
+import { Component, Input, inject, ChangeDetectionStrategy } from '@angular/core';
 import { GitActionsService } from '../git-actions/git-actions.service';
 import { ISnippet } from "core-app/features/plugins/linked/openproject-gitlab_integration/typings";
 import { WorkPackageResource } from "core-app/features/hal/resources/work-package-resource";
 import { OPContextMenuComponent } from "core-app/shared/components/op-context-menu/op-context-menu.component";
-import {
-  OpContextMenuLocalsMap,
-  OpContextMenuLocalsToken
-} from "core-app/shared/components/op-context-menu/op-context-menu.types";
 import { I18nService } from "core-app/core/i18n/i18n.service";
 
 
 @Component({
-  selector: 'op-git-actions-menu',
   templateUrl: './git-actions-menu.template.html',
   styleUrls: [
     './styles/git-actions-menu.sass'
-  ]
+  ],
+  host: { 'data-component-id': 'gitlab-actions-menu' },
+  changeDetection: ChangeDetectionStrategy.Eager,
+  standalone: false,
 })
-export class GitActionsMenuComponent extends OPContextMenuComponent {
+export class GitLabActionsMenuComponent extends OPContextMenuComponent {
+  readonly I18n = inject(I18nService);
+  readonly gitActions = inject(GitActionsService);
+
   @Input() public workPackage:WorkPackageResource;
 
   public text = {
-    title: this.I18n.t('js.gitlab_integration.tab_header.git_actions.title'),
-    copyButtonHelpText: this.I18n.t('js.gitlab_integration.tab_header.git_actions.copy_button_help'),
+    title: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.title'),
+    copyButtonHelpText: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.copy_button_help'),
     copyResult: {
-      success: this.I18n.t('js.gitlab_integration.tab_header.git_actions.copy_success'),
-      error: this.I18n.t('js.gitlab_integration.tab_header.git_actions.copy_error')
+      success: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.copy_success'),
+      error: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.copy_error')
     }
   };
 
@@ -66,31 +67,30 @@ export class GitActionsMenuComponent extends OPContextMenuComponent {
   public snippets:ISnippet[] = [
     {
       id: 'branch',
-      name: this.I18n.t('js.gitlab_integration.tab_header.git_actions.branch_name'),
-      textToCopy: () => this.gitActions.branchName(this.workPackage)
+      name: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.branch_name'),
+      text: () => this.gitActions.branchName(this.workPackage),
     },
     {
       id: 'message',
-      name: this.I18n.t('js.gitlab_integration.tab_header.git_actions.commit_message'),
-      textToCopy: () => this.gitActions.commitMessage(this.workPackage)
+      name: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.commit_message'),
+      multiline: true,
+      text: () => this.gitActions.commitMessage(this.workPackage),
     },
     {
       id: 'command',
-      name: this.I18n.t('js.gitlab_integration.tab_header.git_actions.cmd'),
-      textToCopy: () => this.gitActions.gitCommand(this.workPackage)
+      name: this.I18n.t('js.gitlab_integration.tab_header_mr.git_actions.cmd'),
+      multiline: true,
+      text: () => this.gitActions.gitCommand(this.workPackage),
     },
   ];
 
-  constructor(@Inject(OpContextMenuLocalsToken)
-              public locals:OpContextMenuLocalsMap,
-              readonly I18n:I18nService,
-              readonly gitActions:GitActionsService) {
-    super(locals);
-    this.workPackage = this.locals.workPackage;
+  constructor() {
+    super();
+    this.workPackage = this.locals.workPackage as WorkPackageResource;
   }
 
   public onCopyButtonClick(snippet:ISnippet):void {
-    const success = copy(snippet.textToCopy());
+    const success = copy(snippet.text());
 
     if (success) {
       this.lastCopyResult = this.text.copyResult.success;

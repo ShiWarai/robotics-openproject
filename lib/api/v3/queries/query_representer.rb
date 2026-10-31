@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,8 +26,8 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'roar/decorator'
-require 'roar/json/hal'
+require "roar/decorator"
+require "roar/json/hal"
 
 module API
   module V3
@@ -36,33 +36,14 @@ module API
         self_link
 
         include API::Decorators::LinkedResource
+        include API::V3::Workspaces::LinkedResource
         include API::Decorators::DateProperty
 
-        associated_resource :project,
-                            setter: ->(fragment:, **) {
-                              id = id_from_href "projects", fragment['href']
-
-                              # In case an identifier is provided, which might
-                              # start with numbers, the id needs to be looked up
-                              # in the DB.
-                              id = if id.to_i.to_s == id
-                                     id.to_i # return numerical ID
-                                   else
-                                     Project.where(identifier: id).pick(:id) # lookup Project by identifier
-                                   end
-
-                              represented.project_id = id if id
-                            },
-                            skip_link: ->(*) {
-                              false
-                            },
-                            skip_render: ->(*) {
-                              represented.project.nil?
-                            }
+        associated_project
 
         link :results do
           path = if represented.project
-                   api_v3_paths.work_packages_by_project(represented.project.id)
+                   api_v3_paths.work_packages_by_workspace(represented.project.id)
                  else
                    api_v3_paths.work_packages
                  end
@@ -71,7 +52,7 @@ module API
             .new(represented)
             .to_url_query(merge_params: params.slice(:offset, :pageSize))
           {
-            href: [path, url_query].join('?')
+            href: [path, url_query].join("?")
           }
         end
 
@@ -95,7 +76,7 @@ module API
 
         link :schema do
           href = if represented.project
-                   api_v3_paths.query_project_schema(represented.project.identifier)
+                   api_v3_paths.query_workspace_schema(represented.project.identifier)
                  else
                    api_v3_paths.query_schema
                  end
@@ -192,7 +173,7 @@ module API
                    end
                  },
                  setter: ->(fragment:, **) {
-                   attr = id_from_href "queries/group_bys", fragment['href']
+                   attr = id_from_href "queries/group_bys", fragment["href"]
 
                    represented.group_by =
                      if attr.nil?
@@ -225,12 +206,12 @@ module API
                   },
                   setter: ->(fragment:, **) {
                     columns = Array(fragment).map do |column|
-                      name = id_from_href "queries/columns", column['href']
+                      name = id_from_href "queries/columns", column["href"]
 
                       ::API::Utilities::PropertyNameConverter.to_ar_name(name, context: WorkPackage.new) if name
                     end
 
-                    represented.column_names = columns.map(&:to_sym).compact if fragment
+                    represented.column_names = columns.filter_map(&:to_sym) if fragment
                   },
                   link: ->(*) {
                     represented.columns.map do |column|
@@ -249,12 +230,12 @@ module API
                   },
                   setter: ->(fragment:, **) {
                     columns = Array(fragment).map do |column|
-                      name = id_from_href "queries/columns", column['href']
+                      name = id_from_href "queries/columns", column["href"]
 
                       ::API::Utilities::PropertyNameConverter.to_ar_name(name, context: WorkPackage.new) if name
                     end
 
-                    represented.highlighted_attributes = columns.map(&:to_sym).compact if fragment
+                    represented.highlighted_attributes = columns.filter_map(&:to_sym) if fragment
                   },
                   link: ->(*) {
                     represented.highlighted_columns.map do |column|
@@ -327,7 +308,6 @@ module API
                        results: nil,
                        embed_links: false,
                        params: {})
-
           self.results = results
           self.params = params
 
@@ -339,33 +319,20 @@ module API
                               { project: :work_package_custom_fields }]
 
         def _type
-          'Query'
+          "Query"
         end
 
         def filters
           represented.filters.map do |filter|
-            ::API::V3::Queries::Filters::QueryFilterInstanceRepresenter
-              .new(filter)
+            ::API::V3::Queries::Filters::QueryFilterInstanceRepresenter.new(filter)
           end
         end
 
+        # Assigned in one go: writing the filters collapses interchangeable filter
+        # keys (e.g. version and target version), so appending them one by one
+        # would list such a filter twice.
         def filters=(filters_hash)
-          represented.filters = []
-
-          filters_hash.each do |filter_attributes|
-            name = get_filter_name filter_attributes
-
-            if name
-              filter_class = Query.find_registered_filter(name) || ::Queries::Filters::NotExistingFilter
-              filter_representer = ::API::V3::Queries::Filters::QueryFilterInstanceRepresenter
-                                     .new(filter_class.create!(name:))
-
-              filter = filter_representer.from_hash filter_attributes
-              represented.filters << filter
-            else
-              raise API::Errors::InvalidRequestBody, "Could not read filter from: #{filter_attributes}"
-            end
-          end
+          represented.filters = filters_hash.map { filter_from_hash(it) }
         end
 
         private
@@ -385,18 +352,31 @@ module API
                    super
                  end
 
-          [base, query_props].select(&:present?).join('?')
+          [base, query_props].select(&:present?).join("?")
         end
 
         def convert_attribute(attribute)
           ::API::Utilities::PropertyNameConverter.from_ar_name(attribute)
         end
 
+        def filter_from_hash(filter_attributes)
+          name = get_filter_name(filter_attributes)
+
+          raise API::Errors::InvalidRequestBody, "Could not read filter from: #{filter_attributes}" if name.nil?
+
+          filter_class = Query.find_registered_filter(name) || ::Queries::Filters::NotExistingFilter
+
+          ::API::V3::Queries::Filters::QueryFilterInstanceRepresenter
+            .new(filter_class.create!(name:))
+            .from_hash(filter_attributes)
+        end
+
         def get_filter_name(filter_attributes)
           href = filter_attributes.dig("_links", "filter", "href")
           id = id_from_href "queries/filters", href
+          name = ::API::Utilities::QueryFiltersNameConverter.to_ar_name(id, refer_to_ids: true) if id
 
-          ::API::Utilities::QueryFiltersNameConverter.to_ar_name id, refer_to_ids: true if id
+          Query::DeprecatedVersionFilter.normalize_key(name)
         end
 
         def id_from_href(expected_namespace, href)
@@ -411,7 +391,7 @@ module API
         end
 
         def column_direction_from_href(sort_by)
-          if id = id_from_href("queries/sort_bys", sort_by['href'])
+          if id = id_from_href("queries/sort_bys", sort_by["href"])
             column, direction = id.split("-") # e.g. ["start_date", "desc"]
 
             if column && direction
@@ -433,7 +413,7 @@ module API
 
         def default_query_path
           if represented.project
-            api_v3_paths.query_project_default(represented.project.id)
+            api_v3_paths.query_workspace_default(represented.project.id)
           else
             api_v3_paths.query_default
           end

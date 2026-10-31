@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,77 +21,74 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
+import { getMetaElement } from '../setup/globals/global-helpers';
 
 @Injectable({ providedIn: 'root' })
 export class CurrentProjectService {
-  private current:{ id:string, identifier:string, name:string };
+  private PathHelper = inject(PathHelperService);
+  private apiV3Service = inject(ApiV3Service);
 
-  constructor(
-    private PathHelper:PathHelperService,
-    private apiV3Service:ApiV3Service,
-  ) {
+  private currentId:string|null = null;
+  private currentName:string|null = null;
+  private currentIdentifier:string|null = null;
+
+  constructor() {
     this.detect();
   }
 
   public get inProjectContext():boolean {
-    return this.current !== undefined;
+    return this.currentId !== null;
   }
 
   public get path():string|null {
-    if (this.current) {
-      return this.PathHelper.projectPath(this.current.identifier);
+    if (this.currentIdentifier) {
+      return this.PathHelper.projectPath(this.currentIdentifier);
     }
 
     return null;
   }
 
   public get apiv3Path():string|null {
-    if (this.current) {
-      return this.apiV3Service.projects.id(this.current.id).toString();
+    if (this.currentId) {
+      return this.apiV3Service.projects.id(this.currentId).toString();
     }
 
     return null;
   }
 
   public get id():string|null {
-    return this.getCurrent('id');
+    return this.currentId;
   }
 
   public get name():string|null {
-    return this.getCurrent('name');
+    return this.currentName;
   }
 
   public get identifier():string|null {
-    return this.getCurrent('identifier');
-  }
-
-  private getCurrent(key:'id'|'identifier'|'name') {
-    if (this.current && this.current[key]) {
-      return this.current[key].toString();
-    }
-
-    return null;
+    return this.currentIdentifier;
   }
 
   /**
    * Detect the current project from its meta tag.
    */
   public detect() {
-    const element:HTMLMetaElement|null = document.querySelector('meta[name=current_project]');
+    const element = getMetaElement('current_project');
     if (element) {
-      this.current = {
-        id: element.dataset.projectId!,
-        name: element.dataset.projectName!,
-        identifier: element.dataset.projectIdentifier!,
-      };
+      this.currentId = element.dataset.projectId!;
+      this.currentName = element.dataset.projectName!;
+      this.currentIdentifier = element.dataset.projectIdentifier!;
+    } else {
+      this.currentId = null;
+      this.currentName = null;
+      this.currentIdentifier = null;
     }
   }
 }

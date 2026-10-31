@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -33,11 +35,12 @@ module Storages::ProjectStorages
     protected
 
     def after_perform(service_call)
-      super(service_call)
+      super
 
       project_storage = service_call.result
-      add_historical_data(service_call) if project_storage.project_folder_mode.to_sym != :inactive
-      Helper.trigger_nextcloud_synchronization(model.project_folder_mode)
+      project_folder_mode = project_storage.project_folder_mode.to_sym
+      add_historical_data(service_call) if project_folder_mode != :inactive
+      ::Storages::ProjectStorages::NotificationsService.broadcast_project_storage_updated(project_storage:)
 
       service_call
     end
@@ -48,7 +51,7 @@ module Storages::ProjectStorages
       project_storage = service_call.result
       project_folder = ::Storages::LastProjectFolder
                          .find_by(
-                           projects_storage_id: project_storage.id,
+                           project_storage_id: project_storage.id,
                            mode: project_storage.project_folder_mode
                          )
 
@@ -56,7 +59,7 @@ module Storages::ProjectStorages
         if project_folder.nil?
           Helper.create_last_project_folder(
             user:,
-            projects_storage_id: project_storage.id,
+            project_storage_id: project_storage.id,
             origin_folder_id: project_storage.project_folder_id,
             mode: project_storage.project_folder_mode
           )

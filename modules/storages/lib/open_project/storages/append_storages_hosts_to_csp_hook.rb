@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-class ::OpenProject::Storages::AppendStoragesHostsToCspHook < OpenProject::Hook::Listener
+class OpenProject::Storages::AppendStoragesHostsToCspHook < OpenProject::Hook::Listener
   # OpenProject's front-end needs to allow the browser to connect to external
   # file servers for direct file uploads. Therefore it needs to extend its
   # Content Security Policy (CSP) `connect-src` with the hostnames of all
@@ -43,24 +45,16 @@ class ::OpenProject::Storages::AppendStoragesHostsToCspHook < OpenProject::Hook:
   # places of OpenProject, and we want to be able to upload in all those places
   # (work packages module, BCF module, notification center, boards, ...).
   def application_controller_before_action(context)
-    projects_of_user = Project.allowed_to(User.current, :manage_file_links).select(:id)
-    projects_with_permission = ::Storages::ProjectStorage.where(project_id: projects_of_user)
-                                                         .select(:storage_id)
-    hosts = ::Storages::Storage.where(id: projects_with_permission)
-                               .pluck(:host)
-                               .map(&method(:remove_uri_path))
+    storage_ids = ::Storages::ProjectStorage.where(
+      project_id: Project.allowed_to(User.current, :manage_file_links)
+    ).select(:storage_id)
+    storages_hosts = ::Storages::Storage
+      .where(id: storage_ids)
+      .flat_map(&:connect_src)
 
-    return if hosts.empty?
-
-    # secure_headers gem provides this helper method to append to the current content security policy
-    controller = context[:controller]
-    controller.append_content_security_policy_directives({ connect_src: hosts })
-  end
-
-  private
-
-  def remove_uri_path(url)
-    uri = URI.parse(url)
-    "#{uri.scheme}://#{uri.host}"
+    if storages_hosts.present?
+      # secure_headers gem provides this helper method to append to the current content security policy
+      context[:controller].append_content_security_policy_directives(connect_src: storages_hosts)
+    end
   end
 end

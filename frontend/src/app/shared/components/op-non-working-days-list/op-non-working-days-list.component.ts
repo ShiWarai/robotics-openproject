@@ -1,38 +1,45 @@
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  HostBinding,
-  Injector,
-  Input,
-  OnInit,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
-import { BannersService } from 'core-app/core/enterprise/banners.service';
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
+
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostBinding, Input, OnInit, ViewChild, ViewEncapsulation, inject } from '@angular/core';
+import { uniqBy } from 'lodash-es';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
-import { OpModalService } from '../modal/modal.service';
-import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { populateInputsFromDataset } from 'core-app/shared/components/dataset-inputs';
 import { FullCalendarComponent } from '@fullcalendar/angular';
-import {
-  EventInput,
-  CalendarOptions,
-  EventSourceFuncArg,
-} from '@fullcalendar/core';
+import { CalendarOptions, EventInput, EventSourceFuncArg } from '@fullcalendar/core';
 import listPlugin from '@fullcalendar/list';
-import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { DayResourceService } from 'core-app/core/state/days/day.service';
 import { IDay } from 'core-app/core/state/days/day.model';
 import { CalendarViewEvent } from 'core-app/features/calendar/op-work-packages-calendar.service';
 import { opIconElement } from 'core-app/shared/helpers/op-icon-builder';
-import { ConfirmDialogService } from 'core-app/shared/components/modals/confirm-dialog/confirm-dialog.service';
-import { ConfirmDialogOptions } from '../modals/confirm-dialog/confirm-dialog.modal';
 import { ToastService } from 'core-app/shared/components/toaster/toast.service';
-import * as moment from 'moment-timezone';
+import allLocales from '@fullcalendar/core/locales-all';
 
-export const nonWorkingDaysListSelector = 'op-non-working-days-list';
 
 export interface INonWorkingDay {
   id:string|null;
@@ -42,13 +49,20 @@ export interface INonWorkingDay {
 }
 
 @Component({
-  selector: nonWorkingDaysListSelector,
+  selector: 'opce-non-working-days-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styleUrls: ['./op-non-working-days-list.component.sass'],
   templateUrl: './op-non-working-days-list.component.html',
+  standalone: false,
 })
 export class OpNonWorkingDaysListComponent implements OnInit {
+  readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  protected I18n = inject(I18nService);
+  readonly dayService = inject(DayResourceService);
+  readonly toast = inject(ToastService);
+  readonly cdRef = inject(ChangeDetectorRef);
+
   @ViewChild(FullCalendarComponent) ucCalendar:FullCalendarComponent;
 
   @HostBinding('class.op-non-working-days-list') className = true;
@@ -61,24 +75,20 @@ export class OpNonWorkingDaysListComponent implements OnInit {
     already_added_error: this.I18n.t('js.admin.working_days.already_added_error'),
     new_date: this.I18n.t('js.admin.working_days.calendar.new_date'),
     add_non_working_day: this.I18n.t('js.admin.working_days.add_non_working_day'),
-    change_description: this.I18n.t('js.admin.working_days.change_description'),
-    warning: this.I18n.t('js.admin.working_days.warning'),
-    change_button: this.I18n.t('js.admin.working_days.change_button'),
-    change_title: this.I18n.t('js.admin.working_days.change_title'),
-    removed_title: this.I18n.t('js.admin.working_days.removed_title'),
     non_working_day_name: this.I18n.t('js.modals.label_name'),
     add: this.I18n.t('js.button_add'),
   };
 
-  form_submitted = false;
-
+  originalNonWorkingDays:INonWorkingDay[] = [];
   nonWorkingDays:INonWorkingDay[] = [];
 
   datepickerOpened = false;
 
-  selectedNonWorkingDayName= '';
+  selectedNonWorkingDayName = '';
 
   calendarOptions:CalendarOptions = {
+    locales: allLocales,
+    locale: this.I18n.locale,
     plugins: [listPlugin],
     initialView: 'listYear',
     contentHeight: 'auto',
@@ -97,15 +107,10 @@ export class OpNonWorkingDaysListComponent implements OnInit {
       anchor.classList.add('fc-list-day-side-text', 'op-non-working-days-list--delete-icon');
       anchor.appendChild(opIconElement('icon', 'icon-delete'));
 
-      anchor.addEventListener('click', () => {
-        // Create 4 hidden inputs(id, name, date, _destroy) for the deleted NWD
-        this.nonWorkingDays = this.nonWorkingDays.map((item) => {
-          if (item.date === event.id) {
-            return { ...item, _destroy: true };
-          }
+      anchor.addEventListener('click', (clickEvent:Event) => {
+        clickEvent.preventDefault();
 
-          return item;
-        });
+        this.markNonWorkingDayForRemoval(event.id);
         event.remove();
         this.cdRef.detectChanges();
       });
@@ -116,49 +121,17 @@ export class OpNonWorkingDaysListComponent implements OnInit {
 
   };
 
-  constructor(
-    readonly elementRef:ElementRef<HTMLElement>,
-    protected I18n:I18nService,
-    readonly bannersService:BannersService,
-    readonly opModalService:OpModalService,
-    readonly injector:Injector,
-    readonly pathHelper:PathHelperService,
-    readonly apiV3Service:ApiV3Service,
-    readonly dayService:DayResourceService,
-    readonly confirmDialogService:ConfirmDialogService,
-    readonly toast:ToastService,
-    readonly cdRef:ChangeDetectorRef,
-  ) {
+  constructor() {
     populateInputsFromDataset(this);
-    this.listenToFormSubmit();
   }
 
-  private listenToFormSubmit() {
-    const form = this.elementRef.nativeElement.closest('form') as HTMLFormElement;
-    form.addEventListener('submit', (evt:Event) => {
-      if (!this.form_submitted) {
-        this.form_submitted = true;
-        const target = evt.target as HTMLFormElement;
-        const options:ConfirmDialogOptions = {
-          text: {
-            text: this.text.change_description,
-            title: this.text.change_title,
-            button_continue: this.text.change_button,
-          },
-          dangerHighlighting: true,
-          divideContent: true,
-          refreshOnCancel: true,
-          showListData: this.removedNonWorkingDays.length > 0,
-          warningText: this.text.warning,
-          passedData: this.removedNonWorkingDays,
-          listTitle: this.text.removed_title,
-        };
-        evt.preventDefault();
-        void this.confirmDialogService.confirm(options).then(() => {
-          this.form_submitted = false;
-          target.submit();
-        });
+  private markNonWorkingDayForRemoval(date:string):void {
+    this.nonWorkingDays = this.nonWorkingDays.map((item) => {
+      if (item.date === date) {
+        return { ...item, _destroy: true };
       }
+
+      return item;
     });
   }
 
@@ -168,15 +141,10 @@ export class OpNonWorkingDaysListComponent implements OnInit {
       .forEach((el) => {
         this.nonWorkingDays.push({ ...el });
       });
+    this.cdRef.detectChanges();
   }
 
-  public get removedNonWorkingDays():string[] {
-    return this
-      .nonWorkingDays
-      .filter((el) => el._destroy)
-      .map((el) => moment(el.date).format('MMMM DD, YYYY'));
-  }
-
+  // Initializes nonWorkingDays from the API
   public calendarEventsFunction(
     fetchInfo:EventSourceFuncArg,
     successCallback:(events:EventInput[]) => void,
@@ -185,10 +153,9 @@ export class OpNonWorkingDaysListComponent implements OnInit {
     this.dayService.requireNonWorkingYear$(fetchInfo.start)
       .subscribe(
         (days:IDay[]) => {
-          this.nonWorkingDays = _
-            .uniqBy([...this.nonWorkingDays, ...days], (el) => el.date)
+          this.nonWorkingDays = uniqBy([...this.nonWorkingDays, ...days], (el) => el.date)
             .filter((el:INonWorkingDay) => !this.nonWorkingDays.find((existing) => existing.id === el.id && existing._destroy));
-
+          this.originalNonWorkingDays = [...this.nonWorkingDays];
           const events = this.mapToCalendarEvents(this.nonWorkingDays);
           successCallback(events);
           this.cdRef.detectChanges();
@@ -233,4 +200,5 @@ export class OpNonWorkingDaysListComponent implements OnInit {
     this.nonWorkingDays = [...this.nonWorkingDays, day];
     api.addEvent({ ...day, id: date });
   }
+
 }

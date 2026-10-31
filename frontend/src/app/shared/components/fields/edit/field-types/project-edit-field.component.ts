@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,77 +21,41 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  Inject,
-  Injector,
-  OnInit,
-  ViewEncapsulation,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, ViewEncapsulation, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { from } from 'rxjs';
-import { I18nService } from 'core-app/core/i18n/i18n.service';
 import {
   EditFieldComponent,
-  OpEditingPortalChangesetToken,
-  OpEditingPortalHandlerToken,
-  OpEditingPortalSchemaToken,
 } from 'core-app/shared/components/fields/edit/edit-field.component';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { IProject } from 'core-app/core/state/projects/project.model';
-import { HalResource } from 'core-app/features/hal/resources/hal-resource';
-import { ResourceChangeset } from '../../changeset/resource-changeset';
-import { IFieldSchema } from '../../field.base';
-import { EditFieldHandler } from '../editing-portal/edit-field-handler';
 import { HalResourceService } from 'core-app/features/hal/services/hal-resource.service';
-import {
-  take,
-  tap,
-} from 'rxjs/operators';
+import { take, tap } from 'rxjs/operators';
 import isNewResource from 'core-app/features/hal/helpers/is-new-resource';
 import idFromLink from 'core-app/features/hal/helpers/id-from-link';
+import { IAPIFilter } from 'core-app/shared/components/autocompleter/op-autocompleter/typings';
+import { FilterOperator } from 'core-app/shared/helpers/api-v3/api-v3-filter-builder';
 
 @Component({
   templateUrl: './project-edit-field.component.html',
   styleUrls: ['./project-edit-field.component.sass'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class ProjectEditFieldComponent extends EditFieldComponent implements OnInit {
-  isNew = isNewResource(this.resource);
+  readonly apiV3Service = inject(ApiV3Service);
+  readonly http = inject(HttpClient);
+  readonly halResourceService = inject(HalResourceService);
+
+  isNew = isNewResource(this.resource as { id:string | null });
 
   url:string;
-
-  constructor(
-    readonly I18n:I18nService,
-    readonly elementRef:ElementRef,
-    @Inject(OpEditingPortalChangesetToken) protected change:ResourceChangeset<HalResource>,
-    @Inject(OpEditingPortalSchemaToken) public schema:IFieldSchema,
-    @Inject(OpEditingPortalHandlerToken) readonly handler:EditFieldHandler,
-    readonly cdRef:ChangeDetectorRef,
-    readonly injector:Injector,
-    readonly apiV3Service:ApiV3Service,
-    readonly http:HttpClient,
-    readonly halResourceService:HalResourceService,
-  ) {
-    super(
-      I18n,
-      elementRef,
-      change,
-      schema,
-      handler,
-      cdRef,
-      injector,
-    );
-  }
 
   initialize():void {
     if (this.schema.allowedValues) {
@@ -115,14 +79,15 @@ export class ProjectEditFieldComponent extends EditFieldComponent implements OnI
     return this.handler.handleUserSubmit();
   }
 
-  public get APIFilters():(string | string[])[][] {
+  public get APIFilters():IAPIFilter[] {
     const filters = [
-      ['active', '=', ['t']],
+        { name: 'active', operator: '=' as FilterOperator, values: ['t'] },
     ];
 
-    if (isNewResource(this.resource) && this.change.value('type')) {
-      const typeId = idFromLink((this.change.value('type') as HalResource).href);
-      filters.push(['type_id', '=', [typeId]]);
+    const type = this.change.value<{ href:string }|null>('type');
+    if (isNewResource(this.resource as { id:string | null }) && type) {
+      const typeId = idFromLink(type.href);
+      filters.push({ name: 'type_id', operator: '=', values: [typeId] });
     }
 
     return filters;

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,13 +32,14 @@
 #
 #   project = create(:project)
 #   user    = create(:user)
-#   role    = create(:role, permissions: [:view_wiki_pages, :edit_wiki_pages])
+#   role    = create(:project_role, permissions: [:view_wiki_pages, :edit_wiki_pages])
 #
 #   member = create(:member, user: user, project: project, roles: [role])
 
 FactoryBot.define do
   factory :member do
     project
+    entity { nil }
 
     transient do
       user { nil }
@@ -52,6 +55,17 @@ FactoryBot.define do
   end
 
   factory :global_member, parent: :member do
+    project { nil }
+    entity { nil }
+  end
+
+  factory :work_package_member, parent: :member do
+    entity factory: %i[work_package]
+    project { entity.project }
+  end
+
+  factory :project_query_member, parent: :member do
+    entity factory: %i[project_query]
     project { nil }
   end
 end

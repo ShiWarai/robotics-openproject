@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -24,10 +26,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 # See COPYRIGHT and LICENSE files for more details.
-#++require 'rspec'
+#++
 
-require 'spec_helper'
-require_relative './eager_loading_mock_wrapper'
+require "spec_helper"
+require_relative "eager_loading_mock_wrapper"
 
 RSpec.describe API::V3::WorkPackages::EagerLoading::Project do
   let!(:parent_work_package1) { create(:work_package, project: parent_project) }
@@ -38,9 +40,11 @@ RSpec.describe API::V3::WorkPackages::EagerLoading::Project do
   let!(:project) { create(:project) }
   let!(:parent_project) { create(:project) }
   let!(:child_project) { create(:project) }
+  let!(:unused_type) { create(:type) }
+  let!(:unused_project_type) { create(:project_type, project:, type: unused_type) }
 
-  describe '.apply' do
-    it 'preloads the projects of the work packages, their parents and children' do
+  describe ".apply" do
+    it "preloads the projects of the work packages, their parents and children" do
       wrapped = EagerLoadingMockWrapper.wrap(described_class, [work_package1, work_package2])
 
       wrapped.each do |w|
@@ -48,6 +52,10 @@ RSpec.describe API::V3::WorkPackages::EagerLoading::Project do
           .to be_loaded
 
         expect(w.project).to eql project
+        expect(w.project.association(:project_types)).to be_loaded
+        expect(w.project.project_types.map(&:type_id)).to contain_exactly(w.type_id, unused_type.id)
+        expect(w.project.project_types).to all(satisfy { |project_type| project_type.association(:variant).loaded? })
+        expect { w.project.type_variant(w.type) }.to have_a_query_limit(0)
 
         expect(w.parent.association(:project))
           .to be_loaded

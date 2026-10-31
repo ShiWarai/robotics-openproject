@@ -8,7 +8,7 @@
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
 # Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
-# Copyright (C) 2012-2021 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,35 +31,67 @@ module OpenProject::GitlabIntegration
   class HookHandler
     # List of the gitlab events we can handle.
     KNOWN_EVENTS = %w[
-      push_hook 
-      issue_hook 
-      note_hook 
+      push_hook
+      issue_hook
+      note_hook
       merge_request_hook
       pipeline_hook
+      system_hook
     ].freeze
 
     # A gitlab webhook happened.
     # We need to check validity of the data and send a Notification
     # which we process in our NotificationHandler.
-    def process(hook, request, params, user)
-      event_type = request.env['HTTP_X_GITLAB_EVENT']
-      event_type.gsub!(' ','_')
-      event_type = event_type.to_s.downcase
+    def process(_hook, request, params, user)
+      event_type = normalize_event_type(request)
 
-      Rails.logger.debug "Received gitlab webhook #{event_type}"
+      Rails.logger.debug { "Received gitlab webhook #{event_type}" }
 
       return 404 unless KNOWN_EVENTS.include?(event_type)
-      return 403 unless user.present?
+      return 403 unless authorized?(request, user)
 
+      notify(params, user, event_type)
+      200
+    end
+
+    private
+
+    def normalize_event_type(request)
+      request.env["HTTP_X_GITLAB_EVENT"].tr(" ", "_").downcase
+    end
+
+    def authorized?(request, user)
+      valid_token?(request) &&
+        user.present? &&
+        (configured_user_id.blank? || user.id == configured_user_id)
+    end
+
+    def notify(params, user, event_type)
       payload = params[:payload]
                 .permit!
                 .to_h
-                .merge('open_project_user_id' => user.id,
-                       'gitlab_event' => event_type)
+                .merge("open_project_user_id" => user.id,
+                       "gitlab_event" => event_type)
 
-      OpenProject::Notifications.send("gitlab.#{event_type}", payload)
+      OpenProject::Notifications.send(:"gitlab.#{event_type}", payload)
+    end
 
-      return 200
+    def valid_token?(request)
+      secret = plugin_settings[:webhook_secret].presence
+      return true if secret.blank?
+
+      token_header = request.env["HTTP_X_GITLAB_TOKEN"]
+      return false if token_header.blank?
+
+      ActiveSupport::SecurityUtils.secure_compare(secret, token_header)
+    end
+
+    def configured_user_id
+      plugin_settings[:gitlab_user_id].presence&.to_i
+    end
+
+    def plugin_settings
+      Hash(Setting.plugin_openproject_gitlab_integration).with_indifferent_access
     end
   end
 end

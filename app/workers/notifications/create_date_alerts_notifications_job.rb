@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,9 +30,14 @@
 
 module Notifications
   class CreateDateAlertsNotificationsJob < ApplicationJob
-    def perform(user)
-      return unless EnterpriseToken.allows_to?(:date_alerts)
+    include GoodJob::ActiveJobExtensions::Concurrency
 
+    good_job_control_concurrency_with(
+      total_limit: 1,
+      key: -> { "#{self.class.name}-#{arguments.last}" }
+    )
+
+    def perform(user)
       Service
         .new(user)
         .call

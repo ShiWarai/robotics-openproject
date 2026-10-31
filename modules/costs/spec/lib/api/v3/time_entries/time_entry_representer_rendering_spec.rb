@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,93 +26,170 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe API::V3::TimeEntries::TimeEntryRepresenter, 'rendering' do
+RSpec.describe API::V3::TimeEntries::TimeEntryRepresenter, "rendering" do
   include API::V3::Utilities::PathHelper
 
   let(:time_entry) do
     build_stubbed(:time_entry,
-                  comments: 'blubs',
+                  comments: "blubs",
                   spent_on: Date.today,
                   created_at: DateTime.now - 6.hours,
                   updated_at: DateTime.now - 3.hours,
                   hours:,
                   activity:,
-                  project:,
+                  project: workspace,
+                  entity: work_package,
                   user:)
   end
-  let(:project) { build_stubbed(:project) }
-  let(:work_package) { time_entry.work_package }
+  let(:workspace) { build_stubbed(:project) }
+  let(:work_package) { build_stubbed(:work_package, project: workspace || build_stubbed(:project)) }
+  let(:meeting) { build_stubbed(:meeting, project: workspace) }
   let(:activity) { build_stubbed(:time_entry_activity) }
   let(:user) { build_stubbed(:user) }
   let(:current_user) { user }
   let(:hours) { 5 }
+  let(:embed_links) { true }
   let(:permissions) do
     [:edit_time_entries]
   end
+  let(:work_package_visible) { true }
   let(:representer) do
-    described_class.create(time_entry, current_user:, embed_links: true)
+    described_class.create(time_entry, current_user:, embed_links:)
   end
 
-  subject { representer.to_json }
+  subject(:generated) { representer.to_json }
 
   before do
-    allow(current_user)
-      .to receive(:allowed_to?) do |permission, context_project|
-      project == context_project && permissions.include?(permission)
+    mock_permissions_for(current_user) do |mock|
+      mock.allow_in_project *permissions, project: workspace if workspace
+      mock.allow_in_project :view_work_packages, project: workspace if work_package_visible && workspace
     end
+
     allow(time_entry)
       .to receive(:available_custom_fields)
       .and_return([])
   end
 
-  include_context 'eager loaded work package representer'
+  it "fulfills the documented schema" do
+    expect(generated).to match_json_schema.from_docs("time_entry_model")
+  end
 
-  describe '_links' do
-    it_behaves_like 'has an untitled link' do
-      let(:link) { 'self' }
+  include_context "eager loaded work package representer"
+
+  describe "_links" do
+    it_behaves_like "has an untitled link" do
+      let(:link) { "self" }
       let(:href) { api_v3_paths.time_entry time_entry.id }
     end
 
-    it_behaves_like 'has a titled link' do
-      let(:link) { 'project' }
-      let(:href) { api_v3_paths.project project.id }
-      let(:title) { project.name }
+    describe "project" do
+      it_behaves_like "has workspace linked"
     end
 
-    it_behaves_like 'has a titled link' do
-      let(:link) { 'workPackage' }
-      let(:href) { api_v3_paths.work_package work_package.id }
-      let(:title) { work_package.subject }
+    context "with a time entry logged on a work package" do
+      it_behaves_like "has a titled link" do
+        let(:link) { "entity" }
+        let(:href) { api_v3_paths.work_package work_package.id }
+        let(:title) { work_package.subject }
+      end
+
+      it_behaves_like "has a titled link" do
+        let(:link) { "workPackage" }
+        let(:href) { api_v3_paths.work_package work_package.id }
+        let(:title) { work_package.subject }
+      end
+
+      it "includes displayId in the entity link (classic mode numeric id)" do
+        expect(subject)
+          .to be_json_eql(work_package.display_id.to_s.to_json)
+          .at_path("_links/entity/displayId")
+      end
+
+      context "with semantic identifier mode active",
+              with_settings: { work_packages_identifier: "semantic" } do
+        let(:work_package) { build_stubbed(:work_package, identifier: "PROJ-42", project: workspace) }
+
+        it "includes the semantic displayId in the entity link" do
+          expect(subject)
+            .to be_json_eql("PROJ-42".to_json)
+            .at_path("_links/entity/displayId")
+        end
+      end
     end
 
-    it_behaves_like 'has a titled link' do
-      let(:link) { 'user' }
+    context "with a time entry logged on a work package not visible to the user" do
+      let(:work_package_visible) { false }
+
+      it_behaves_like "has a titled link" do
+        let(:link) { "entity" }
+        let(:href) { API::V3::URN_UNDISCLOSED }
+        let(:title) { I18n.t(:"api_v3.undisclosed.workPackage") }
+      end
+
+      it_behaves_like "has a titled link" do
+        let(:link) { "workPackage" }
+        let(:href) { API::V3::URN_UNDISCLOSED }
+        let(:title) { I18n.t(:"api_v3.undisclosed.workPackage") }
+      end
+
+      it "does not disclose the work package displayId" do
+        expect(subject).not_to have_json_path("_links/entity/displayId")
+      end
+
+      it "does not embed the work package subject or attributes" do
+        expect(subject).not_to have_json_path("_embedded/entity")
+        expect(subject).not_to have_json_path("_embedded/workPackage")
+      end
+    end
+
+    context "with a time entry logged on a meeting" do
+      before do
+        time_entry.entity = meeting
+      end
+
+      it_behaves_like "has a titled link" do
+        let(:link) { "entity" }
+        let(:href) { api_v3_paths.meeting meeting.id }
+        let(:title) { meeting.title }
+      end
+
+      it_behaves_like "has no link" do
+        let(:link) { "workPackage" }
+      end
+
+      it "does not include displayId in the entity link" do
+        expect(subject).not_to have_json_path("_links/entity/displayId")
+      end
+    end
+
+    it_behaves_like "has a titled link" do
+      let(:link) { "user" }
       let(:href) { api_v3_paths.user user.id }
       let(:title) { user.name }
     end
 
-    it_behaves_like 'has a titled link' do
-      let(:link) { 'activity' }
+    it_behaves_like "has a titled link" do
+      let(:link) { "activity" }
       let(:href) { api_v3_paths.time_entries_activity activity.id }
       let(:title) { activity.name }
     end
 
-    it_behaves_like 'has an untitled link' do
-      let(:link) { 'schema' }
+    it_behaves_like "has an untitled link" do
+      let(:link) { "schema" }
       let(:href) { api_v3_paths.time_entry_schema }
     end
 
-    context 'custom value' do
+    context "custom value" do
       let(:custom_field) do
-        build_stubbed(:time_entry_custom_field, field_format: 'user')
+        build_stubbed(:time_entry_custom_field, :user)
       end
       let(:custom_value) do
-        double('CustomValue',
+        double("CustomValue",
                custom_field:,
                customized: time_entry,
-               value: '1',
+               value: "1",
                typed_value: user)
       end
       let(:user) do
@@ -134,131 +211,131 @@ RSpec.describe API::V3::TimeEntries::TimeEntryRepresenter, 'rendering' do
           .and_return(custom_value)
       end
 
-      it 'has the user linked' do
+      it "has the user linked" do
         expect(subject)
           .to be_json_eql(api_v3_paths.user(custom_value.value).to_json)
           .at_path("_links/customField#{custom_field.id}/href")
       end
     end
 
-    context 'when allowed to update' do
-      it_behaves_like 'has an untitled link' do
-        let(:link) { 'updateImmediately' }
+    context "when allowed to update" do
+      it_behaves_like "has an untitled link" do
+        let(:link) { "updateImmediately" }
         let(:href) { api_v3_paths.time_entry(time_entry.id) }
         let(:method) { :patch }
       end
 
-      it_behaves_like 'has an untitled link' do
-        let(:link) { 'update' }
+      it_behaves_like "has an untitled link" do
+        let(:link) { "update" }
         let(:href) { api_v3_paths.time_entry_form(time_entry.id) }
         let(:method) { :post }
       end
 
-      it_behaves_like 'has an untitled link' do
-        let(:link) { 'delete' }
+      it_behaves_like "has an untitled link" do
+        let(:link) { "delete" }
         let(:href) { api_v3_paths.time_entry(time_entry.id) }
         let(:method) { :delete }
       end
     end
 
-    context 'when not allowed to update' do
+    context "when not allowed to update" do
       let(:permissions) { [] }
 
-      it_behaves_like 'has no link' do
-        let(:link) { 'updateImmediately' }
+      it_behaves_like "has no link" do
+        let(:link) { "updateImmediately" }
       end
 
-      it_behaves_like 'has no link' do
-        let(:link) { 'update' }
+      it_behaves_like "has no link" do
+        let(:link) { "update" }
       end
 
-      it_behaves_like 'has no link' do
-        let(:link) { 'delete' }
+      it_behaves_like "has no link" do
+        let(:link) { "delete" }
       end
     end
 
-    context 'when allowed to edit own and it is own' do
+    context "when allowed to edit own and it is own" do
       let(:permissions) { [:edit_own_time_entries] }
 
-      it_behaves_like 'has an untitled link' do
-        let(:link) { 'updateImmediately' }
+      it_behaves_like "has an untitled link" do
+        let(:link) { "updateImmediately" }
         let(:href) { api_v3_paths.time_entry(time_entry.id) }
         let(:method) { :patch }
       end
 
-      it_behaves_like 'has an untitled link' do
-        let(:link) { 'delete' }
+      it_behaves_like "has an untitled link" do
+        let(:link) { "delete" }
         let(:href) { api_v3_paths.time_entry(time_entry.id) }
         let(:method) { :delete }
       end
     end
 
-    context 'when allowed to edit own and it is not own' do
+    context "when allowed to edit own and it is not own" do
       let(:permissions) { [:edit_own_time_entries] }
       let(:current_user) { build_stubbed(:user) }
 
-      it_behaves_like 'has no link' do
-        let(:link) { 'updateImmediately' }
+      it_behaves_like "has no link" do
+        let(:link) { "updateImmediately" }
       end
 
-      it_behaves_like 'has no link' do
-        let(:link) { 'delete' }
+      it_behaves_like "has no link" do
+        let(:link) { "delete" }
       end
     end
   end
 
-  describe 'properties' do
-    it_behaves_like 'property', :_type do
-      let(:value) { 'TimeEntry' }
+  describe "properties" do
+    it_behaves_like "property", :_type do
+      let(:value) { "TimeEntry" }
     end
 
-    it_behaves_like 'property', :id do
+    it_behaves_like "property", :id do
       let(:value) { time_entry.id }
     end
 
-    it_behaves_like 'formattable property', :comment do
+    it_behaves_like "formattable property", :comment do
       let(:value) { time_entry.comments }
     end
 
-    context 'with an empty comment' do
+    context "with an empty comment" do
       let(:time_entry) { build_stubbed(:time_entry) }
 
-      it_behaves_like 'formattable property', :comment do
+      it_behaves_like "formattable property", :comment do
         let(:value) { time_entry.comments }
       end
     end
 
-    it_behaves_like 'date property', :spentOn do
+    it_behaves_like "date property", :spentOn do
       let(:value) { time_entry.spent_on }
     end
 
-    context 'hours' do
-      it_behaves_like 'property', :hours do
-        let(:value) { 'PT5H' }
+    context "hours" do
+      it_behaves_like "property", :hours do
+        let(:value) { "PT5H" }
       end
 
-      context 'if hours are nil' do
+      context "if hours are nil" do
         let(:hours) { nil }
 
-        it_behaves_like 'property', :hours do
+        it_behaves_like "property", :hours do
           let(:value) { nil }
         end
       end
     end
 
-    it_behaves_like 'datetime property', :createdAt do
+    it_behaves_like "datetime property", :createdAt do
       let(:value) { time_entry.created_at }
     end
 
-    it_behaves_like 'datetime property', :updatedAt do
+    it_behaves_like "datetime property", :updatedAt do
       let(:value) { time_entry.updated_at }
     end
 
-    context 'custom value' do
-      let(:custom_field) { build_stubbed(:text_time_entry_custom_field) }
+    context "custom value" do
+      let(:custom_field) { build_stubbed(:time_entry_custom_field) }
       let(:custom_value) do
         CustomValue.new(custom_field:,
-                        value: '1234',
+                        value: "1234",
                         customized: time_entry)
       end
 
@@ -283,6 +360,12 @@ RSpec.describe API::V3::TimeEntries::TimeEntryRepresenter, 'rendering' do
           .to be_json_eql(expected.to_json)
           .at_path("customField#{custom_field.id}")
       end
+    end
+  end
+
+  describe "_embedded" do
+    describe "project" do
+      it_behaves_like "has workspace embedded"
     end
   end
 end

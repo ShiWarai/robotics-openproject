@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,27 +21,32 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
-// ++    Ng1FieldControlsWrapper,
+//++
 
-import { Component, ElementRef } from '@angular/core';
-import { WorkPackageTableConfigurationObject } from 'core-app/features/work-packages/components/wp-table/wp-table-configuration';
-
-export const wpEmbeddedTableMacroSelector = 'macro.embedded-table';
+import { ChangeDetectionStrategy, Component, ElementRef, Input, inject } from '@angular/core';
+import {
+  WorkPackageTableConfigurationObject,
+} from 'core-app/features/work-packages/components/wp-table/wp-table-configuration';
+import { populateInputsFromDataset } from 'core-app/shared/components/dataset-inputs';
 
 @Component({
-  selector: wpEmbeddedTableMacroSelector,
   template: `
     <wp-embedded-table-entry [queryProps]="queryProps"
-                             [configuration]="configuration">
-    </wp-embedded-table-entry>
+                             [configuration]="configuration" />
   `,
+  standalone: false,
+  // TODO: This component has been partially migrated to be zoneless-compatible.
+  // After testing, this should be updated to ChangeDetectionStrategy.OnPush.
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class EmbeddedTablesMacroComponent {
-  // noinspection JSUnusedGlobalSymbols
-  public queryProps:any;
+  readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  @Input() public queryProps:object;
 
   public configuration:WorkPackageTableConfigurationObject = {
     actionsColumnEnabled: false,
@@ -49,11 +54,7 @@ export class EmbeddedTablesMacroComponent {
     contextMenuEnabled: false,
   };
 
-  constructor(readonly elementRef:ElementRef) {
-  }
-
-  ngOnInit() {
-    const element = this.elementRef.nativeElement;
-    this.queryProps = JSON.parse(element.dataset.queryProps);
+  constructor() {
+    populateInputsFromDataset(this);
   }
 }

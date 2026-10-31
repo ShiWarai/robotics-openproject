@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -33,9 +35,9 @@ module WorkPackages::BulkErrorMessage
     private
 
     def bulk_error_message(selected_work_packages, service_result)
-      ApplicationController.renderer.render_to_string partial: 'work_packages/bulk/errors',
-                                                      locals: { service_result:,
-                                                                selected_work_packages: }
+      ApplicationController.renderer.render partial: "work_packages/bulk/errors",
+                                            locals: { service_result:,
+                                                      selected_work_packages: }
     end
   end
 end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,13 +32,14 @@ class ActivitiesController < ApplicationController
   include Layout
 
   menu_item :activity
-  before_action :find_optional_project,
+  before_action :warn_if_no_projects_visible,
+                :load_and_authorize_in_optional_project,
                 :verify_activities_module_activated,
                 :determine_subprojects,
+                :determine_author,
                 :set_activity
 
   before_action :determine_date_range,
-                :determine_author,
                 :set_current_activity_page,
                 only: :index
 
@@ -44,20 +47,18 @@ class ActivitiesController < ApplicationController
 
   accept_key_auth :index
 
+  rescue_from ActiveRecord::RecordNotFound do |exception|
+    op_handle_warning "Failed to find all resources in activities: #{exception.message}"
+    render_404(message: I18n.t(:error_can_not_find_all_resources))
+  end
+
   def index
     @events = @activity.events(from: @date_from.to_datetime, to: @date_to.to_datetime)
 
     respond_to do |format|
-      format.html do
-        respond_html
-      end
-      format.atom do
-        respond_atom
-      end
+      format.html { respond_html }
+      format.atom { respond_atom }
     end
-  rescue ActiveRecord::RecordNotFound => e
-    op_handle_warning "Failed to find all resources in activities: #{e.message}"
-    render_404 I18n.t(:error_can_not_find_all_resources)
   end
 
   def menu
@@ -75,7 +76,7 @@ class ActivitiesController < ApplicationController
   end
 
   def verify_activities_module_activated
-    render_403 if @project && !@project.module_enabled?('activity')
+    render_403 if @project && !@project.module_enabled?("activity")
   end
 
   def determine_date_range
@@ -90,13 +91,18 @@ class ActivitiesController < ApplicationController
   end
 
   def determine_subprojects
+    # In OP < 13.0 session[:activity] was an Array.
+    # If such a session is still present, we need to reset it.
+    # This line can probably be removed in OP 14.0.
+    session[:activity] = nil unless session[:activity].is_a?(Hash)
+
     @with_subprojects = if params[:with_subprojects].nil? &&
                           (session[:activity].nil? || session[:activity][:with_subprojects].nil?)
                           Setting.display_subprojects_work_packages?
                         elsif params[:with_subprojects].nil?
                           session[:activity][:with_subprojects]
                         else
-                          params[:with_subprojects] == '1'
+                          params[:with_subprojects] == "1"
                         end
   end
 
@@ -131,11 +137,17 @@ class ActivitiesController < ApplicationController
   end
 
   def set_current_activity_page
-    @activity_page = @project ? "projects/#{@project.identifier}" : 'all'
+    @activity_page = @project ? "projects/#{@project.identifier}" : "all"
   end
 
   def set_session
     session[:activity] = { scope: @activity.scope,
                            with_subprojects: @with_subprojects }
+  end
+
+  def warn_if_no_projects_visible
+    unless current_user.allowed_in_any_project?(:view_project_activity)
+      render_404(message: I18n.t("homescreen.additional.no_visible_projects"))
+    end
   end
 end

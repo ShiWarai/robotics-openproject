@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,28 +30,36 @@ module DevelopmentData
   class ProjectsSeeder < Seeder
     def seed_data!
       # We are relying on the default_projects_modules setting to set the desired project modules
-      print_status ' ↳ Creating development projects...'
+      print_status " ↳ Creating development projects..."
 
-      print_status '   -Creating/Resetting development projects'
+      print_status "   -Creating/Resetting development projects"
       projects = reset_projects
 
-      print_status '   -Setting members.'
+      print_status "   -Setting members."
       set_members(projects)
 
-      print_status '   -Creating versions.'
+      print_status "   -Creating versions."
       seed_versions(projects)
 
-      print_status '   -Linking custom fields.'
+      print_status "   -Linking custom fields."
 
-      link_custom_fields(projects.detect { |p| p.identifier == 'dev-custom-fields' })
+      link_custom_fields(projects.detect { |p| p.identifier == "dev-custom-fields" })
     end
 
     def applicable?
-      Project.where(identifier: project_identifiers).count == 0
+      recent_installation? &&
+        Project.where(identifier: project_identifiers).count == 0 &&
+        seed_data.reference_exists?(:default_role_project_admin)
+    end
+
+    # returns true if no projects have been created more than 1 hour ago,
+    # meaning this is a recent installation
+    def recent_installation?
+      Project.where(created_at: ..1.hour.ago).none?
     end
 
     def project_identifiers
-      %w(dev-empty dev-large dev-large-child dev-custom-fields)
+      %w(dev-empty dev-work-package-sharing dev-large dev-large-child dev-custom-fields)
     end
 
     def reset_projects
@@ -57,11 +67,13 @@ module DevelopmentData
       project_identifiers.map do |id|
         project = Project.new project_data(id)
 
-        if id == 'dev-large-child'
-          project.parent_id = Project.find_by(identifier: 'dev-large').id
+        if id == "dev-large-child"
+          project.parent_id = Project.find_by(identifier: "dev-large").id
         end
 
         project.save!
+        seed_data.store_reference(id.underscore.to_sym, project)
+
         project
       end
     end
@@ -76,15 +88,15 @@ module DevelopmentData
     end
 
     def seed_versions(projects)
-      version_data = seed_data.lookup('projects.scrum-project.versions')
+      version_data = seed_data.lookup("projects.scrum-project.versions")
       return unless version_data.is_a? Array
 
       projects.each do |project|
         version_data.each do |attributes|
           project.versions.create!(
-            name: attributes['name'],
-            status: attributes['status'],
-            sharing: attributes['sharing']
+            name: attributes["name"],
+            status: attributes["status"],
+            sharing: attributes["sharing"]
           )
         end
       end
@@ -100,12 +112,13 @@ module DevelopmentData
         name: project_name(identifier),
         identifier:,
         enabled_module_names: project_modules,
-        types: Type.all
+        project_types: Type.all.map { |type| ProjectType.new(type:) },
+        workspace_type: "project"
       }
     end
 
     def project_name(identifier)
-      _dev, *parts = identifier.split('-')
+      _dev, *parts = identifier.split("-")
       "[dev] #{parts.join(' ').capitalize}"
     end
 

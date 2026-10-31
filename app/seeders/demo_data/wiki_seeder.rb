@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,24 +28,25 @@
 # See COPYRIGHT and LICENSE files for more details.
 module DemoData
   class WikiSeeder < Seeder
-    attr_reader :project, :project_data
+    attr_reader :project
+    alias_method :project_data, :seed_data
 
     def initialize(project, project_data)
-      super()
+      super(project_data)
       @project = project
-      @project_data = project_data
     end
 
     def seed_data!
-      text = project_data.lookup('wiki')
-
+      text = project_data.lookup("wiki")
       return if text.blank?
+
+      create_project_wiki!
 
       if text.is_a? String
         text = [{ title: "Wiki", content: text }]
       end
 
-      print_status '    ↳ Creating wikis'
+      print_status "    ↳ Creating wikis"
 
       Array(text).each do |data|
         create_wiki_page!(
@@ -51,6 +54,12 @@ module DemoData
           project:
         )
       end
+    end
+
+    def create_project_wiki!
+      Wiki.create!(project: project, start_page: "Wiki") unless Wiki.exists?(project:)
+
+      project.reload
     end
 
     def create_wiki_page!(data, project:, parent: nil)
@@ -62,7 +71,7 @@ module DemoData
         text: data[:content]
       )
 
-      print_status '.'
+      print_status "."
 
       if data[:children]
         Array(data[:children]).each do |child_data|

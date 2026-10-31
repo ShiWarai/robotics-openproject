@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,11 +28,11 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Projects::ScheduleDeletionService, type: :model do
   let(:contract_class) do
-    contract = double('contract_class', '<=': true)
+    contract = double("contract_class", "<=": true)
 
     allow(contract)
       .to receive(:new)
@@ -40,11 +42,11 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
     contract
   end
   let(:contract_instance) do
-    double('contract_instance', validate: contract_valid, errors: contract_errors)
+    double("contract_instance", validate: contract_valid, errors: contract_errors)
   end
   let(:contract_valid) { true }
   let(:contract_errors) do
-    double('contract_errors')
+    double("contract_errors")
   end
   let(:project_valid) { true }
   let(:project) { build_stubbed(:project) }
@@ -57,7 +59,7 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
     true
   end
   let(:archive_errors) do
-    double('archive_errors')
+    double("archive_errors")
   end
   let(:archive_result) do
     ServiceResult.new result: project,
@@ -65,7 +67,7 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
                       errors: archive_errors
   end
   let!(:archive_service) do
-    service = double('archive_service_instance')
+    service = double("archive_service_instance")
 
     allow(Projects::ArchiveService)
       .to receive(:new)
@@ -88,8 +90,8 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
       .to receive(:perform_later)
   end
 
-  context 'if contract and archiving are successful' do
-    it 'archives the project and creates a delayed job' do
+  context "if contract and archiving are successful" do
+    it "archives the project and creates a delayed job" do
       expect(subject).to be_success
 
       expect(archive_service)
@@ -101,10 +103,10 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
     end
   end
 
-  context 'if project is archived already' do
+  context "if project is archived already" do
     let(:project) { build_stubbed(:project, active: false) }
 
-    it 'does not call archive service' do
+    it "does not call archive service" do
       expect(subject).to be_success
 
       expect(archive_service)
@@ -116,19 +118,19 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
     end
   end
 
-  context 'if contract fails' do
+  context "if contract fails" do
     let(:contract_valid) { false }
 
-    it 'is failure' do
+    it "is failure" do
       expect(subject).to be_failure
     end
 
-    it 'returns the contract errors' do
+    it "returns the contract errors" do
       expect(subject.errors)
         .to eql contract_errors
     end
 
-    it 'does not schedule a job' do
+    it "does not schedule a job" do
       expect(Projects::DeleteProjectJob)
         .not_to receive(:new)
 
@@ -136,19 +138,19 @@ RSpec.describe Projects::ScheduleDeletionService, type: :model do
     end
   end
 
-  context 'if archiving fails' do
+  context "if archiving fails" do
     let(:archive_success) { false }
 
-    it 'is failure' do
+    it "is failure" do
       expect(subject).to be_failure
     end
 
-    it 'returns the contract errors' do
+    it "returns the contract errors" do
       expect(subject.errors)
         .to eql archive_errors
     end
 
-    it 'does not schedule a job' do
+    it "does not schedule a job" do
       expect(Projects::DeleteProjectJob)
         .not_to receive(:new)
 
