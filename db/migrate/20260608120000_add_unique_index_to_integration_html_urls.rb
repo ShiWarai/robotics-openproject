@@ -30,6 +30,8 @@ class AddUniqueIndexToIntegrationHtmlUrls < ActiveRecord::Migration[8.1]
 
   def up
     ENTITIES.each do |table, config|
+      next unless table_exists?(table)
+
       say_with_time "Deduplicating #{table} by #{config[:url_column]}" do
         transaction { fold_duplicates(table, config) }
       end
@@ -39,6 +41,8 @@ class AddUniqueIndexToIntegrationHtmlUrls < ActiveRecord::Migration[8.1]
 
   def down
     ENTITIES.each do |table, config|
+      next unless table_exists?(table)
+
       remove_index table, config[:url_column], algorithm: :concurrently, if_exists: true
     end
   end

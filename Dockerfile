@@ -1,23 +1,9 @@
 # syntax=docker/dockerfile:1
 
-# Stage 1: Build Angular frontend
-FROM node:24.22.1-slim AS frontend-builder
-WORKDIR /app/frontend
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
-RUN npm ci
-COPY frontend/patches/ ./patches/
-RUN npx patch-package
-COPY frontend/ ./
-COPY modules/ ../modules/
-COPY app/ ../app/
-COPY lib/ ../lib/
-RUN cp src/app/features/plugins/linked-plugins.styles.sass.example src/app/features/plugins/linked-plugins.styles.sass && \
-    cp src/app/features/plugins/linked-plugins.module.ts.example src/app/features/plugins/linked-plugins.module.ts
-RUN npm run build
-
-# Stage 2: Install gems + precompile Rails assets
-FROM ruby:4.0.9 AS app-builder
+# Stage 1: Install gems and export frontend locales (i18n-js).
+# Must run before the Angular build: esbuild bundles frontend/src/locales/*.json
+# into locale chunks, without them the frontend fails at initializeLocale.
+FROM ruby:4.0.9 AS gem-builder
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -37,7 +23,6 @@ RUN bundle config set --local path /usr/local/bundle && \
     bundle install --jobs 4
 
 COPY . .
-COPY --from=frontend-builder /app/public/assets/frontend ./public/assets/frontend
 RUN cat > config/database.yml << 'DBEOF'
 default: &default
   url: "<%= ENV['DATABASE_URL'] %>"
@@ -47,6 +32,30 @@ production:
 DBEOF
 
 ENV RAILS_ENV=production
+RUN SECRET_KEY_BASE=dummy DATABASE_URL=nulldb://db \
+    bundle exec rake assets:export_locales
+
+# Stage 2: Build Angular frontend with the exported locales
+FROM node:24.22.1-slim AS frontend-builder
+WORKDIR /app/frontend
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+RUN npm ci
+COPY frontend/patches/ ./patches/
+RUN npx patch-package
+COPY frontend/ ./
+COPY --from=gem-builder /app/frontend/src/locales/ ./src/locales/
+COPY modules/ ../modules/
+COPY app/ ../app/
+COPY lib/ ../lib/
+RUN cp src/app/features/plugins/linked-plugins.styles.sass.example src/app/features/plugins/linked-plugins.styles.sass && \
+    cp src/app/features/plugins/linked-plugins.module.ts.example src/app/features/plugins/linked-plugins.module.ts
+RUN npm run build
+
+# Stage 3: Precompile Rails assets
+FROM gem-builder AS app-builder
+COPY --from=frontend-builder /app/public/assets/frontend ./public/assets/frontend
+
 RUN service postgresql start && \
     su postgres -c "psql -c \"CREATE USER appuser WITH SUPERUSER PASSWORD 'pass'\"" && \
     su postgres -c "psql -c \"CREATE DATABASE dummy OWNER appuser\"" && \
@@ -58,7 +67,7 @@ RUN service postgresql start && \
     bundle exec rails assets:rebuild_manifest && \
     service postgresql stop
 
-# Stage 3: Runtime
+# Stage 4: Runtime
 FROM ruby:4.0.9-slim AS runtime
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
