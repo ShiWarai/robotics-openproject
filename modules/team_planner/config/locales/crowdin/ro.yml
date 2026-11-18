@@ -1,19 +1,21 @@
-#English strings go here
+---
 ro:
-  permission_view_team_planner: "Vezi planificatorul echipei"
-  permission_manage_team_planner: "Gestionează planificatorul de echipe"
-  project_module_team_planner_view: "Planificatori de echipe"
+  ee:
+    feature_names:
+      team_planner_view: Planificator echipă
+    upsell:
+      team_planner_view:
+        description: Obține o imagine de ansamblu completă a planificării echipei tale cu Team Planner. Întinde, scurtează și glisează pachetele de lucru pentru a modifica datele, pentru a le muta sau pentru a schimba destinatarii.
+        title: Planificator echipă
+  permission_manage_team_planner: Gestionează planificatorul de echipe
+  permission_view_team_planner: Vezi planificatorul echipei
+  plugin_openproject_team_planner:
+    description: Oferă vederi planificator echipă.
+    name: Planificare echipă OpenProject
+  project_module_team_planner_view: Planificare echipă
   team_planner:
-    label_team_planner: "Planificator de echipă"
-    label_new_team_planner: "New team planner"
-    label_create_new_team_planner: "Creați un nou planificator de echipă"
-    label_team_planner_plural: "Planificatori de echipe"
-    label_assignees: "Responsabili"
-    label_favoured: "Favoured"
-    help_text:
-      project: Team planners are always attached to a project. After creating a team planner you can add work packages from other projects to it.
-      public: Publish this view, allowing other users to access your view. Users with the 'Manage public views' permission can modify or remove public query. This does not affect the visibility of work package results in that view and depending on their permissions, users may see different results.
-      favoured: Mark this view as favourite and add to the saved views sidebar on the left.
-    upsale:
-      title: "Planificator de echipă"
-      description: "Obțineți o imagine de ansamblu completă a planificării echipei dumneavoastră cu Team Planner. Întindeți, scurtați și glisați pachetele de lucru pentru a modifica datele, pentru a le muta sau pentru a schimba destinatarii."
+    label_assignees: Responsabili
+    label_create_new_team_planner: Creează planificator echipă nou
+    label_new_team_planner: Planificator echipă nou
+    label_team_planner: Planificator echipă
+    label_team_planner_plural: Planificare echipă

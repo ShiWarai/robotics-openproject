@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 # --copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 # ++
 
-require_relative '../../lib_static/open_project/feature_decisions'
+require_relative "../../lib_static/open_project/feature_decisions"
 
 # Add feature flags here via e.g.
 #
@@ -39,5 +41,24 @@ require_relative '../../lib_static/open_project/feature_decisions'
 #     OpenProject::FeatureDecisions.add :some_flag
 #   end
 
-OpenProject::FeatureDecisions.add :show_changes
-OpenProject::FeatureDecisions.add :more_global_index_pages
+OpenProject::FeatureDecisions.add :built_in_oauth_applications,
+                                  description: "Allows the display and use of built-in OAuth applications.",
+                                  force_active: true
+
+OpenProject::FeatureDecisions.add :minutes_styling_meeting_pdf,
+                                  description: "Allow exporting a meeting with FITKO styling. " \
+                                               "See #65124 for details."
+
+OpenProject::FeatureDecisions.add :wiki_enhancements,
+                                  description: "Enables Wiki enhancements, such as the Wikis tab and XWiki integration.",
+                                  force_active: true
+
+OpenProject::FeatureDecisions.add :type_variants,
+                                  description: "Enables work package type variants."
+
+OpenProject::FeatureDecisions.add :sprint_reports,
+                                  description: "Enables sprint reporting within the backlogs module. " \
+                                               "It shows a dashboard with various widgets regarding the sprint progress."
+
+OpenProject::FeatureDecisions.add :ai_text_transform_actions,
+                                  description: "Enables the admin UI to manage AI text transform actions."

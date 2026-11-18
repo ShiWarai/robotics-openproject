@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,12 +28,12 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Toggle watching', js: true do
-  let(:project) { create(:project) }
-  let(:role) { create(:role, permissions: %i[view_messages view_wiki_pages]) }
-  let(:user) { create(:user, member_in_project: project, member_through_role: role) }
+RSpec.describe "Toggle watching", :js do
+  let(:project) { create(:project, :with_internal_wiki).reload }
+  let(:role) { create(:project_role, permissions: %i[view_messages view_wiki_pages]) }
+  let(:user) { create(:user, member_with_roles: { project => role }) }
   let(:news) { create(:news, project:) }
   let(:forum) { create(:forum, project:) }
   let(:message) { create(:message, forum:) }
@@ -42,19 +44,22 @@ RSpec.describe 'Toggle watching', js: true do
     allow(User).to receive(:current).and_return user
   end
 
-  it 'can toggle watch and unwatch' do
+  it "can toggle watch and unwatch" do
     # Work packages have a different toggle and are hence not considered here
-    [news_path(news),
-     project_forum_path(project, forum),
-     topic_path(message),
-     project_wiki_path(project, wiki_page)].each do |path|
-       visit path
-       click_link(I18n.t('button_watch'))
-       expect(page).to have_link(I18n.t('button_unwatch'))
+    [
+      project_news_path(project, news),
+      project_forum_path(project, forum),
+      project_forum_topic_path(project, forum, message),
+      project_wiki_path(project, wiki_page)
+    ].each do |path|
+      visit path
+      click_link(I18n.t("button_watch"))
+      expect(page).to have_link(I18n.t("button_unwatch"))
 
-       SeleniumHubWaiter.wait
-       click_link(I18n.t('button_unwatch'))
-       expect(page).to have_link(I18n.t('button_watch'))
-     end
+      wait_for_network_idle
+
+      click_link(I18n.t("button_unwatch"))
+      expect(page).to have_link(I18n.t("button_watch"))
+    end
   end
 end

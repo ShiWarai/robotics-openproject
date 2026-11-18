@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,14 +32,24 @@ module WorkPackage::Journalized
   extend ActiveSupport::Concern
 
   included do
-    acts_as_journalized
+    acts_as_journalized journals_association_extension: proc {
+      def internal_visible
+        if EnterpriseToken.allows_to?(:internal_comments) &&
+            proxy_association.owner.project.enabled_internal_comments &&
+            User.current.allowed_in_project?(:view_internal_comments, proxy_association.owner.project)
+          all
+        else
+          where(internal: false)
+        end
+      end
+    }
 
     # This one is here only to ease reading
     module JournalizedProcs
       def self.event_title
         Proc.new do |o|
           title = o.to_s
-          title << " (#{o.status.name})" if o.status.present?
+          title += " (#{o.status.name})" if o.status.present?
 
           title
         end
@@ -45,21 +57,21 @@ module WorkPackage::Journalized
 
       def self.event_name
         Proc.new do |o|
-          I18n.t(o.event_type.underscore, scope: 'events')
+          I18n.t(o.event_type.underscore, scope: "events")
         end
       end
 
       def self.event_type
         Proc.new do |o|
           journal = o.last_journal
-          t = 'work_package'
+          t = "work_package"
 
-          t << if journal && journal.details.empty? && !journal.initial?
-                 '-note'
+          t += if journal && journal.details.empty? && !journal.initial?
+                 "-note"
                else
                  status = Status.find_by(id: o.status_id)
 
-                 status.try(:is_closed?) ? '-closed' : '-edit'
+                 status.try(:is_closed?) ? "-closed" : "-edit"
                end
           t
         end
@@ -67,7 +79,7 @@ module WorkPackage::Journalized
 
       def self.event_url
         Proc.new do |o|
-          { controller: :work_packages, action: :show, id: o.id }
+          { controller: :work_packages, action: :show, id: o.display_id }
         end
       end
     end
@@ -77,25 +89,39 @@ module WorkPackage::Journalized
                   name: JournalizedProcs.event_name,
                   url: JournalizedProcs.event_url
 
-    register_journal_formatted_fields(:id, 'parent_id')
-    register_journal_formatted_fields(:fraction, 'estimated_hours', 'derived_estimated_hours')
-    register_journal_formatted_fields(:decimal, 'done_ratio')
-    register_journal_formatted_fields(:diff, 'description')
-    register_journal_formatted_fields(:schedule_manually, 'schedule_manually')
-    register_journal_formatted_fields(:attachment, /attachments_?\d+/)
-    register_journal_formatted_fields(:custom_field, /custom_fields_\d+/)
-    register_journal_formatted_fields(:ignore_non_working_days, 'ignore_non_working_days')
-    register_journal_formatted_fields(:cause, 'cause')
+    register_journal_formatted_fields "estimated_hours", "derived_estimated_hours",
+                                      "remaining_hours", "derived_remaining_hours",
+                                      formatter_key: :chronic_duration
+    register_journal_formatted_fields "done_ratio", "derived_done_ratio", formatter_key: :percentage
+    register_journal_formatted_fields "description", formatter_key: :diff
+    register_journal_formatted_fields "schedule_manually", formatter_key: :schedule_manually
+    register_journal_formatted_fields /\Aattachments_?\d+\z/, formatter_key: :attachment
+    register_journal_formatted_fields /\Acustom_fields_\d+\z/,
+                                      formatter_key: :custom_field,
+                                      view_permission: ->(custom_field) do
+                                        custom_field.nil? || visible_custom_field_ids(project).include?(custom_field.id)
+                                      end
+    register_journal_formatted_fields "ignore_non_working_days", formatter_key: :ignore_non_working_days
+    register_journal_formatted_fields "cause", formatter_key: :cause
+    register_journal_formatted_fields /\Afile_links_?\d+\z/, formatter_key: :file_link
+    register_journal_formatted_fields "project_phase_definition_id", formatter_key: :project_phase_definition
+    register_journal_formatted_fields "target_versions", formatter_key: :target_versions
+    register_journal_formatted_fields "observed_in_versions", formatter_key: :observed_in_versions
 
     # Joined
-    register_journal_formatted_fields :named_association, :parent_id, :project_id,
+    register_journal_formatted_fields :parent_id, :project_id,
                                       :budget_id,
                                       :status_id, :type_id,
-                                      :assigned_to_id, :priority_id,
+                                      :priority_id,
+                                      # version_id is no longer written. To be dropped with the db column.
                                       :category_id, :version_id,
-                                      :author_id, :responsible_id
-    register_journal_formatted_fields :datetime, :start_date, :due_date
-    register_journal_formatted_fields :plaintext, :subject
-    register_journal_formatted_fields :day_count, :duration
+                                      formatter_key: :named_association
+    # People are named in the attribute table of the same work package, so the
+    # journal does not withhold them from readers outside their projects.
+    register_journal_formatted_fields :assigned_to_id, :author_id, :responsible_id,
+                                      formatter_key: :public_named_association
+    register_journal_formatted_fields :start_date, :due_date, formatter_key: :datetime
+    register_journal_formatted_fields :subject, formatter_key: :plaintext
+    register_journal_formatted_fields :duration, formatter_key: :day_count
   end
 end

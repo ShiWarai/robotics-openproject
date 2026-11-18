@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,11 +30,11 @@
 
 class Reports::VersionReport < Reports::Report
   def self.report_type
-    'version'
+    "version"
   end
 
   def field
-    @field ||= 'version_id'
+    @field ||= "version_id"
   end
 
   def rows
@@ -44,6 +46,7 @@ class Reports::VersionReport < Reports::Report
   end
 
   def title
-    @title ||= WorkPackage.human_attribute_name(:version)
+    attribute = Setting::WorkPackageMultipleVersions.active? ? :target_version : :version
+    @title ||= WorkPackage.human_attribute_name(attribute)
   end
 end

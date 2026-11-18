@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,12 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   HttpErrorResponse,
   HttpEvent,
@@ -46,7 +46,6 @@ import { HalResource } from 'core-app/features/hal/resources/hal-resource';
 import { ConfigurationService } from 'core-app/core/config/configuration.service';
 import { AttachmentsStore } from 'core-app/core/state/attachments/attachments.store';
 import { IAttachment } from 'core-app/core/state/attachments/attachment.model';
-import { ToastService } from 'core-app/shared/components/toaster/toast.service';
 import {
   IUploadFile,
   OpUploadService,
@@ -56,20 +55,18 @@ import {
   ResourceStore,
   ResourceStoreService,
 } from 'core-app/core/state/resource-store.service';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import isNewResource, { HAL_NEW_RESOURCE_ID } from 'core-app/features/hal/helpers/is-new-resource';
 import waitForUploadsFinished from 'core-app/core/upload/wait-for-uploads-finished';
-import isNotNull from 'core-app/core/state/is-not-null';
 
 @Injectable()
 export class AttachmentsResourceService extends ResourceStoreService<IAttachment> {
-  @InjectField() I18n:I18nService;
+  readonly I18n = inject(I18nService);
 
-  @InjectField() uploadService:OpUploadService;
+  // Keep lazy: the upload service factory depends on loaded configuration.
+  @LazyInject() uploadService:OpUploadService;
 
-  @InjectField() configurationService:ConfigurationService;
-
-  @InjectField() toastService:ToastService;
+  readonly configurationService = inject(ConfigurationService);
 
   /**
    * Sends deletion request and updates the store collection of attachments.
@@ -107,6 +104,13 @@ export class AttachmentsResourceService extends ResourceStoreService<IAttachment
         identifier,
         href,
         uploadFiles,
+      )
+      .pipe(
+        tap(() => {
+          if (isNewResource(resource)) {
+            this.syncNewResourceAttachments(resource);
+          }
+        }),
       );
   }
 
@@ -144,6 +148,24 @@ export class AttachmentsResourceService extends ResourceStoreService<IAttachment
       );
   }
 
+  public static getAttachmentsSelfLink(resource:HalResource):string | null {
+    if (isNewResource(resource)) {
+      return null;
+    }
+
+    const attachments = resource.attachments as { href?:string };
+    return attachments?.href || null;
+  }
+
+  private syncNewResourceAttachments(resource:HalResource):void {
+    const ids = this.query.getValue().collections[HAL_NEW_RESOURCE_ID]?.ids ?? [];
+    const attachments = ids
+      .map((id) => this.query.getEntity(id))
+      .filter((attachment):attachment is IAttachment => !!attachment);
+
+    resource.attachments = { elements: attachments.map((attachment) => attachment._links.self) };
+  }
+
   private uploadAttachments(href:string, files:IUploadFile[]):Observable<IAttachment[]> {
     const observables = this.uploadService.upload<IAttachment>(href, files);
     const uploads = files.map((f, i):[File, Observable<HttpEvent<unknown>>] => [f.file, observables[i]]);
@@ -155,7 +177,7 @@ export class AttachmentsResourceService extends ResourceStoreService<IAttachment
         map((responses) =>
           responses
             .map((response) => response.body)
-            .filter(isNotNull)),
+            .filter((body) => body !== null)),
       );
   }
 
@@ -175,27 +197,31 @@ export class AttachmentsResourceService extends ResourceStoreService<IAttachment
    */
   private getUploadTarget(resource:HalResource):string {
     return this.getDirectUploadLink(resource)
-      || AttachmentsResourceService.getAttachmentsSelfLink(resource)
+      || AttachmentsResourceService.getAddAttachmentsLink(resource)
       || this.apiV3Service.attachments.path;
   }
 
   private getDirectUploadLink(resource:HalResource):string|null {
-    const links = resource.$links as unknown&{ prepareAttachment:HalLink };
+    const links = resource.$links as { prepareAttachment:HalLink };
 
     if (links.prepareAttachment) {
-      return links.prepareAttachment.href as string;
+      return links.prepareAttachment.href!;
     }
 
     if (isNewResource(resource)) {
-      return this.configurationService.prepareAttachmentURL as string|null;
+      return this.configurationService.prepareAttachmentURL ?? null;
     }
 
     return null;
   }
 
-  private static getAttachmentsSelfLink(resource:HalResource):string|null {
-    const attachments = resource.attachments as unknown&{ href?:string };
-    return attachments?.href || null;
+  private static getAddAttachmentsLink(resource:HalResource):string|null {
+    if (isNewResource(resource)) {
+      return null;
+    }
+
+    const link = resource.addAttachment as { href?:string };
+    return link?.href || null;
   }
 
   protected createStore():ResourceStore<IAttachment> {

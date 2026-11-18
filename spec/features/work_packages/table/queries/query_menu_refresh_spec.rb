@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +28,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Refreshing query menu item', js: true do
+RSpec.describe "Refreshing query menu item", :js do
   let(:user) { create(:admin) }
   let(:project) { create(:project) }
   let(:wp_table) { Pages::WorkPackagesTable.new(project) }
@@ -39,20 +41,20 @@ RSpec.describe 'Refreshing query menu item', js: true do
   before do
     login_as(user)
     work_package
-    wp_table.visit!
   end
 
-  it 'allows refreshing the current query (Bug #26921)' do
+  it "allows refreshing the current query (Bug #26921)" do
+    wp_table.visit!
     wp_table.expect_work_package_listed work_package
     # Instantiate lazy let here
     wp_table.ensure_work_package_not_listed! other_work_package
 
-    wp_table.save_as('Some query name')
+    wp_table.save_as("Some query name")
 
     # Publish query
-    wp_table.click_setting_item I18n.t('js.toolbar.settings.visibility_settings')
-    find_by_id('show-in-menu').set true
-    find('.button', text: 'Save').click
+    wp_table.click_setting_item I18n.t("js.toolbar.settings.visibility_settings")
+    find_by_id("show-in-menu").set true
+    find(".button", text: "Save").click
 
     last_query = Query.last
     url = URI.parse(page.current_url).query
@@ -60,9 +62,26 @@ RSpec.describe 'Refreshing query menu item', js: true do
     expect(url).not_to match(/query_props=.+/)
 
     # Locate query and refresh
-    query_item = page.find(".op-sidemenu--item-action", text: last_query.name)
+    query_item = page.find(".op-submenu--item-action", text: last_query.name)
     query_item.click
 
     wp_table.expect_work_package_listed work_package, other_work_package
+  end
+
+  describe "making a public query from another user private" do
+    let!(:other_public_view) do
+      create(:view,
+             query: create(:query, project:, public: true, name: "Other user query"))
+    end
+
+    it "redirects to the default query page" do
+      wp_table.visit_query(other_public_view.query)
+
+      wp_table.click_setting_item I18n.t("js.toolbar.settings.visibility_settings")
+      find_by_id("show-public").set false
+      find(".button", text: "Save").click
+
+      expect(page).to have_current_path(project_work_packages_path(project))
+    end
   end
 end

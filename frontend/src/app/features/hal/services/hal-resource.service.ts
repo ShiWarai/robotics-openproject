@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,28 +21,15 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  Injectable,
-  Injector,
-} from '@angular/core';
-import {
-  HttpClient,
-  HttpErrorResponse,
-  HttpParams,
-} from '@angular/common/http';
-import {
-  catchError,
-  map,
-} from 'rxjs/operators';
-import {
-  Observable,
-  throwError,
-} from 'rxjs';
+import { Injectable, Injector, inject } from '@angular/core';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { catchError, map } from 'rxjs/operators';
+import { Observable, throwError } from 'rxjs';
 import { CollectionResource } from 'core-app/features/hal/resources/collection-resource';
 import { ErrorResource } from 'core-app/features/hal/resources/error-resource';
 import * as Pako from 'pako';
@@ -54,22 +41,16 @@ import {
   HTTPClientParamMap,
   HTTPSupportedMethods,
 } from 'core-app/features/hal/http/http.interfaces';
-import {
-  HalLink,
-  HalLinkInterface,
-} from 'core-app/features/hal/hal-link/hal-link';
+import { HalLink, HalLinkInterface } from 'core-app/features/hal/hal-link/hal-link';
 import { URLParamsEncoder } from 'core-app/features/hal/services/url-params-encoder';
-import {
-  HalResource,
-  HalResourceClass,
-} from 'core-app/features/hal/resources/hal-resource';
+import { HalResource, HalResourceClass } from 'core-app/features/hal/resources/hal-resource';
 import { initializeHalProperties } from '../helpers/hal-resource-builder';
 import { HalError } from 'core-app/features/hal/services/hal-error';
 import { getPaginatedCollections } from 'core-app/core/apiv3/helpers/get-paginated-results';
 
 export interface HalResourceFactoryConfigInterface {
   cls?:any;
-  attrTypes?:{ [attrName:string]:string };
+  attrTypes?:Record<string, string>;
 }
 
 interface ErrorWithType {
@@ -78,16 +59,13 @@ interface ErrorWithType {
 
 @Injectable({ providedIn: 'root' })
 export class HalResourceService {
+  readonly injector = inject(Injector);
+  readonly http = inject(HttpClient);
+
   /**
    * List of all known hal resources, extendable.
    */
-  private config:{ [typeName:string]:HalResourceFactoryConfigInterface } = {};
-
-  constructor(
-    readonly injector:Injector,
-    readonly http:HttpClient,
-  ) {
-  }
+  private config:Record<string, HalResourceFactoryConfigInterface> = {};
 
   /**
    * Perform a HTTP request and return a HalResource promise.
@@ -238,9 +216,7 @@ export class HalResourceService {
    * @returns {HalResource}
    */
   public createHalResource<T extends HalResource = HalResource>(source:any, loaded = true):T {
-    if (_.isNil(source)) {
-      source = HalResource.getEmptyResource();
-    }
+    source ??= HalResource.getEmptyResource();
 
     const type = source._type || 'HalResource';
     return this.createHalResourceOfType<T>(type, source, loaded);
@@ -289,6 +265,7 @@ export class HalResourceService {
   }
 
   /**
+   *
    * Get a linked resource from its HalLink with the correct type.
    */
   public createLinkedResource<T extends HalResource = HalResource>(halResource:T, linkName:string, link:HalLinkInterface) {
@@ -309,7 +286,7 @@ export class HalResourceService {
    */
   protected getResourceClassOfType<T extends HalResource>(type:string):HalResourceClass<T> {
     const config = this.config[type];
-    return (config && config.cls) ? config.cls : this.defaultClass;
+    return (config?.cls) ? config.cls : this.defaultClass as HalResourceClass<T>;
   }
 
   /**
@@ -321,12 +298,13 @@ export class HalResourceService {
    */
   protected getResourceClassOfAttribute<T extends HalResource = HalResource>(type:string, attribute:string):string|null {
     const typeConfig = this.config[type];
-    const types = (typeConfig && typeConfig.attrTypes) || {};
+    const types = (typeConfig?.attrTypes) || {};
     return types[attribute];
   }
 
   protected toEprops(params:unknown):{ eprops:string } {
     const deflatedArray = Pako.deflate(JSON.stringify(params));
+
     const compressed = base64.bytesToBase64(deflatedArray);
 
     return { eprops: compressed };
@@ -336,7 +314,6 @@ export class HalResourceService {
     let resource:ErrorResource|null = null;
 
     const body = error.error as string|ErrorWithType|unknown;
-    // eslint-disable-next-line no-underscore-dangle
     if (typeof body === 'object' && (body as ErrorWithType)?._type) {
       resource = this.createHalResource<ErrorResource>(error.error);
     }

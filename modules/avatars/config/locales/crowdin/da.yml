@@ -1,40 +1,28 @@
-#English strings go here
+---
 da:
-  label_avatar: "Avatar"
-  label_avatar_plural: "Avatars"
-  label_current_avatar: "Current Avatar"
-  label_choose_avatar: "Choose Avatar from file"
-  message_avatar_uploaded: "Avatar changed successfully."
-  error_image_upload: "Error saving the image."
-  error_image_size: "The image is too large."
-  button_change_avatar: "Change avatar"
-  are_you_sure_delete_avatar: "Are you sure you want to delete your avatar?"
-  avatar_deleted: "Avatar deleted successfully."
-  unable_to_delete_avatar: "Avatar could not be deleted."
-  wrong_file_format: "Allowed formats are jpg, png, gif"
-  empty_file_error: "Please upload a valid image (jpg, png, gif)"
+  are_you_sure_delete_avatar: Er du sikker på, at du vil slette din avatar?
+  avatar_deleted: Avataren er slettet.
   avatars:
-    label_avatar: "Avatar"
-    label_gravatar: 'Gravatar'
-    label_current_avatar: 'Current avatar'
-    label_local_avatar: 'Custom avatar'
-    text_current_avatar: |
-      The following image shows the current avatar.
-    text_upload_instructions: |
-      Upload your own custom avatar of 128 by 128 pixels. Larger files will be resized and cropped to match.
-      A preview of your avatar will be shown before uploading, once you selected an image.
-    text_change_gravatar_html: 'To change or add the Gravatar for your mail address, go to %{gravatar_url}.'
-    text_your_local_avatar: |
-      OpenProject allows you to upload your own custom avatar.
-    text_local_avatar_over_gravatar: |
-      If you set one, this custom avatar is used in precedence over the gravatar above.
-    text_your_current_gravatar: |
-      OpenProject uses your gravatar if you registered one, or a default image or icon if one exists.
-      The current gravatar is as follows:
+    label_avatar: Avatar
+    label_gravatar: Gravatar
+    label_local_avatar: Tilpasset avatar
     settings:
-      enable_gravatars: 'Enable user gravatars'
-      gravatar_default: "Forhåndsvalgt Gravatar billede"
-      enable_local_avatars: 'Enable user custom avatars'
-
-
-
+      enable_gravatars: Aktivér Gravatar for brugere
+      enable_local_avatars: Aktivér tilpassede avatarer
+      gravatar_default: Standardbillede fra Gravatar
+    text_avatar_gravatar_html: OpenProject bruger din Gravatar, hvis du har registreret en på %{gravatar_url}, ellers et standardbillede eller -ikon, hvis det findes.
+    text_avatar_local: Du kan også overføre en egen avatar, der tilsidesætter Gravataren, ved at klikke på billedet. Vi anbefaler et billede på 128 × 128 pixel.
+    text_avatar_local_only: Du kan overføre en egen avatar ved at klikke på billedet. Vi anbefaler et billede på 128 × 128 pixel.
+  empty_file_error: Overfør et gyldigt billede (jpg, png, gif)
+  error_image_size: Billedet er for stort.
+  error_image_upload: Fejl under lagring af billedet.
+  label_avatar: Avatar
+  label_avatar_plural: Avatarer
+  label_choose_avatar: Vælg avatar fra fil
+  label_current_avatar: Aktuel avatar
+  message_avatar_uploaded: Avataren er ændret.
+  plugin_openproject_avatars:
+    description: Pluginnet lader OpenProject-brugere overføre et billede, der bruges som avatar, eller bruge registrerede billeder fra Gravatar.
+    name: Avatarer
+  unable_to_delete_avatar: Avataren kunne ikke slettes.
+  wrong_file_format: Gyldige formater er jpg, png, gif

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -46,9 +48,9 @@ module ::Query::Results::GroupBy
 
   def group_counts_by_group
     work_packages_with_includes_for_count
+      .joins(query.group_by_join_statement)
       .group(group_by_for_count)
       .visible
-      .references(:statuses, :projects)
       .where(query.statement)
       .order(order_for_count)
       .pluck(*pluck_for_count)
@@ -57,7 +59,7 @@ module ::Query::Results::GroupBy
 
   def work_packages_with_includes_for_count
     WorkPackage
-      .includes(all_includes)
+      .eager_load(all_includes)
       .joins(all_filter_joins)
   end
 
@@ -67,7 +69,7 @@ module ::Query::Results::GroupBy
   end
 
   def pluck_for_count
-    Array(query.group_by_statement).map { |statement| Arel.sql(statement) } +
+    Array(query.group_by_select).map { |statement| Arel.sql(statement) } +
       [Arel.sql('COUNT(DISTINCT "work_packages"."id")')]
   end
 
@@ -76,7 +78,7 @@ module ::Query::Results::GroupBy
   end
 
   def transform_group_keys(groups)
-    if query.group_by_column.is_a?(Queries::WorkPackages::Columns::CustomFieldColumn)
+    if query.group_by_column.is_a?(Queries::WorkPackages::Selects::CustomFieldSelect)
       transform_custom_field_keys(groups)
     else
       transform_property_keys(groups)
@@ -88,29 +90,63 @@ module ::Query::Results::GroupBy
 
     if custom_field.list?
       transform_list_custom_field_keys(custom_field, groups)
+    elsif custom_field.field_format_hierarchy?
+      transform_hierarchy_custom_field_keys(custom_field, groups)
     else
       transform_single_custom_field_keys(custom_field, groups)
     end
   end
+
+  def transform_hierarchy_custom_field_keys(custom_field, groups)
+    items = hierarchy_items_for_keys(custom_field, groups)
+
+    groups.transform_keys do |key|
+      if custom_field.multi_value?
+        Array(key&.split(".")).map { |subkey| items[subkey].first }
+      else
+        items[key] || []
+      end
+    end
+  end
+
+  # rubocop:disable Metrics/AbcSize
+  def hierarchy_items_for_keys(custom_field, groups)
+    keys = groups.keys.map { |k| k ? k.split(".") : [] }.flatten.uniq
+
+    CustomFields::Hierarchy::HierarchicalItemService
+      .new
+      .get_descendants(item: custom_field.hierarchy_root, include_self: false)
+      .fmap do |list|
+        list.filter_map { |item| CustomField::Hierarchy::HierarchyItemAdapter.new(item:) if keys.include?(item.id.to_s) }
+          .group_by { |item| item.id.to_s }
+      end
+      .either(
+        ->(list) { list },
+        ->(error) do
+          msg = "#{I18n.t('api_v3.errors.code_500')} #{error}"
+          raise ::API::Errors::SafeInternalError.new(msg)
+        end
+      )
+  end
+
+  # rubocop:enable Metrics/AbcSize
 
   def transform_list_custom_field_keys(custom_field, groups)
     options = custom_options_for_keys(custom_field, groups)
 
     groups.transform_keys do |key|
       if custom_field.multi_value?
-        key.split('.').map do |subkey|
-          options[subkey].first
-        end
+        Array(key&.split(".")).map.map { |subkey| options[subkey].first }
       else
-        options[key] ? options[key].first : nil
+        options[key]&.first
       end
     end
   end
 
   def custom_options_for_keys(custom_field, groups)
-    keys = groups.keys.map { |k| k.split('.') }
+    keys = groups.keys.map { |k| k ? k.split(".") : [] }
     # Because of multi select cfs we might end up having overlapping groups
-    # (e.g group "1" and group "1.3" and group "3" which represent concatenated ids).
+    # (e.g. group "1" and group "1.3" and group "3" which represent concatenated ids).
     # This can result in us having ids in the keys array multiple times (e.g. ["1", "1", "3", "3"]).
     # If we were to use the keys array with duplicates to find the actual custom options,
     # AR would throw an error as the number of records returned does not match the number
@@ -123,20 +159,39 @@ module ::Query::Results::GroupBy
   end
 
   def transform_property_keys(groups)
-    association = WorkPackage.reflect_on_all_associations.detect { |a| a.name == query.group_by_column.name.to_sym }
+    association = find_association_for_group
 
-    if association
-      transform_association_property_keys(association, groups)
+    if association.nil?
+      transform_declared_class_keys(groups)
+    elsif association.collection?
+      transform_collection_association_property_keys(association, groups)
     else
-      groups
+      transform_record_keys(association.class_name.constantize, groups)
     end
   end
 
-  def transform_association_property_keys(association, groups)
-    ar_keys = association.class_name.constantize.find(groups.keys.compact)
+  def transform_declared_class_keys(groups)
+    klass = query.group_by_column.group_by_class_name&.constantize
+
+    return groups if klass.nil?
+
+    transform_record_keys(klass, groups)
+  end
+
+  def transform_record_keys(klass, groups)
+    ar_keys = klass.find(groups.keys.compact)
 
     groups.transform_keys do |key|
       ar_keys.detect { |ar_key| ar_key.id == key }
+    end
+  end
+
+  def transform_collection_association_property_keys(association, groups)
+    ids = groups.keys.compact.flat_map { |key| key.split(".") }.uniq
+    records = association.klass.where(id: ids).index_by { |record| record.id.to_s }
+
+    groups.transform_keys do |key|
+      Array(key&.split(".")).map { |id| records.fetch(id) }
     end
   end
 
@@ -149,7 +204,7 @@ module ::Query::Results::GroupBy
         direction = order ? order_for_group_by(column) : nil
 
         aliased_group_by_sort_order(alias_name, s, columns_hash, direction)
-      end.join(', ')
+      end.join(", ")
     end
   end
 
@@ -163,7 +218,7 @@ module ::Query::Results::GroupBy
     column = case_insensitive_condition(sortable, column, columns_hash)
 
     if order
-      column + " #{order} "
+      "#{column} #{order}"
     else
       column
     end
@@ -177,5 +232,18 @@ module ::Query::Results::GroupBy
     order = sort_entry&.last || column.default_order
 
     "#{order} #{column.null_handling(order == 'asc')}"
+  end
+
+  def find_association_for_group
+    WorkPackage.reflect_on_all_associations.detect do |association|
+      matches_group_by_column?(association)
+    end
+  end
+
+  def matches_group_by_column?(association)
+    # Some query columns override their groupable column name, prefer that if given:
+    group_name = query.group_by_column.group_by_column_name || query.group_by_column.name
+
+    association.name == group_name.to_sym
   end
 end

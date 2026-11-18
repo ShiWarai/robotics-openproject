@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -48,10 +48,10 @@ module API
 
           def projects_by_id
             @projects_by_id ||= ::Project
-                .includes(:enabled_modules)
+                .includes(:enabled_modules, { project_types: :variant, phases: :definition })
                 .where(id: project_ids)
                 .to_a
-                .index_by { |p| p.id }
+                .index_by(&:id)
           end
 
           def project_ids

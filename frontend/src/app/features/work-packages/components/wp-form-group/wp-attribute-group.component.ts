@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,18 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  Component,
-  HostBinding,
-  Injector,
-  Input,
-  ViewEncapsulation,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostBinding, Injector, Input, ViewEncapsulation, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
 import { EditFormComponent } from 'core-app/shared/components/fields/edit/edit-form/edit-form.component';
@@ -47,24 +41,23 @@ import {
   templateUrl: './wp-attribute-group.template.html',
   styleUrls: ['./wp-attribute-group.component.sass'],
   encapsulation: ViewEncapsulation.None,
+  standalone: false,
+  // TODO: This component has been partially migrated to be zoneless-compatible.
+  // After testing, this should be updated to ChangeDetectionStrategy.OnPush.
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class WorkPackageFormAttributeGroupComponent extends UntilDestroyedMixin {
+  readonly I18n = inject(I18nService);
+  wpEditForm = inject(EditFormComponent);
+  protected injector = inject(Injector);
+
   @HostBinding('class.wp-attribute-group') className = true;
   @HostBinding('class.attributes-group--attributes') parentClassName = true;
 
   @Input() public workPackage:WorkPackageResource;
 
   @Input() public group:GroupDescriptor;
-
-  constructor(readonly I18n:I18nService,
-    public wpEditForm:EditFormComponent,
-    protected injector:Injector) {
-    super();
-  }
-
-  public trackByName(_index:number, elem:{ name:string }) {
-    return elem.name;
-  }
 
   /**
    * Hide read-only fields, but only when in the create mode
@@ -73,12 +66,5 @@ export class WorkPackageFormAttributeGroupComponent extends UntilDestroyedMixin 
   public shouldHideField(descriptor:FieldDescriptor) {
     const field = descriptor.field || descriptor.fields![0];
     return this.wpEditForm.editMode && !field.writable;
-  }
-
-  public fieldName(name:string) {
-    if (name === 'startDate') {
-      return 'combinedDate';
-    }
-    return name;
   }
 }

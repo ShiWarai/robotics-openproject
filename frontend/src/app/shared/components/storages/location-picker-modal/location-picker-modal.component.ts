@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,44 +21,47 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  Inject,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { IStorageFile } from 'core-app/core/state/storage-files/storage-file.model';
-import { OpModalLocalsMap } from 'core-app/shared/components/modal/modal.types';
-import { OpModalLocalsToken } from 'core-app/shared/components/modal/modal.service';
-import { SortFilesPipe } from 'core-app/shared/components/storages/pipes/sort-files.pipe';
-import { isDirectory, storageLocaleString } from 'core-app/shared/components/storages/functions/storages.functions';
-import { StorageFilesResourceService } from 'core-app/core/state/storage-files/storage-files.service';
+import {
+  isDirectory,
+  makeFilesCollectionLink,
+  storageLocaleString,
+} from 'core-app/shared/components/storages/functions/storages.functions';
 import {
   StorageFileListItem,
 } from 'core-app/shared/components/storages/storage-file-list-item/storage-file-list-item';
 import {
   FilePickerBaseModalComponent,
 } from 'core-app/shared/components/storages/file-picker-base-modal/file-picker-base-modal.component';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @Component({
   templateUrl: 'location-picker-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class LocationPickerModalComponent extends FilePickerBaseModalComponent {
+  private readonly i18n = inject(I18nService);
+  private readonly timezoneService = inject(TimezoneService);
+
   public submitted = false;
 
   public readonly text = {
     header: this.i18n.t('js.storages.select_location'),
-    warningNoAccess: this.i18n.t('js.storages.files.project_folder_no_access'),
+    alertNoAccess: this.i18n.t('js.storages.files.project_folder_no_access'),
+    alertNoManagedProjectFolder: this.i18n.t('js.storages.files.managed_project_folder_not_available'),
+    alertNoAccessToManagedProjectFolder: this.i18n.t('js.storages.files.managed_project_folder_no_access'),
+    alertCannotCreateFolder: this.i18n.t('js.storages.files.cannot_create_folder'),
     content: {
       empty: this.i18n.t('js.storages.files.empty_folder'),
       emptyHint: this.i18n.t('js.storages.files.empty_folder_location_hint'),
@@ -70,6 +73,7 @@ export class LocationPickerModalComponent extends FilePickerBaseModalComponent {
       submitEmptySelection: this.i18n.t('js.storages.file_links.selection_none'),
       cancel: this.i18n.t('js.button_cancel'),
       selectAll: this.i18n.t('js.storages.file_links.select_all'),
+      newFolder: this.i18n.t('js.storages.new_folder'),
     },
     tooltip: {
       directory_not_writeable: this.i18n.t('js.storages.files.directory_not_writeable'),
@@ -97,22 +101,34 @@ export class LocationPickerModalComponent extends FilePickerBaseModalComponent {
     return this.currentDirectory.permissions.some((value) => value === 'writeable');
   }
 
-  constructor(
-    @Inject(OpModalLocalsToken) public locals:OpModalLocalsMap,
-    readonly elementRef:ElementRef,
-    readonly cdRef:ChangeDetectorRef,
-    protected sortFilesPipe:SortFilesPipe,
-    protected readonly storageFilesResourceService:StorageFilesResourceService,
-    private readonly i18n:I18nService,
-    private readonly timezoneService:TimezoneService,
-  ) {
-    super(
-      locals,
-      elementRef,
-      cdRef,
-      sortFilesPipe,
-      storageFilesResourceService,
-    );
+  public get canCreateFolder():boolean {
+    if (!this.currentDirectory) {
+      return false;
+    }
+
+    return this.currentDirectory.permissions.some((value) => value === 'writeable');
+  }
+
+  public get alertText():Observable<string> {
+    return this.showAlert
+      .pipe(
+        map((alert) => {
+          switch (alert) {
+            case 'noAccess':
+              return this.text.alertNoAccess;
+            case 'managedFolderNoAccess':
+              return this.text.alertNoAccessToManagedProjectFolder;
+            case 'managedFolderNotFound':
+              return this.text.alertNoManagedProjectFolder;
+            case 'cannotCreateFolder':
+              return this.text.alertCannotCreateFolder;
+            case 'none':
+              return '';
+            default:
+              throw new Error('unknown alert type');
+          }
+        }),
+      );
   }
 
   public chooseLocation():void {
@@ -145,5 +161,26 @@ export class LocationPickerModalComponent extends FilePickerBaseModalComponent {
     }
 
     return this.text.tooltip.file_not_selectable;
+  }
+
+  public createAndNavigateToFolder() {
+    const value = window.prompt(this.text.buttons.newFolder);
+    if (!value) { return; }
+
+    this.storageFilesResourceService.createFolder(
+      this.locals.createFolderHref as string,
+      {
+        name: value,
+        parent_id: this.currentDirectory.id,
+      },
+    ).subscribe({
+      next: (newlyCreatedDirectory) => {
+        // clear cache for the current directory
+        const cacheKey = makeFilesCollectionLink(this.storage._links.self, this.currentDirectory.location);
+        this.storageFilesResourceService.removeCollection(cacheKey);
+        this.changeLevel(newlyCreatedDirectory);
+      },
+      error: (_) => this.showAlert.next('cannotCreateFolder'),
+    });
   }
 }

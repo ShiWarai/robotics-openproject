@@ -1,37 +1,51 @@
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  EventEmitter,
-  HostBinding,
-  Input,
-  OnDestroy,
-  Output,
-  TemplateRef,
-  ViewChild,
-} from '@angular/core';
-import { KeyCodes } from 'core-app/shared/helpers/keyCodes.enum';
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
+
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostBinding, Input, OnDestroy, Output, TemplateRef, ViewChild, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { findAllFocusableElementsWithin } from 'core-app/shared/helpers/focus-helpers';
 import { SpotDropModalTeleportationService } from './drop-modal-teleportation.service';
 import { filter, take } from 'rxjs/operators';
-import { debounce } from 'lodash';
-import {
-  autoUpdate,
-  computePosition,
-  flip,
-  limitShift,
-  Placement,
-  shift,
-} from '@floating-ui/dom';
+import { debounce } from 'lodash-es';
+import { autoUpdate, computePosition, flip, limitShift, Placement, shift } from '@floating-ui/dom';
 
 @Component({
   selector: 'spot-drop-modal',
   templateUrl: './drop-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class SpotDropModalComponent implements OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly cdRef = inject(ChangeDetectorRef);
+  private teleportationService = inject(SpotDropModalTeleportationService);
+
   @HostBinding('class.spot-drop-modal') public className = true;
 
   /**
@@ -39,11 +53,13 @@ export class SpotDropModalComponent implements OnDestroy {
    */
   @Input() public allowRepositioning = true;
 
+  @Input() public notFullscreen = false;
+
   /**
-   * The default alignment of the drop modal. There are twelve alignments in total. You can check which ones they are
-   * from the `SpotDropAlignmentOption` Enum that is available in 'core-app/spot/drop-alignment-options'.
+   * The default alignment of the drop modal. There are twelve alignments in total. You can check which ones they are in
+   * @floating-ui/utils: `Placement` in floating-ui.utils.d.ts
    */
-  @Input() public alignment:Placement = 'bottom-end';
+  @Input() public alignment:Placement = 'bottom-start';
 
   public _opened = false;
 
@@ -98,31 +114,15 @@ export class SpotDropModalComponent implements OnDestroy {
 
   private cleanupFloatingUI:() => void|undefined;
 
-  @ViewChild('anchor') anchor:ElementRef;
+  @ViewChild('anchor') anchor:ElementRef<HTMLElement>;
 
-  @ViewChild('body') body:TemplateRef<any>;
+  @ViewChild('body') body:TemplateRef<unknown>;
 
-  @ViewChild('focusGrabber') focusGrabber:ElementRef;
-
-  constructor(
-    readonly i18n:I18nService,
-    readonly elementRef:ElementRef,
-    readonly cdRef:ChangeDetectorRef,
-    private teleportationService:SpotDropModalTeleportationService,
-  ) {}
+  @ViewChild('focusGrabber') focusGrabber:ElementRef<HTMLElement>;
 
   open() {
     this._opened = true;
     this.updateAppHeight();
-    this.cdRef.detectChanges();
-
-    /*
-     * If we don't activate the body after one tick, angular will complain because
-     * it already rendered a `null` template, but then gets an update to that
-     * template in the same tick.
-     * To make it happy, we update afterwards
-     */
-    this.teleportationService.activate(this.body);
 
     this.teleportationService
       .hasRenderedFiltered$
@@ -131,8 +131,9 @@ export class SpotDropModalComponent implements OnDestroy {
         take(1),
       )
       .subscribe(() => {
-        const referenceEl = this.elementRef.nativeElement as HTMLElement;
-        const floatingEl = this.anchor.nativeElement as HTMLElement;
+        this.cdRef.detectChanges();
+        const referenceEl = this.elementRef.nativeElement;
+        const floatingEl = this.anchor.nativeElement;
         this.cleanupFloatingUI = autoUpdate(
           referenceEl,
           floatingEl,
@@ -171,21 +172,28 @@ export class SpotDropModalComponent implements OnDestroy {
           window.addEventListener('resize', this.onResize);
           window.addEventListener('orientationchange', this.onResize);
 
-          const focusCatcherContainer = document.querySelectorAll("[data-modal-focus-catcher-container='true']")[0];
+          const focusCatcherContainer = document.querySelector<HTMLElement>("[data-modal-focus-catcher-container='true']");
           if (focusCatcherContainer) {
-            (findAllFocusableElementsWithin(focusCatcherContainer as HTMLElement)[0])?.focus();
+            (findAllFocusableElementsWithin(focusCatcherContainer)[0])?.focus();
           } else {
             // Index 1 because the element at index 0 is the trigger button to open the modal
             (findAllFocusableElementsWithin(document.querySelector('.spot-drop-modal-portal')!)[1])?.focus();
           }
         });
       });
+
+    /*
+     * If we don't activate the body after one tick, angular will complain because
+     * it already rendered a `null` template, but then gets an update to that
+     * template in the same tick.
+     * To make it happy, we update afterwards
+     */
+    this.teleportationService.activate(this.body);
   }
 
   close():void {
     this._opened = false;
     this.closed.emit();
-
     /*
      * The same as with opening; if we don't deactivate the body after
      * one tick, angular will complain because it already rendered the
@@ -200,13 +208,16 @@ export class SpotDropModalComponent implements OnDestroy {
 
     this.teleportationService.clear();
     this.cdRef.detectChanges();
-    (this.focusGrabber.nativeElement as HTMLElement).focus();
+    this.focusGrabber.nativeElement.focus();
   }
 
-  private onGlobalClick = this.close.bind(this) as () => void;
+  private onGlobalClick = this.close.bind(this);
 
   ngOnDestroy():void {
-    this.teleportationService.clear();
+    if (this.opened) {
+      this.teleportationService.clear();
+    }
+
     document.body.removeEventListener('click', this.onGlobalClick);
     document.body.removeEventListener('keydown', this.onEscape);
     window.removeEventListener('resize', this.onResize);
@@ -221,7 +232,7 @@ export class SpotDropModalComponent implements OnDestroy {
   }
 
   private escapeCallback = (evt:KeyboardEvent) => {
-    if (evt.keyCode === KeyCodes.ESCAPE) {
+    if (evt.key === 'Escape') {
       this.close();
     }
   };

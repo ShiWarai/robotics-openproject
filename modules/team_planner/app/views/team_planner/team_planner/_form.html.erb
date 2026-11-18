@@ -1,6 +1,6 @@
 <%#-- copyright
 OpenProject is an open source project management software.
-Copyright (C) 2012-2023 the OpenProject GmbH
+Copyright (C) the OpenProject GmbH
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License version 3.
@@ -27,65 +27,63 @@ See COPYRIGHT and LICENSE files for more details.
 
 ++#%>
 
-<%= error_messages_for_contract @view, @errors %>
+<%= error_messages_for @view %>
 
 <section class="form--section">
 
   <div class="form--field -required">
     <%= f.text_field :name,
-                     label: Meeting.human_attribute_name(:title),
+                     label: t(:label_title),
                      required: true,
                      size: 60,
-                     container_class: '-wide' %>
+                     container_class: "-wide" %>
   </div>
 
   <div class="form--field -required">
     <label class="form--label" for="project_id"><%= Query.human_attribute_name(:project) %>:</label>
     <div class="form--field-container">
-      <%= angular_component_tag 'op-project-autocompleter',
+      <%= angular_component_tag "opce-project-autocompleter",
                                 inputs: {
-                                  apiFilters: [['user_action', '=', ['team_planners/create']]],
-                                  name: 'project_id',
-                                  value: @project,
-                                  appendTo: 'body',
+                                  filters: [{ name: "user_action", operator: "=", values: ["team_planners/create"] }],
+                                  inputName: "project_id",
+                                  model: @project
                                 },
-                                id: 'project_id',
-                                class: 'form--select-container -wide remote-field--input',
+                                id: "project_id",
+                                class: "form--select-container -wide remote-field--input",
                                 data: {
-                                  'qa-selector': 'project_id'
-                                }
-      %>
+                                  "test-selector": "project_id"
+                                } %>
     </div>
     <div class="form--field-instructions">
-      <p><%= t 'team_planner.help_text.project' %></p>
+      <p><%= t "help_texts.views.project",
+               singular: t("team_planner.label_team_planner").downcase,
+               plural: t("team_planner.label_team_planner_plural") %></p>
     </div>
   </div>
 
   <div class="form--field">
-    <%= styled_label_tag 'query[public]',
+    <%= styled_label_tag "query[public]",
                          Query.human_attribute_name(:public) %>
     <div class="form--field-container">
-      <%= styled_check_box_tag 'query[public]',
-                               '1',
-                               @view.public
-      %>
+      <%= styled_check_box_tag "query[public]",
+                               "1",
+                               @view.public %>
     </div>
     <div class="form--field-instructions">
-      <p><%= t 'team_planner.help_text.public' %></p>
+      <p><%= t "help_texts.views.public" %></p>
     </div>
   </div>
 
   <div class="form--field">
-    <%= styled_label_tag 'query[starred]',
-                         t('team_planner.label_favoured') %>
+    <%= styled_label_tag "query[starred]",
+                         t(:label_favorite) %>
     <div class="form--field-container">
-      <%= styled_check_box_tag 'query[starred]',
-                               '1',
-                               @view.starred
-      %>
+      <%= styled_check_box_tag "query[starred]",
+                               "1",
+                               @view.starred %>
     </div>
     <div class="form--field-instructions">
-      <p><%= t 'team_planner.help_text.favoured' %></p>
+      <p><%= t "help_texts.views.favoured" %></p>
     </div>
   </div>
 </section>

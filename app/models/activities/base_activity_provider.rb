@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -68,7 +68,7 @@ class Activities::BaseActivityProvider
     self.activity_provider_options = {
       type: name.underscore.pluralize,
       activities: [:activity],
-      permission: "view_#{name.underscore.pluralize}".to_sym
+      permission: :"view_#{name.underscore.pluralize}"
     }.merge(options)
   end
 
@@ -108,7 +108,7 @@ class Activities::BaseActivityProvider
   end
 
   def event_datetime(event)
-    event['event_datetime'].is_a?(String) ? DateTime.parse(event['event_datetime']) : event['event_datetime']
+    event["event_datetime"].is_a?(String) ? DateTime.parse(event["event_datetime"]) : event["event_datetime"]
   end
 
   def event_type(_event_data)
@@ -128,12 +128,12 @@ class Activities::BaseActivityProvider
   # reference table is different from 'project_id'                            #
   #############################################################################
   def project_id_reference_field
-    'project_id'
+    "project_id"
   end
 
   def activitied_type
     class_name = self.class.name.demodulize
-    class_name.gsub('ActivityProvider', '').constantize
+    class_name.gsub("ActivityProvider", "").constantize
   end
 
   protected
@@ -141,6 +141,8 @@ class Activities::BaseActivityProvider
   def event_selection_query(user, from, to, options)
     query = journals_with_data_query
     query = extend_event_query(query)
+    query = filter_for_visibility(query, user)
+    query = exclude_meeting_causes(query)
     query = filter_for_event_datetime(query, from, to)
     query = restrict_user(query, options)
     restrict_projects(query, user, options)
@@ -161,6 +163,23 @@ class Activities::BaseActivityProvider
     end
   end
 
+  def filter_for_visibility(query, user)
+    query.where(
+      projects_table[:id]
+        .in(Project.allowed_to(user, :view_internal_comments).select(:id).arel)
+        .or(journals_table[:internal].eq(false))
+    )
+  end
+
+  def exclude_meeting_causes(query)
+    query.where(cause_type_expression.eq(nil).or(cause_type_expression.not_in(Journal::MEETING_CAUSE_TYPES)))
+  end
+
+  def cause_type_expression
+    @cause_type_expression ||=
+      Arel::Nodes::InfixOperation.new("->>", journals_table[:cause], Arel::Nodes.build_quoted("type"))
+  end
+
   def filter_for_event_datetime(query, from, to)
     query = query.where(journals_table[:created_at].gteq(from)) if from
     query = query.where(journals_table[:created_at].lteq(to)) if to
@@ -174,28 +193,26 @@ class Activities::BaseActivityProvider
 
   def event_params(event_data)
     params = { provider: self,
-               event_id: event_data['event_id'],
-               event_description: event_data['event_description'],
-               author_id: event_data['author_id'].to_i,
-               journable_id: event_data['journable_id'],
-               project_id: event_data['project_id'].to_i }
+               event_id: event_data["event_id"],
+               event_description: event_data["event_description"],
+               author_id: event_data["author_id"].to_i,
+               journable_id: event_data["journable_id"],
+               project_id: event_data["project_id"].to_i }
 
     %i[event_name event_title event_type event_description event_datetime event_path event_url].each do |a|
       params[a] = send(a, event_data) if self.class.method_defined? a
     end
 
     params
-  rescue StandardError => e
-    Rails.logger.error "Failed to deduce event params for #{event_data.inspect}: #{e}"
   end
 
   def event_projection
-    [[:id, 'event_id'],
-     [:created_at, 'event_datetime'],
-     [:user_id, 'author_id'],
-     [:notes, 'event_description'],
-     [:version, 'version'],
-     [:journable_id, 'journable_id']].map do |column, alias_name|
+    [[:id, "event_id"],
+     [:created_at, "event_datetime"],
+     [:user_id, "author_id"],
+     [:notes, "event_description"],
+     [:version, "version"],
+     [:journable_id, "journable_id"]].map do |column, alias_name|
       journals_table[column].as(alias_name)
     end
   end
@@ -219,7 +236,7 @@ class Activities::BaseActivityProvider
 
   def restrict_projects_by_selection(options, query)
     if (project = options[:project])
-      query = query.where(project.project_condition(options[:with_subprojects]))
+      query = query.where(project.with_subprojects(options[:with_subprojects]))
     end
 
     query
@@ -281,7 +298,7 @@ class Activities::BaseActivityProvider
 
   def event_name(event)
     @event_names ||= {}
-    @event_names[event_type(event)] ||= I18n.t(event_type(event).underscore, scope: 'events')
+    @event_names[event_type(event)] ||= I18n.t(event_type(event).underscore, scope: "events")
   end
 
   def url_helpers

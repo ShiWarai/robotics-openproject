@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -37,18 +37,18 @@ module Costs::NumberHelper
     # All locales seem to have their delimiters set to "".
     # We thus remove all typical delimiters that are not the separator.
     separator =
-      if I18n.exists?(:'number.currency.format.separator')
-        I18n.t(:'number.currency.format.separator')
+      if I18n.exists?(:"number.currency.format.separator")
+        I18n.t(:"number.currency.format.separator")
       else
-        I18n.t(:'number.format.separator', default: '.')
+        I18n.t(:"number.format.separator", default: ".")
       end
 
     if separator
-      delimiters = Regexp.new('[ .,’˙]'.gsub(separator, ''))
+      delimiters = Regexp.new("[ .,’˙]".gsub(separator, ""))
 
-      value.gsub!(delimiters, '')
+      value.gsub!(delimiters, "")
 
-      value.gsub!(separator, '.')
+      value.gsub!(separator, ".")
     end
 
     value
@@ -64,12 +64,28 @@ module Costs::NumberHelper
     0.0
   end
 
+  # Turns a string representing either a number in the current locale or a
+  # duration such as "2d 10h" into a BigDecimal number of hours. Units larger
+  # than an hour are resolved through the systemwide hours per day setting.
+  #
+  # In case the string cannot be parsed, 0.0 is returned.
+  def parse_hours_string_to_number(value)
+    return parse_number_string_to_number(value) unless value.is_a?(String) && value.present?
+
+    number = BigDecimal(parse_number_string(value), exception: false)
+    return number if number
+
+    BigDecimal(DurationConverter.parse(value).to_s)
+  rescue ChronicDuration::DurationParseError, ArgumentError
+    0.0
+  end
+
   # Output currency value without unit
   def unitless_currency_number(value)
-    number_to_currency(value, format: '%n')
+    number_to_currency(value, format: "%n")
   end
 
   def to_currency_with_empty(rate)
-    rate.nil? ? '0.0' : number_to_currency(rate.rate)
+    rate.nil? ? "0.0" : number_to_currency(rate.rate)
   end
 end

@@ -1,16 +1,11 @@
-@import "src/assets/sass/helpers"
+@import "helpers"
 
 .op-ian-actors
   display: grid
   grid-template-columns: auto 1fr
   grid-column-gap: $spot-spacing-0_25
   align-items: center
-  color: var(--gray-dark)
-
-  &--date
-    @include text-shortener
-    max-width: 100%
-    line-height: 1rem
+  color: var(--fgColor-muted)
 
   &--container
     @include text-shortener

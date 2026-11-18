@@ -1,6 +1,6 @@
 #-- copyright
 #OpenProject is an open source project management software.
-#Copyright (C) 2012-2023 the OpenProject GmbH
+#Copyright (C) the OpenProject GmbH
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License version 3.
 #OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
@@ -19,58 +19,115 @@
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #See COPYRIGHT and LICENSE files for more details.
 #++
+---
 fa:
   activerecord:
     attributes:
       budget:
-        author: "نویسنده"
-        available: "در دسترس"
-        budget: "Planned"
-        budget_ratio: "Spent (ratio)"
-        description: "توضیحات"
-        spent: "Spent"
-        status: "Status"
-        subject: "Subject"
-        type: "نوع هزینه"
-        labor_budget: "Planned labor costs"
-        material_budget: "Planned unit costs"
+        author: نویسنده
+        available: در دسترس
+        base_amount: مبلغ پایه
+        budget: برنامه‌ریزی‌شده
+        budget_ratio: هزینه(نسبت)
+        description: توضیحات
+        labor_budget: هزینه‌های نیروی کار برنامه‌ریزی‌شده
+        labor_budget_items: هزینه‌های نیروی کار برنامه‌ریزی‌شده
+        material_budget: هزینه‌های واحد برنامه‌ریزی شده
+        spent: مصرف‌شده
+        status: وضعیت
+        subject: موضوع
+        type: نوع هزینه
       work_package:
-        budget_subject: "Budget title"
+        budget_subject: عنوان بودجه
+    errors:
+      models:
+        labor_budget_item:
+          attributes:
+            principal:
+              not_a_member_of_budget_project: عضو پروژه بودجه نیست
     models:
-      budget: "بودجه"
-      material_budget_item: "Unit"
+      budget:
+        one: بودجه
+        other: بودجه‌ها
+      labor_budget_item:
+        one: هزینه نیروی کار برنامه‌ریزی‌شده
+        other: هزینه‌های نیروی کار برنامه‌ریزی‌شده
+      material_budget_item:
+        one: واحد
+        other: واحدها
   activity:
     filter:
-      budget: "بودجه ها"
+      budget: بودجه‌ها
   attributes:
-    budget: "بودجه"
-  button_add_budget_item: "Add planned costs"
-  button_add_budget: "اضافه کردن بودجه"
-  button_add_cost_type: "Add cost type"
-  button_cancel_edit_budget: "Cancel editing budget"
-  button_cancel_edit_costs: "Cancel editing costs"
-  caption_labor: "Labor"
-  caption_labor_costs: "Actual labor costs"
-  caption_material_costs: "Actual unit costs"
-  budgets_title: "بودجه ها"
+    budget: بودجه
+  budgets:
+    widgets:
+      budget_by_cost_type:
+        blankslate:
+          description: برای پیگیری مؤثر وضعیت سلامت پروژه، نمایی کلی از بودجه‌ها و هزینه‌های خود داشته باشید
+          heading: کنترل پروژه را شروع کنید
+        blankslate_zero:
+          description: برای مشاهده داده‌ها در اینجا، جزئیات بودجه برنامه‌ریزی‌شده خود را اضافه کنید
+          heading: جزئیات بودجه موجود نیست
+        count_caption:
+          one: داده‌ها از %{count} بودجه تجمیع شده‌اند
+          other: داده‌ها از %{count} بودجه تجمیع شده‌اند
+          zero: داده‌ای برای بودجه وجود ندارد.
+        count_caption_with_subitems:
+          portfolio:
+            one: داده‌ها از %{count} بودجه موجود در این سبد پروژه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            other: داده‌ها از %{count} بودجه موجود در این سبد پروژه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            zero: داده‌ای برای بودجه وجود ندارد.
+          program:
+            one: داده‌ها از %{count} بودجه موجود در این برنامه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            other: داده‌ها از %{count} بودجه موجود در این برنامه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            zero: داده‌ای برای بودجه وجود ندارد.
+          project:
+            one: داده‌ها از %{count} بودجه موجود در این پروژه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            other: داده‌ها از %{count} بودجه موجود در این پروژه و زیرمجموعه‌های آن تجمیع شده‌اند.
+            zero: داده‌ای برای بودجه وجود ندارد.
+        title: بودجه به تفکیک نوع هزینه
+        view_details: مشاهده جزئیات بودجه
+      budget_totals:
+        remaining_budget: بودجه باقی‌مانده
+        spent_budget: بودجه مصرف‌شده
+        title: مجموع بودجه
+        total_actual_costs: کل هزینه‌های واقعی
+        total_planned_budget: کل بودجه برنامه‌ریزی‌شده
+  budgets_title: بودجه‌ها
+  button_add_budget: افزودن بودجه
+  button_add_budget_item: افزودن هزینه برنامه‌ریزی شده
+  button_add_cost_type: افزودن نوع هزینه
+  button_cancel_edit_budget: لغو ویرایش بودجه
+  button_cancel_edit_costs: لغو ویرایش هزینه ها
+  caption_labor: کار
+  caption_labor_costs: هزینه های واقعی نیروی کار
+  caption_material_costs: هزینه‌های واقعی واحد
   events:
-    budget: "Budget edited"
-  help_click_to_edit: "Click here to edit."
-  help_currency_format: "Format of displayed currency values. %n is replaced with the currency value, %u ist replaced with the currency unit."
-  help_override_rate: "Enter a value here to override the default rate."
-  label_budget: "بودجه"
-  label_budget_new: "New budget"
-  label_budget_plural: "بودجه ها"
-  label_budget_id: "Budget #%{id}"
-  label_deliverable: "بودجه"
-  label_example_placeholder: 'e.g., %{decimal}'
-  label_view_all_budgets: "View all budgets"
-  label_yes: "Yes"
-  notice_budget_conflict: "Work packages must be of the same project."
-  notice_no_budgets_available: "No budgets available."
-  permission_edit_budgets: "Edit budgets"
-  permission_view_budgets: "View budgets"
-  project_module_budgets: "بودجه ها"
-  text_budget_reassign_to: "Reassign them to this budget:"
-  text_budget_delete: "Delete the budget from all work packages"
-  text_budget_destroy_assigned_wp: "There are %{count} work packages assigned to this budget. What do you want to do?"
+    budget: بودجه ویرایش شد
+  help_click_to_edit: برای ویرایش اینجا کلیک کنید.
+  help_currency_format: فرمت مقادیر واحدهای پولی نمایش داده شده به این صورت است که %n با مقدار واحد پولی جایگزین می‌شود و %u با واحد پولی جایگزین می‌شود.
+  help_override_rate: در صورت ورود یک مقدار در قسمت، نرخ (ضریب پرداختی) پیش‌فرض نادیده گرفته می شود.
+  label_budget_available: بودجه موجود
+  label_budget_details: جزئیات بودجه
+  label_budget_id: 'بودجه #%{id}'
+  label_budget_new: بودجه جدید
+  label_budget_planned: بودجه برنامه‌ریزی شده
+  label_budget_plural: بودجه‌ها
+  label_budget_spent: بودجه صرف شده
+  label_budget_spent_ratio: نسبت بودجه صرف شده
+  label_budget_totals: جمع کل
+  label_deliverable: بودجه
+  label_example_placeholder: به عنوان مثال، %{decimal}
+  label_view_all_budgets: مشاهده همه بودجه‌ها
+  label_yes: بله
+  notice_budget_conflict: بسته‌های کاری باید متعلق به یک پروژه باشند.
+  notice_no_budgets_available: بودجه‌ای در دسترس نیست.
+  permission_edit_budgets: ویرایش بودجه‌ها
+  permission_view_budgets: مشاهده بودجه‌ها
+  plugin_budgets_engine:
+    name: بودجه‌ها
+  project_module_budgets: بودجه‌ها
+  text_budget_delete: حذف بودجه از تمامی پکیج‌های کاری .
+  text_budget_destroy_assigned_wp: در حال حاضر تعداد %{count} پکیج‌کاری به این بودجه اختصاص داده شده است. شما قصد انجام چه کاری را دارید؟
+  text_budget_reassign_to: 'آنها را مجدداً به این بودجه اختصاص دهید:'

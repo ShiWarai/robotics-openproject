@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,38 +32,80 @@ class MyController < ApplicationController
   include PasswordConfirmation
   include Accounts::UserPasswordChange
   include ActionView::Helpers::TagHelper
+  include OpTurbo::ComponentStream
+  include FlashMessagesOutputSafetyHelper
+  include Notifications::NotificationSettingsActions
 
-  layout 'my'
+  layout "my"
 
   before_action :require_login
   before_action :set_current_user
   before_action :check_password_confirmation, only: %i[update_account]
-  before_action :set_grouped_ical_tokens, only: %i[access_token]
-  before_action :set_ical_token, only: %i[revoke_ical_token]
+  before_action :prevent_response_caching, only: :account
 
-  menu_item :account,             only: [:account]
-  menu_item :settings,            only: [:settings]
-  menu_item :password,            only: [:password]
-  menu_item :access_token,        only: [:access_token]
-  menu_item :notifications,       only: [:notifications]
-  menu_item :reminders,           only: [:reminders]
+  no_authorization_required! :account,
+                             :update_account,
+                             :locale,
+                             :interface,
+                             :update_settings,
+                             :update_workdays,
+                             :update_email_alerts,
+                             :update_participating,
+                             :update_non_participating,
+                             :update_date_alerts,
+                             :password,
+                             :change_password,
+                             :password_confirmation_dialog,
+                             :security,
+                             :notifications,
+                             :non_working_times,
+                             :working_hours,
+                             :new_project_settings,
+                             :create_project_settings,
+                             :edit_project_settings,
+                             :update_project_settings,
+                             :destroy_project_settings
+
+  menu_item :account, only: [:account]
+  menu_item :locale, only: [:locale]
+  menu_item :interface, only: [:interface]
+  menu_item :password, only: [:password]
+  menu_item :security, only: [:security]
+  menu_item :notifications, only: [:notifications]
+  menu_item :working_hours, only: %i[working_hours non_working_times]
 
   def account; end
 
   def update_account
     write_settings
-
-    # If mail changed, expire all other sessions
-    if @user.previous_changes['mail'] && ::Sessions::DropOtherSessionsService.call(@user, session)
-      flash[:info] = "#{flash[:notice]} #{t(:notice_account_other_session_expired)}"
-      flash.delete :notice
-    end
   end
 
-  def settings; end
+  def locale; end
 
   def update_settings
     write_settings
+  end
+
+  def update_email_alerts
+    update_global_notification_setting(permitted_params.notification_setting_email_alerts)
+  end
+
+  def update_participating
+    update_global_notification_setting(permitted_params.notification_setting_participating)
+  end
+
+  def update_non_participating
+    update_global_notification_setting(permitted_params.notification_setting_non_participating)
+  end
+
+  def update_date_alerts
+    update_global_notification_setting(build_date_alerts_params)
+  end
+
+  def interface; end
+
+  def security
+    @username = @user.login
   end
 
   # Manage user's password
@@ -73,89 +117,47 @@ class MyController < ApplicationController
   # When making changes here, also check AccountController.change_password
   def change_password
     change_password_flow(user: @user, params:, update_legacy: false) do
-      redirect_to action: 'password'
+      redirect_to action: "security"
     end
   end
 
-  # Administer access tokens
-  def access_token; end
+  def password_confirmation_dialog
+    respond_with_dialog My::PasswordConfirmationDialog.new
+  end
 
-  # Configure user's in app notifications
+  # Configure user's notifications and email reminders
   def notifications
-    render html: '',
-           layout: 'angular/angular',
-           locals: {
-             menu_name: :my_menu,
-             page_title: [I18n.t(:label_my_account), I18n.t('js.notifications.settings.title')]
-           }
+    set_global_notification_setting
   end
 
-  # Configure user's mail reminders
-  def reminders
-    render html: '',
-           layout: 'angular/angular',
-           locals: { menu_name: :my_menu }
+  def working_hours
+    @current_working_hours = @user.working_hours.current
+
+    @future_working_hours = @user.working_hours.upcoming(Date.current + 1)
+
+    @past_working_hours = if @current_working_hours
+                            @user.working_hours.history_for(@current_working_hours)
+                          else
+                            UserWorkingHours.none
+                          end
   end
 
-  # Create a new feeds key
-  def generate_rss_key
-    token = Token::RSS.create!(user: current_user)
-    flash[:info] = [
-      # rubocop:disable Rails/OutputSafety
-      t('my.access_token.notice_reset_token', type: 'RSS').html_safe,
-      # rubocop:enable Rails/OutputSafety
-      content_tag(:strong, token.plain_value),
-      t('my.access_token.token_value_warning')
-    ]
-  rescue StandardError => e
-    Rails.logger.error "Failed to reset user ##{current_user.id} RSS key: #{e}"
-    flash[:error] = t('my.access_token.failed_to_reset_token', error: e.message)
-  ensure
-    redirect_to action: 'access_token'
-  end
-
-  # Create a new API key
-  def generate_api_key
-    token = Token::API.create!(user: current_user)
-    flash[:info] = [
-      # rubocop:disable Rails/OutputSafety
-      t('my.access_token.notice_reset_token', type: 'API').html_safe,
-      # rubocop:enable Rails/OutputSafety
-      content_tag(:strong, token.plain_value),
-      t('my.access_token.token_value_warning')
-    ]
-  rescue StandardError => e
-    Rails.logger.error "Failed to reset user ##{current_user.id} API key: #{e}"
-    flash[:error] = t('my.access_token.failed_to_reset_token', error: e.message)
-  ensure
-    redirect_to action: 'access_token'
-  end
-
-  def revoke_ical_token
-    message = ical_destroy_info_message
-    @ical_token.destroy
-    flash[:info] = message
-  rescue StandardError => e
-    Rails.logger.error "Failed to revoke all ical tokens for ##{current_user.id}: #{e}"
-    flash[:error] = t('my.access_token.failed_to_reset_token', error: e.message)
-  ensure
-    redirect_to action: 'access_token'
-  end
-
-  def default_breadcrumb
-    I18n.t(:label_my_account)
-  end
-
-  def show_local_breadcrumb
-    false
+  def non_working_times
+    @year = (params[:year].presence || Date.current.year).to_i
+    @non_working_times = @user.non_working_time_entities_for_year(@year)
   end
 
   private
 
+  def render_password_change(_user, message, show_user_name: false) # rubocop:disable Lint/UnusedMethodArgument
+    flash[:error] = message unless message.nil?
+    redirect_to action: "security"
+  end
+
   def redirect_if_password_change_not_allowed_for(user)
     unless user.change_password_allowed?
       flash[:error] = I18n.t(:notice_can_t_change_password)
-      redirect_to action: 'account'
+      redirect_to action: "account"
       return true
     end
     false
@@ -163,26 +165,66 @@ class MyController < ApplicationController
 
   def write_settings
     result = Users::UpdateService
-             .new(user: current_user, model: current_user)
-             .call(user_params)
+               .new(user: current_user, model: current_user)
+               .call(user_params)
 
     if result&.success
       flash[:notice] = notice_account_updated
+      handle_email_changes
     else
       flash[:error] = error_account_update_failed(result)
     end
 
-    redirect_back(fallback_location: my_account_path)
+    redirect_back_or_to(my_account_path)
   end
 
-  helper_method :has_tokens?
+  def handle_email_changes
+    # If mail changed, expire all other sessions
+    if @user.previous_changes["mail"]
+      Users::DropTokensService.new(current_user: @user).call!
+      Sessions::DropOtherSessionsService.call!(@user, session)
 
-  def has_tokens?
-    Setting.feeds_enabled? || Setting.rest_api_enabled? || current_user.ical_tokens.any?
+      flash[:info] = "#{flash[:notice]} #{t(:notice_account_other_session_expired)}"
+      flash.delete :notice
+    end
   end
 
   def user_params
-    permitted_params.my_account_settings.to_h
+    # The Users::UpdateService updates the user's pref using the UserPreferences::UpdateService
+    # which has a contract/schema applied to the values which is why it is ok
+    # to blindly allow all scalar values in pref.
+    attributes = permitted_params.user.to_h.merge(params.permit(pref: {}))
+    drop_non_editable_custom_field_values(attributes)
+  end
+
+  # On the self-service account page only custom fields the user is allowed to
+  # edit themselves (editable: true) may be changed. Drop the rest so a crafted
+  # request cannot persist values the UI renders read-only.
+  def drop_non_editable_custom_field_values(attributes)
+    values = attributes["custom_field_values"]
+    return attributes if values.blank?
+
+    editable_ids = current_user.available_custom_fields.select(&:editable?).map { |cf| cf.id.to_s }
+    attributes["custom_field_values"] = values.slice(*editable_ids)
+    attributes
+  end
+
+  def update_global_notification_setting(update_params)
+    set_global_notification_setting
+    persist_notification_setting(@global_notification_setting, update_params)
+    redirect_back_or_to(my_notifications_path)
+  end
+
+  def set_global_notification_setting
+    @global_notification_setting = @user.notification_settings.find_or_initialize_by(project: nil)
+  end
+
+  def persist_notification_setting(setting, update_params)
+    if setting.update(update_params)
+      flash[:notice] = notice_account_updated
+    else
+      flash[:error] = error_account_update_failed(nil)
+    end
   end
 
   def notice_account_updated
@@ -192,8 +234,24 @@ class MyController < ApplicationController
   end
 
   def error_account_update_failed(result)
-    errors = result ? result.errors.full_messages.join("\n") : ''
+    errors = result ? result.errors.full_messages.join("\n") : ""
     [t(:notice_account_update_failed), errors]
+  end
+
+  def notifications_settings_path
+    my_notifications_path
+  end
+
+  def workdays_redirect_path
+    my_notifications_path
+  end
+
+  def project_notifications_create_url
+    my_project_notifications_path
+  end
+
+  def project_setting_form_url(project_id)
+    my_project_setting_path(project_id:)
   end
 
   def set_current_user
@@ -202,25 +260,5 @@ class MyController < ApplicationController
 
   def get_current_layout
     @user.pref[:my_page_layout] || DEFAULT_LAYOUT.dup
-  end
-
-  def set_ical_token
-    @ical_token = current_user.ical_tokens.find(params[:id])
-  end
-
-  def set_grouped_ical_tokens
-    @ical_tokens_grouped_by_query = current_user.ical_tokens
-      .joins(ical_token_query_assignment: { query: :project })
-      .select("tokens.*, ical_token_query_assignments.query_id")
-      .group_by(&:query_id)
-  end
-
-  def ical_destroy_info_message
-    t(
-      'my.access_token.notice_ical_tokens_reverted',
-      token_name: @ical_token.ical_token_query_assignment.name,
-      calendar_name: @ical_token.query.name,
-      project_name: @ical_token.query.project.name
-    )
   end
 end

@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,7 +31,7 @@ module API
     module CustomOptions
       class CustomOptionsAPI < ::API::OpenProjectAPI
         resources :custom_options do
-          namespace ':id' do
+          namespace ":id" do
             params do
               requires :id, type: Integer
             end
@@ -42,11 +42,17 @@ module API
                 when WorkPackageCustomField
                   authorized_work_package_option(custom_option)
                 when ProjectCustomField
-                  authorize_any(%i[view_project], global: true) { raise API::Errors::NotFound }
+                  authorized_project_custom_option(custom_option)
                 when TimeEntryCustomField
-                  authorize_any(%i[log_time log_own_time], global: true) { raise API::Errors::NotFound }
-                when UserCustomField, GroupCustomField
-                  true
+                  authorize_in_any_work_package(:log_own_time) do
+                    authorize_in_any_project(:log_time) do
+                      raise API::Errors::NotFound
+                    end
+                  end
+                when UserCustomField
+                  authorized_user_custom_option(custom_option)
+                when GroupCustomField
+                  authorized_group_custom_option(custom_option)
                 else
                   raise API::Errors::NotFound
                 end
@@ -54,11 +60,36 @@ module API
 
               def authorized_work_package_option(custom_option)
                 allowed = Project
-                  .allowed_to(current_user, :view_work_packages)
+                  .with_visible_work_packages(current_user)
                   .joins(:work_package_custom_fields)
                   .exists?(custom_fields: { id: custom_option.custom_field_id })
 
                 unless allowed
+                  raise API::Errors::NotFound
+                end
+              end
+
+              def authorized_project_custom_option(custom_option)
+                unless Project
+                  .visible(current_user)
+                  .joins(:project_custom_field_project_mappings)
+                  .exists?(project_custom_field_project_mappings: { custom_field_id: custom_option.custom_field_id })
+                  raise API::Errors::NotFound
+                end
+              end
+
+              def authorized_user_custom_option(custom_option)
+                unless UserCustomField
+                  .visible(current_user)
+                  .exists?(id: custom_option.custom_field_id)
+                  raise API::Errors::NotFound
+                end
+              end
+
+              def authorized_group_custom_option(custom_option)
+                unless GroupCustomField
+                  .visible(current_user)
+                  .exists?(id: custom_option.custom_field_id)
                   raise API::Errors::NotFound
                 end
               end

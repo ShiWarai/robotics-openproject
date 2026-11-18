@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -36,7 +38,6 @@ module Queries
 
         def where
           integer_values = values.map(&:to_i)
-
           visible_sql = WorkPackage.visible(User.current).select(:id).to_sql
 
           operator_string = case operator
@@ -46,13 +47,13 @@ module Queries
                               "NOT IN"
                             end
 
-          visibility_checked_sql(operator_string, values, visible_sql)
+          visibility_checked_sql(operator_string, integer_values, visible_sql)
         end
 
         private
 
         def visibility_checked_sql(_operator, _values, _visible_sql)
-          raise NotImplementedError
+          raise SubclassResponsibilityError
         end
       end
     end

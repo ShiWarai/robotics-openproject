@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -38,34 +40,32 @@ class Queries::WorkPackages::Filter::MilestoneFilter < Queries::WorkPackages::Fi
   end
 
   def dependency_class
-    '::API::V3::Queries::Schemas::BooleanFilterDependencyRepresenter'
+    "::API::V3::Queries::Schemas::BooleanFilterDependencyRepresenter"
   end
 
   def where
-    if positive?
-      "type_id IN (#{milestone_subselect})"
+    if filtering_for_true?
+      "#{WorkPackage.table_name}.type_id IN (#{milestone_subselect})"
     else
-      "type_id NOT IN (#{milestone_subselect})"
+      "#{WorkPackage.table_name}.type_id NOT IN (#{milestone_subselect})"
     end
   end
 
-  def positive?
-    (operator == '=' && values == [OpenProject::Database::DB_VALUE_TRUE]) ||
-      (operator == '!' && values == [OpenProject::Database::DB_VALUE_FALSE])
-  end
-
   def human_name
-    I18n.t('activerecord.attributes.type.is_milestone')
+    I18n.t("activerecord.attributes.type.is_milestone")
   end
 
   private
 
   def types
-    project.nil? ? ::Type.order(Arel.sql('position')) : project.rolled_up_types
+    project.nil? ? ::Type.order(Arel.sql("position")) : project.rolled_up_types
   end
 
   def milestone_subselect
+    # Order is irrelevant for an IN subselect; unscope so Type's default position
+    # ordering does not leak into the SQL (and its quoting does not break specs).
     Type
+      .unscoped
       .where(is_milestone: true)
       .select(:id)
       .to_sql

@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -83,11 +83,11 @@ module OpenProject::GithubIntegration
       def journal_entry(pull_request, payload)
         return unless COMMENT_ACTIONS.include?(payload.action)
 
-        angular_component_tag 'macro',
-                              class: 'github_pull_request',
+        angular_component_tag "macro",
+                              class: "github_pull_request",
                               inputs: {
                                 pullRequestId: pull_request.id,
-                                pullRequestState: 'referenced'
+                                pullRequestState: "referenced"
                               }
       end
     end

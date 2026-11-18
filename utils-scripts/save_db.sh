@@ -1,22 +1,24 @@
 #!/bin/bash
+# Weekly backup (cron): DB dump + attachment files from the k3s cluster.
+# Layout kept compatible with restore_db.sh: dumps/<tag>/dump.sql + dumps/<tag>/files/
+set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+NS="${KUBECTL_NAMESPACE:-rtuitlab}"
 
-# Current date as tag for dump
 tag_name=$(date +"%Y-%m-%d_%H-%M-%S")
+mkdir -p "dumps/$tag_name"
 
-if docker start $(docker ps -aq --filter name=robotics_openproject_db); then
-  if docker ps -aq --filter name=robotics_openproject_builder | grep -q .; then
-    docker cp $(docker ps -aq --filter name=robotics_openproject_builder):/robotics-openproject/files dumps/$tag_name
-  else
-    echo -e "${RED}Unable to find the build container to access files"
-    exit 1
-  fi
-  docker exec -t $(docker ps -aq --filter name=robotics_openproject_db) pg_dump -U openproject -c openproject > dumps/$tag_name/dump.sql
-else
-  echo -e "${RED}Unable to find the database container"
+db_pod=$(kubectl get pod -n "$NS" -l app=openproject-db -o jsonpath='{.items[0].metadata.name}')
+web_pod=$(kubectl get pod -n "$NS" -l app=openproject -o jsonpath='{.items[0].metadata.name}')
+
+if [ -z "$db_pod" ] || [ -z "$web_pod" ]; then
+  echo -e "${RED}Unable to find openproject pods in namespace $NS"
   exit 1
 fi
 
-echo -e "${GREEN}Saved"
+kubectl exec -n "$NS" "$db_pod" -- pg_dump -U openproject -c openproject > "dumps/$tag_name/dump.sql"
+kubectl cp "$NS/$web_pod:/app/files" "dumps/$tag_name/files" -c web
+
+echo -e "${GREEN}Saved dumps/$tag_name"
 exit 0

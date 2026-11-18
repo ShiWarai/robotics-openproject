@@ -7,44 +7,44 @@ ka:
     bim:
       priorities:
         item_0:
-          name: Low
+          name: დაბალი
         item_1:
-          name: Normal
+          name: ჩვეულებრივი
         item_2:
-          name: High
+          name: მაღალი
         item_3:
-          name: Critical
+          name: კრიტიკული
       statuses:
         item_0:
-          name: New
+          name: ახალი
         item_1:
-          name: In progress
+          name: მიმდინარეობს
         item_2:
-          name: Resolved
+          name: შესრულებულია
         item_3:
-          name: Closed
+          name: დახურულია
       time_entry_activities:
         item_0:
-          name: Management
+          name: მართვა
         item_1:
-          name: Specification
+          name: სპეციფიკაცია
         item_2:
-          name: Other
+          name: სხვა
       types:
         item_0:
-          name: Task
+          name: ამოცანა
         item_1:
-          name: Milestone
+          name: ნიშანსვეტი
         item_2:
-          name: Phase
+          name: ფაზები
         item_3:
-          name: Issue
+          name: გამოცემა
         item_4:
-          name: Remark
+          name: შენიშვნა
         item_5:
-          name: Request
+          name: მოთხოვნა
         item_6:
-          name: Clash
+          name: კონფლიქტი
       global_queries:
         item_0:
           name: 'Embedded table: Children'
@@ -52,22 +52,22 @@ ka:
         item_0:
           form_configuration:
             item_0:
-              group_name: Children
+              group_name: შვილები
       groups:
         item_0:
-          name: Architects
+          name: არქიტექტორები
         item_1:
           name: BIM Coordinators
         item_2:
-          name: BIM Managers
+          name: BIM მმართველები
         item_3:
           name: BIM Modellers
         item_4:
           name: Lead BIM Coordinators
         item_5:
-          name: MEP Engineers
+          name: MEP ინჟინრები
         item_6:
-          name: Planners
+          name: მგეგმავები
         item_7:
           name: Structural Engineers
       welcome:
@@ -101,13 +101,13 @@ ka:
             item_0: Category 1 (to be changed in Project settings)
           queries:
             item_0:
-              name: Project plan
+              name: პროექტის გეგმა
             item_1:
-              name: Milestones
+              name: ნიშანსვეტები
             item_2:
-              name: Tasks
+              name: ამოცანები
             item_3:
-              name: Team planner
+              name: გუნდის მგეგმავი
           boards:
             bcf:
               name: Simple drag'n drop workflow
@@ -115,7 +115,7 @@ ka:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: მოგესალმებით
               item_1:
                 options:
                   name: Getting started
@@ -141,13 +141,13 @@ ka:
                     Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
-                  name: Members
+                  name: წევრები
               item_5:
                 options:
-                  name: Work packages
+                  name: სამუშაო პაკეტები
               item_6:
                 options:
-                  name: Milestones
+                  name: ნიშანსვეტები
         demo-planning-constructing-project:
           name: "(Demo) Planning & constructing"
           status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
@@ -163,18 +163,18 @@ ka:
             item_0: Category 1 (to be changed in Project settings)
           queries:
             item_0:
-              name: Project plan
+              name: პროექტის გეგმა
             item_1:
-              name: Milestones
+              name: ნიშანსვეტები
             item_2:
-              name: Tasks
+              name: ამოცანები
             item_3:
-              name: Team planner
+              name: გუნდის მგეგმავი
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: მოგესალმებით
               item_1:
                 options:
                   name: Getting started
@@ -196,13 +196,13 @@ ka:
                     Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
-                  name: Members
+                  name: წევრები
               item_5:
                 options:
-                  name: Work packages
+                  name: სამუშაო პაკეტები
               item_6:
                 options:
-                  name: Milestones
+                  name: ნიშანსვეტები
           work_packages:
             item_0:
               subject: Project kick off construction project
@@ -256,7 +256,7 @@ ka:
 
                     *   Create a useful overview of the results
                     *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
+                    *   Communicate all the relevant results with the customer
                     *   Identify the fundamental boundary conditions of the project
 
                     ## Description
@@ -271,7 +271,7 @@ ka:
 
                     *   Create a useful overview of the results
                     *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
+                    *   Communicate all the relevant results with the customer
                     *   Identify the fundamental boundary conditions of the project
 
                     ## Description
@@ -301,7 +301,7 @@ ka:
                     *   The owner is happy with the results
                     *   ...
                 item_1:
-                  subject: Design freeze
+                  subject: დიზაინის გაყინვა
                   description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
             item_5:
               subject: Construction phase
@@ -321,7 +321,7 @@ ka:
                     *   Get the team together
                     *   ...
                 item_1:
-                  subject: Foundation
+                  subject: საფუძველი
                   description: |-
                     ## Goal
 
@@ -376,7 +376,7 @@ ka:
                     *   Electrical installation
                     *   ...
                 item_5:
-                  subject: Final touches
+                  subject: ბოლო შტრიხები
                   description: |-
                     ## Goal
 
@@ -417,18 +417,18 @@ ka:
             item_0: Category 1 (to be changed in Project settings)
           queries:
             item_0:
-              name: Project plan
+              name: პროექტის გეგმა
             item_1:
-              name: Milestones
+              name: ნიშანსვეტები
             item_2:
-              name: Tasks
+              name: ამოცანები
             item_3:
-              name: Team planner
+              name: გუნდის მგეგმავი
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: მოგესალმებით
               item_1:
                 options:
                   name: Getting started
@@ -453,13 +453,13 @@ ka:
                     Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
-                  name: Members
+                  name: წევრები
               item_5:
                 options:
-                  name: Work packages
+                  name: სამუშაო პაკეტები
               item_6:
                 options:
-                  name: Milestones
+                  name: ნიშანსვეტები
           work_packages:
             item_0:
               subject: Project kick off creating BIM model
@@ -603,13 +603,13 @@ ka:
                   description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
             item_6:
               subject: Modelling & coordinating, second cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              description: "## Goal\r\n\r\n*   ...\r\n\r\n## Description\r\n\r\n* \\  ..."
             item_7:
               subject: Modelling & coordinating, ... cycle
               description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
             item_8:
               subject: Modelling & coordinating, (n-th minus 1) cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              description: "## Goal\r\n\r\n*   ...\r\n\r\n## Description\r\n\r\n* \\  ..."
             item_9:
               subject: Modelling & coordinating n-th cycle
               description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
@@ -682,29 +682,29 @@ ka:
             item_0: Category 1 (to be changed in Project settings)
           queries:
             item_0:
-              name: Issues
+              name: შენიშვნები
             item_1:
-              name: Clashes
+              name: კონფლიქტები
             item_2:
-              name: Requests
+              name: მოთხოვნები
             item_3:
-              name: Remarks
+              name: შენიშვნები
             item_4:
-              name: Project plan
+              name: პროექტის გეგმა
             item_5:
-              name: Milestones
+              name: ნიშანსვეტები
             item_6:
-              name: Tasks
+              name: ამოცანები
             item_7:
-              name: Team planner
+              name: გუნდის მგეგმავი
           boards:
             bcf:
-              name: BCF issues
+              name: BCF-ის პრობლემები
           project-overview:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: მოგესალმებით
               item_1:
                 options:
                   name: Getting started
@@ -728,7 +728,7 @@ ka:
                     Please let us know if you have any questions or need support. Contact us: [support\[at\]openproject.com](mailto:support@openproject.com).
               item_4:
                 options:
-                  name: Members
+                  name: წევრები
               item_5:
                 options:
-                  name: Work packages
+                  name: სამუშაო პაკეტები

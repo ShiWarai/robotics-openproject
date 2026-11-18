@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -45,7 +47,8 @@ module Exports
 
       def encode_csv_columns(columns, encoding = I18n.t(:general_csv_encoding))
         columns.map do |cell|
-          Redmine::CodesetUtil.from_utf8(cell.to_s, encoding)
+          sanitized = Exports::Concerns::CSVFormulaSanitization.sanitize(cell)
+          Redmine::CodesetUtil.from_utf8(sanitized, encoding)
         end
       end
 
@@ -53,8 +56,8 @@ module Exports
         ::Exports::Result
           .new format: :csv,
                title: csv_export_filename,
-               content: serialized,
-               mime_type: 'text/csv'
+               content: "\xEF\xBB\xBF#{serialized}", # Make Excel open CSV happy by append UTF8 BOM
+               mime_type: "text/csv"
       end
 
       # fetch all headers
@@ -63,7 +66,7 @@ module Exports
 
         # because of
         # https://support.microsoft.com/en-us/help/323626/-sylk-file-format-is-not-valid-error-message-when-you-open-file
-        if headers[0].start_with?('ID')
+        if headers[0].start_with?("ID")
           headers[0] = headers[0].downcase
         end
 
@@ -78,13 +81,13 @@ module Exports
       end
 
       def format_csv(record, attribute)
-        format_attribute(record, attribute, :csv, array_separator: '; ')
+        format_attribute(record, attribute, :csv, array_separator: "; ")
       end
 
       def csv_export_filename
         sane_filename(
           "#{Setting.app_title} #{title} \
-          #{format_time_as_date(Time.zone.now, '%Y-%m-%d')}.csv"
+          #{format_date(Time.zone.now, format: '%Y-%m-%d')}.csv"
         )
       end
     end

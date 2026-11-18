@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -39,11 +41,11 @@ module API::V3::ProjectStorages
                   .call(params)
 
         unless query.valid?
-          message = I18n.t('api_v3.errors.missing_or_malformed_parameter', parameter: 'filters')
+          message = I18n.t("api_v3.errors.missing_or_malformed_parameter", parameter: "filters")
           raise ::API::Errors::InvalidQuery.new(message)
         end
 
-        results = query.results.filter { |result| current_user.allowed_to?(:view_file_links, result.project) }
+        results = query.results.filter { |result| current_user.allowed_in_project?(:view_file_links, result.project) }
 
         ::API::V3::ProjectStorages::ProjectStorageCollectionRepresenter.new(
           results,
@@ -53,16 +55,18 @@ module API::V3::ProjectStorages
         )
       end
 
-      route_param :id, type: Integer, desc: 'ProjectStorage id' do
+      route_param :id, type: Integer, desc: "ProjectStorage id" do
         after_validation do
           @project_storage = Storages::ProjectStorage.find(params[:id])
 
-          unless current_user.allowed_to?(:view_file_links, @project_storage.project)
+          unless current_user.allowed_in_project?(:view_file_links, @project_storage.project)
             raise ::API::Errors::NotFound.new
           end
         end
 
         get &API::V3::Utilities::Endpoints::Show.new(model: Storages::ProjectStorage).mount
+
+        mount API::V3::ProjectStorages::ProjectStorageOpenAPI
       end
     end
   end

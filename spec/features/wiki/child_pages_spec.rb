@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,54 +28,43 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'wiki child pages', js: true do
-  let(:project) do
-    create(:project)
-  end
-  let(:user) do
-    create(:user,
-           member_in_project: project,
-           member_through_role: role)
-  end
-  let(:role) do
-    create(:role,
-           permissions: %i[view_wiki_pages edit_wiki_pages])
-  end
-  let(:parent_page) do
-    create(:wiki_page,
-           wiki: project.wiki)
-  end
+RSpec.describe "wiki child pages", :js, :selenium do
+  let(:project) { create(:project, :with_internal_wiki).reload }
+  let(:user) { create(:user, member_with_roles: { project => role }) }
+  let(:role) { create(:project_role, permissions: %i[view_wiki_pages edit_wiki_pages]) }
+  let(:parent_page) { create(:wiki_page, wiki: project.wiki) }
   let(:child_page_name) { 'The child page !@#{$%^&*()_},./<>?;\':' }
 
-  before do
-    login_as user
-  end
+  before { login_as user }
 
-  it 'adding a childpage' do
+  it "adding a child page" do
     visit project_wiki_path(project, parent_page.title)
 
-    click_on 'Wiki page'
+    click_on "Wiki page"
 
     SeleniumHubWaiter.wait
-    fill_in 'page_title', with: child_page_name
+    fill_in "page_title", with: child_page_name
 
-    find('.ck-content').set('The child page\'s content')
+    find(".ck-content").set("The child page's content")
 
-    click_button 'Save'
+    click_button "Create"
 
     # hierarchy displayed in the breadcrumb
-    expect(page).to have_selector('#breadcrumb [data-qa-selector="op-breadcrumb"]',
-                                  text: parent_page.title.to_s)
+    within('[data-test-selector="wiki-page-header-breadcrumbs"]') do
+      expect(page).to have_text(parent_page.title.to_s)
+    end
 
     # hierarchy displayed in the sidebar
-    expect(page).to have_selector('.pages-hierarchy',
-                                  text: "#{parent_page.title}\n#{child_page_name}")
+    within_test_selector("wiki-sidemenu-tree") do
+      expect(page).to have_link(parent_page.title)
+      expect(page).to have_link(child_page_name)
+    end
 
     # on toc page
     visit index_project_wiki_index_path(project)
 
-    expect(page).to have_content(child_page_name)
+    expect(page).to have_text(child_page_name)
   end
 end

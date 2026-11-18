@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -25,32 +27,33 @@
 #
 # See COPYRIGHT and LICENSE files for more details.
 #++
-require 'spec_helper'
-require_relative '../shared_expectations'
+require "spec_helper"
+require_relative "../shared_expectations"
 
 RSpec.describe CustomActions::Conditions::Type do
-  it_behaves_like 'associated custom condition' do
+  it_behaves_like "associated custom condition" do
     let(:key) { :type }
 
-    describe '#allowed_values' do
-      it 'is the list of all types' do
-        types = [build_stubbed(:type),
-                 build_stubbed(:type)]
+    describe "#allowed_values" do
+      it "is the list of all types" do
+        task = build_stubbed(:type, name: "Task")
+        bug = build_stubbed(:type, name: "Bug")
         allow(Type)
-          .to receive(:select)
-          .and_return(types)
+          .to receive(:order)
+          .with(:position)
+          .and_return([task, bug])
 
         expect(instance.allowed_values)
-          .to eql([{ value: types.first.id, label: types.first.name },
-                   { value: types.last.id, label: types.last.name }])
+          .to eql([{ value: task.id, label: "Task" },
+                   { value: bug.id, label: "Bug" }])
       end
     end
 
-    describe '#fulfilled_by?' do
-      let(:work_package) { double('work_package', type_id: 1) }
-      let(:user) { double('not relevant') }
+    describe "#fulfilled_by?" do
+      let(:work_package) { double("work_package", type_id: 1) }
+      let(:user) { double("not relevant") }
 
-      it 'is true if values are empty' do
+      it "is true if values are empty" do
         instance.values = []
 
         expect(instance.fulfilled_by?(work_package, user))

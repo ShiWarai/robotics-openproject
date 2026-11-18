@@ -34,14 +34,28 @@ hr:
           name: Siva (tamna)
         item_13:
           name: Crna
-      document_categories:
+      project_phase_colors:
         item_0:
-          name: Dokumentacija
+          name: PM2 Orange
         item_1:
-          name: Specifikacija
+          name: PM2 Red
         item_2:
-          name: Ostalo
-      roles:
+          name: PM2 Magenta
+        item_3:
+          name: PM2 Green Yellow
+      project_query_roles:
+        item_0:
+          name: Project query viewer
+        item_1:
+          name: Project query editor
+      work_package_roles:
+        item_0:
+          name: Work package editor
+        item_1:
+          name: Work package commenter
+        item_2:
+          name: Work package viewer
+      project_roles:
         item_0:
           name: Nije član
         item_1:
@@ -52,9 +66,33 @@ hr:
           name: Lektor
         item_4:
           name: Projekt administrator
-        item_5:
+      global_roles:
+        item_0:
           name: Staff and projects manager
+        item_1:
+          name: Standard global role
+      ai_text_transform_actions:
+        item_0:
+          label: Fix grammar
+        item_1:
+          label: Make concise
+        item_2:
+          label: Translate to English
+        item_3:
+          label: Sort into template
     standard:
+      project_phases:
+        item_0:
+          name: Initiating
+        item_1:
+          name: Planiranje
+          start_gate: Ready for Planning
+        item_2:
+          name: Executing
+          start_gate: Ready for Executing
+        item_3:
+          name: Closing
+          start_gate: Ready for Closing
       priorities:
         item_0:
           name: Nizak
@@ -64,76 +102,21 @@ hr:
           name: Visoki
         item_3:
           name: Žuran
-      statuses:
+      departments:
         item_0:
-          name: Novi
+          name: Marketing & Communications
         item_1:
-          name: U fazi specifikacije
+          name: Public Relations
         item_2:
-          name: Specificirano
+          name: Design & Content
         item_3:
-          name: Potvrđeno
+          name: Events & Operations
         item_4:
-          name: Treba se planirati
+          name: Web & IT
         item_5:
-          name: Planirano
+          name: Finance & Administration
         item_6:
-          name: U tijeku
-        item_7:
-          name: Razvijeno
-        item_8:
-          name: U fazi testiranju
-        item_9:
-          name: Testirano
-        item_10:
-          name: Test nije uspio
-        item_11:
-          name: Zaključeno
-        item_12:
-          name: Na čekanju
-        item_13:
-          name: Odbijeno
-      time_entry_activities:
-        item_0:
-          name: Upravljanje
-        item_1:
-          name: Specifikacija
-        item_2:
-          name: Razvoj
-        item_3:
-          name: Testiranje
-        item_4:
-          name: Podrška
-        item_5:
-          name: Ostalo
-      types:
-        item_0:
-          name: Zadatak
-        item_1:
-          name: Ključna točka
-        item_2:
-          name: Faza
-        item_3:
-          name: Značajka
-        item_4:
-          name: Epic
-        item_5:
-          name: User story
-        item_6:
-          name: Bug
-      welcome:
-        title: Welcome to OpenProject!
-        text: |
-          Select one of the demo projects to get started with some demo data we have prepared for you.
-
-          * [Demo project]({{opSetting:base_url}}/projects/demo-project): to get an overview about classical project management.
-          * [Scrum project]({{opSetting:base_url}}/projects/your-scrum-project): to learn about Agile and Scrum project management.
-
-          Also, you can create a blank [new project]({{opSetting:base_url}}/projects/new).
-
-          Never stop collaborating. With open source and open mind.
-
-          You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).
+          name: Quality Assurance
       projects:
         demo-project:
           name: Demo project
@@ -223,8 +206,10 @@ hr:
                 item_2:
                   subject: Setup conference website
             item_2:
-              subject: Conference
+              subject: Test and quality-check the conference website
             item_3:
+              subject: Conference
+            item_4:
               subject: Follow-up tasks
               children:
                 item_0:
@@ -236,8 +221,23 @@ hr:
                     *   [ ] Snacks
                     *   [ ] Music
                     *   [ ] Even more beer
-            item_4:
+            item_5:
               subject: End of project
+          wiki: |
+            _In this wiki you can collaboratively create and edit pages and sub-pages to create a project wiki._
+
+            **You can:**
+
+            * Insert text and images, also with copy and paste from other documents
+            * Create a page hierarchy with parent pages
+            * Include wiki pages to the project menu
+            * Use macros to include, e.g. table of contents, work package lists, or Gantt charts
+            * Include wiki pages in other text fields, e.g. project overview page
+            * Include links to other documents
+            * View the change history
+            * View as Markdown
+
+            More information: [https://www.openproject.org/docs/user-guide/wiki/](https://www.openproject.org/docs/user-guide/wiki/)
         scrum-project:
           name: Scrum project
           status_explanation: All tasks are on schedule. The people involved know their tasks. The system is completely set up.
@@ -340,8 +340,6 @@ hr:
                   name: Getting started
                   text: |
                     We are glad you joined! We suggest to try a few things to get started in OpenProject.
-
-                    Discover the most important features with our [Guided Tour]({{opSetting:base_url}}/projects/your-scrum-project/backlogs?start_scrum_onboarding_tour=true).
 
                     _Try the following steps:_
 
@@ -458,3 +456,92 @@ hr:
             * Time boxed (3 h).
             * After Sprint Review, will be moderated by Scrum Master.
             * The team discusses the sprint: what went well, what needs to be improved to be more productive for the next sprint or even have more fun.
+      statuses:
+        item_0:
+          name: Novi
+        item_1:
+          name: U fazi specifikacije
+        item_2:
+          name: Specificirano
+        item_3:
+          name: Potvrđeno
+        item_4:
+          name: Treba se planirati
+        item_5:
+          name: Planirano
+        item_6:
+          name: U tijeku
+        item_7:
+          name: Razvijeno
+        item_8:
+          name: U fazi testiranju
+        item_9:
+          name: Testirano
+        item_10:
+          name: Test nije uspio
+        item_11:
+          name: Zaključeno
+        item_12:
+          name: Na čekanju
+        item_13:
+          name: Odbijeno
+      time_entry_activities:
+        item_0:
+          name: Upravljanje
+        item_1:
+          name: Specifikacija
+        item_2:
+          name: Razvoj
+        item_3:
+          name: Testiranje
+        item_4:
+          name: Podrška
+        item_5:
+          name: Ostalo
+      types:
+        item_0:
+          name: Zadatak
+        item_1:
+          name: Ključna točka
+        item_2:
+          name: Summary task
+        item_3:
+          name: Značajka
+        item_4:
+          name: Epic
+        item_5:
+          name: User story
+        item_6:
+          name: Bug
+      global_queries:
+        item_0:
+          name: 'Epic children: User stories and bugs'
+        item_1:
+          name: 'User story children: Tasks'
+      type_configuration:
+        item_0:
+          form_configuration:
+            item_0:
+              group_name: User stories and bugs
+        item_1:
+          form_configuration:
+            item_0:
+              group_name: Tasks
+      welcome:
+        title: Welcome to OpenProject!
+        text: |
+          OpenProject is the leading open source project management software. It supports classic, agile as well as hybrid project management and gives you full control over your data.
+
+          Core features and use cases:
+
+          * [Project Portfolio Management](https://www.openproject.org/collaboration-software-features/project-portfolio-management/)
+          * [Project Planning and Scheduling](https://www.openproject.org/collaboration-software-features/project-planning-scheduling/)
+          * [Task Management and Issue Tracking](https://www.openproject.org/collaboration-software-features/task-management/)
+          * [Agile Boards (Scrum and Kanban)](https://www.openproject.org/collaboration-software-features/agile-project-management/)
+          * [Requirements Management and Release Planning](https://www.openproject.org/collaboration-software-features/product-development/)
+          * [Time and Cost Tracking, Budgets](https://www.openproject.org/collaboration-software-features/time-tracking/)
+          * [Team Collaboration and Documentation](https://www.openproject.org/collaboration-software-features/team-collaboration/)
+
+          Welcome to the future of project management.
+
+          For Admins: You can change this welcome text [here]({{opSetting:base_url}}/admin/settings/general).

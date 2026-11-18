@@ -8,6 +8,12 @@ if [ ! -d "/robotics-openproject/tmp/pids" ]; then
 
   cd /robotics-openproject
 
+  # Ensure the toolchain versions the sources require are active
+  RUBY_VERSION="$(cat .ruby-version 2>/dev/null)"
+  NODE_VERSION="$(cat .node-version 2>/dev/null)"
+  [ -n "$RUBY_VERSION" ] && rbenv global "$RUBY_VERSION"
+  [ -n "$NODE_VERSION" ] && nodenv global "$NODE_VERSION"
+
   rm -rf public/assets >> log/setup.log
   (cd frontend && npm ci) >> log/setup.log
   bundle exec rake openproject:plugins:register_frontend DATABASE_URL=$DB_URL

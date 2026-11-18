@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 #-- copyright
 
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,7 +32,7 @@ module DemoData
     include ::DemoData::References
 
     def seed_data!
-      print_status '    ↳ Creating groups' do
+      print_status "    ↳ Creating groups" do
         seed_groups
       end
     end
@@ -42,9 +44,9 @@ module DemoData
     private
 
     def seed_groups
-      seed_data.each('groups') do |group_data|
-        group = create_group group_data['name']
-        seed_data.store_reference(group_data['reference'], group)
+      seed_data.each("groups") do |group_data|
+        group = create_group group_data["name"]
+        seed_data.store_reference(group_data["reference"], group)
       end
     end
 

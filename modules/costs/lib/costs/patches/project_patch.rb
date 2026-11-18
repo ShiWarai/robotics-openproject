@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -32,12 +32,12 @@ module Costs::Patches::ProjectPatch
     base.include(InstanceMethods)
 
     base.class_eval do
-      has_many :rates, class_name: 'HourlyRate'
+      has_many :rates, class_name: "HourlyRate"
 
       has_many :member_groups, -> {
         includes(:principal)
           .where("#{Principal.table_name}.type='Group'")
-      }, class_name: 'Member'
+      }, class_name: "Member"
       has_many :groups, through: :member_groups, source: :principal
     end
   end
@@ -48,6 +48,12 @@ module Costs::Patches::ProjectPatch
   module InstanceMethods
     def costs_enabled?
       module_enabled?(:costs)
+    end
+
+    def cost_types_available?
+      return @cost_types_available if defined?(@cost_types_available)
+
+      @cost_types_available = CostType.available_for_project(self).active.exists?
     end
   end
 end

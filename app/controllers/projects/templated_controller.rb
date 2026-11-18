@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -40,7 +42,7 @@ class Projects::TemplatedController < ApplicationController
 
   private
 
-  def change_templated_action(templated)
+  def change_templated_action(templated) # rubocop:disable Metrics/AbcSize
     service_call = Projects::UpdateService
                      .new(user: current_user,
                           model: @project)
@@ -50,13 +52,13 @@ class Projects::TemplatedController < ApplicationController
       flash[:notice] = t(:notice_successful_update)
     else
       messages = [
-        t('activerecord.errors.template.header', model: Project.model_name.human, count: service_call.errors.count),
+        t("activerecord.errors.template.header", model: Project.model_name.human, count: service_call.errors.count),
         service_call.message
       ]
 
       flash[:error] = messages.join(". ")
     end
 
-    redirect_to project_settings_general_path(@project)
+    redirect_to project_settings_general_path(@project), status: :see_other
   end
 end

@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,44 +21,48 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, Inject,
-} from '@angular/core';
-import { take } from 'rxjs/operators';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map, take } from 'rxjs/operators';
 
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
 import { IFileLink } from 'core-app/core/state/file-links/file-link.model';
 import { ToastService } from 'core-app/shared/components/toaster/toast.service';
-import { OpModalLocalsMap } from 'core-app/shared/components/modal/modal.types';
 import { ConfigurationService } from 'core-app/core/config/configuration.service';
 import { IStorageFile } from 'core-app/core/state/storage-files/storage-file.model';
-import { OpModalLocalsToken } from 'core-app/shared/components/modal/modal.service';
-import { SortFilesPipe } from 'core-app/shared/components/storages/pipes/sort-files.pipe';
 import { FileLinksResourceService } from 'core-app/core/state/file-links/file-links.service';
 import { isDirectory, storageLocaleString } from 'core-app/shared/components/storages/functions/storages.functions';
-import { StorageFilesResourceService } from 'core-app/core/state/storage-files/storage-files.service';
 import {
-  StorageFileListItem,
+  StorageFileListItem, StorageFileListItemCheckbox,
 } from 'core-app/shared/components/storages/storage-file-list-item/storage-file-list-item';
 import {
   FilePickerBaseModalComponent,
 } from 'core-app/shared/components/storages/file-picker-base-modal/file-picker-base-modal.component';
-import { HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   templateUrl: 'file-picker-modal.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class FilePickerModalComponent extends FilePickerBaseModalComponent {
+  private readonly i18n = inject(I18nService);
+  private readonly toastService = inject(ToastService);
+  private readonly timezoneService = inject(TimezoneService);
+  private readonly configuration = inject(ConfigurationService);
+  private readonly fileLinksResourceService = inject(FileLinksResourceService);
+
   public readonly text = {
     header: this.i18n.t('js.storages.file_links.select'),
-    warningNoAccess: this.i18n.t('js.storages.files.project_folder_no_access'),
+    alertNoAccess: this.i18n.t('js.storages.files.project_folder_no_access'),
+    alertNoManagedProjectFolder: this.i18n.t('js.storages.files.managed_project_folder_not_available'),
+    alertNoAccessToManagedProjectFolder: this.i18n.t('js.storages.files.managed_project_folder_no_access'),
     content: {
       empty: this.i18n.t('js.storages.files.empty_folder'),
       emptyHint: this.i18n.t('js.storages.files.empty_folder_location_hint'),
@@ -87,31 +91,34 @@ export class FilePickerModalComponent extends FilePickerBaseModalComponent {
     return this.i18n.t(storageLocaleString(this.storage._links.type.href));
   }
 
+  public get alertText():Observable<string> {
+    return this.showAlert
+      .pipe(
+        map((alert) => {
+          switch (alert) {
+            case 'noAccess':
+              return this.text.alertNoAccess;
+            case 'managedFolderNoAccess':
+              return this.text.alertNoAccessToManagedProjectFolder;
+            case 'managedFolderNotFound':
+              return this.text.alertNoManagedProjectFolder;
+            case 'none':
+              return '';
+            default:
+              throw new Error('unknown alert type');
+          }
+        }),
+      );
+  }
+
   public showSelectAll = false;
 
   private readonly selection = new Set<string>();
 
   private readonly fileMap:Record<string, IStorageFile> = {};
 
-  constructor(
-    @Inject(OpModalLocalsToken) public locals:OpModalLocalsMap,
-    readonly elementRef:ElementRef,
-    readonly cdRef:ChangeDetectorRef,
-    protected readonly sortFilesPipe:SortFilesPipe,
-    protected readonly storageFilesResourceService:StorageFilesResourceService,
-    private readonly i18n:I18nService,
-    private readonly toastService:ToastService,
-    private readonly timezoneService:TimezoneService,
-    private readonly configuration:ConfigurationService,
-    private readonly fileLinksResourceService:FileLinksResourceService,
-  ) {
-    super(
-      locals,
-      elementRef,
-      cdRef,
-      sortFilesPipe,
-      storageFilesResourceService,
-    );
+  constructor() {
+    super();
 
     this.showSelectAll = this.configuration.activeFeatureFlags.includes('storageFilePickingSelectAll');
   }
@@ -168,11 +175,17 @@ export class FilePickerModalComponent extends FilePickerBaseModalComponent {
       this.enterDirectoryCallback(file),
       false,
       this.tooltip(file),
-      {
-        selected: this.selection.has(file.id as string),
-        changeSelection: () => { this.changeSelection(file); },
-      },
+      this.hasCheckbox(file),
     );
+  }
+
+  private hasCheckbox(file:IStorageFile):StorageFileListItemCheckbox|undefined {
+    if (file.mimeType !== 'application/x-op-drive') {
+      return {
+        selected: this.selection.has(file.id as string),
+        changeSelection: () => { this.changeSelection(file); }
+      };
+    } else { return; }
   }
 
   private isAlreadyLinked(file:IStorageFile):boolean {

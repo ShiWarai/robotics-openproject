@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-RSpec.shared_context 'with basic seed data' do |edition: 'standard'|
+RSpec.shared_context "with basic seed data" do |edition: "standard"|
   def add_needed_seeders_for(seeder_class, needed_acc)
     seeder_class.needs.each do |needed_seeder_class|
       next if needed_acc.include?(needed_seeder_class)
@@ -48,7 +48,7 @@ RSpec.shared_context 'with basic seed data' do |edition: 'standard'|
   shared_let(:needed_seeders_keys) do
     # warning: there is one limitation: RoleSeeder will only pick 'roles' key,
     # and not 'modules_permissions' key.
-    needed_seeders.map { _1.try(:seed_data_model_key) }.compact
+    needed_seeders.map { it.try(:seed_data_model_key) }.compact
   end
   shared_let(:basic_seed_data) do
     Source::SeedDataLoader.get_data(edition:).only(*needed_seeders_keys)

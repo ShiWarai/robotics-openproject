@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,17 +28,18 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require File.expand_path(File.dirname(__FILE__) + '/../spec_helper.rb')
+require_relative "../spec_helper"
 
-RSpec.describe 'Deleting time entries', js: true do
+RSpec.describe "Deleting time entries", :js do
+  include Components::Autocompleter::NgSelectAutocompleteHelpers
+
   let(:project) { work_package.project }
   let(:user) do
     create(:user,
-           member_in_project: project,
-           member_through_role: role)
+           member_with_roles: { project => role })
   end
   let(:role) do
-    create(:role,
+    create(:project_role,
            permissions: %i[view_work_packages
                            delete_work_packages
                            edit_cost_entries
@@ -45,7 +48,7 @@ RSpec.describe 'Deleting time entries', js: true do
   let(:work_package) { create(:work_package) }
   let(:destroy_modal) { Components::WorkPackages::DestroyModal.new }
   let(:cost_type) do
-    type = create(:cost_type, name: 'Translations')
+    type = create(:cost_type, name: "Translations")
     create(:cost_rate,
            cost_type: type,
            rate: 7.00)
@@ -57,14 +60,14 @@ RSpec.describe 'Deleting time entries', js: true do
   let(:other_work_package) { create(:work_package, project:, budget:) }
   let(:cost_entry) do
     create(:cost_entry,
-           work_package:,
+           entity: work_package,
            project:,
            units: 2.00,
            cost_type:,
            user:)
   end
 
-  it 'allows to move the time entry to a different work package' do
+  it "allows to move the time entry to a different work package" do
     login_as(user)
 
     work_package
@@ -75,18 +78,18 @@ RSpec.describe 'Deleting time entries', js: true do
     wp_page.visit!
 
     SeleniumHubWaiter.wait
-    find_by_id('action-show-more-dropdown-menu').click
+    find_by_id("action-show-more-dropdown-menu").click
 
-    click_link(I18n.t('js.button_delete'))
+    click_link(I18n.t("js.button_delete"))
 
     destroy_modal.expect_listed(work_package)
     destroy_modal.confirm_deletion
 
     SeleniumHubWaiter.wait
-    choose 'to_do_action_reassign'
-    fill_in 'to_do_reassign_to_id', with: other_work_package.id
+    choose "to_do_action_reassign"
+    select_autocomplete(find("opce-autocompleter"), query: other_work_package.subject)
 
-    click_button(I18n.t('button_delete'))
+    click_button(I18n.t("button_delete"))
 
     table = Pages::WorkPackagesTable.new(project)
     table.expect_current_path
@@ -94,6 +97,6 @@ RSpec.describe 'Deleting time entries', js: true do
     other_wp_page = Pages::FullWorkPackage.new(other_work_package)
     other_wp_page.visit!
 
-    wp_page.expect_attributes costs_by_type: '2 Translations'
+    wp_page.expect_attributes costs_by_type: "2 Translations"
   end
 end

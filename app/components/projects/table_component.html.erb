@@ -1,6 +1,6 @@
 <%#-- copyright
 OpenProject is an open source project management software.
-Copyright (C) 2012-2023 the OpenProject GmbH
+Copyright (C) the OpenProject GmbH
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License version 3.
@@ -26,76 +26,78 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 See COPYRIGHT and LICENSE files for more details.
 
 ++#%>
-
-<div class="generic-table--flex-container">
-  <div class="generic-table--container">
-    <div class="generic-table--results-container">
-      <table class="generic-table" <%= table_id ? "id=\"#{table_id}\"".html_safe : '' %>>
-        <colgroup>
-          <% headers.each do |_name, _options| %>
-            <col <%= "opHighlightCol" unless _name == :hierarchy %> >
-          <% end %>
-          <col opHighlightCol>
-        </colgroup>
-        <thead  class="-sticky">
-        <tr>
-          <% headers.each do |name, options| %>
-            <% if name == :hierarchy %>
-              <th id="project-table--hierarchy-header">
-                <div class="generic-table--sort-header-outer generic-table--sort-header-outer_no-highlighting">
-                  <div class="generic-table--sort-header">
-                    <%= content_tag :a,
-                                    helpers.op_icon("icon-hierarchy"),
-                                    href: href_only_when_not_sort_lft,
-                                    class: "spot-link #{deactivate_class_on_lft_sort}",
-                                    title: t(:label_sort_by, value: %("#{t(:label_project_hierarchy)}")) %>
-                  </div>
-                </div>
-              </th>
-            <% elsif sortable_column?(name) %>
-              <%= build_sort_header name, options %>
-            <% else %>
-              <th>
-                <div class="generic-table--sort-header-outer">
-                  <div class="generic-table--sort-header">
-                      <span>
-                        <%= options[:caption] %>
-                      </span>
-                  </div>
-                </div>
-              </th>
-            <% end %>
-          <% end %>
-          <th class="-right">
-            <div class="generic-table--header-outer">
-              <div class="generic-table--header">
-                <% if params[:expand] == 'all' %>
-                  <%= link_to t(:button_collapse_all), { params: helpers.safe_query_params(%w{filters page per_page sortBy}).except(:expand) } %>
-                <% else %>
-                  <%= link_to t(:button_expand_all), { params: helpers.safe_query_params(%w{filters page per_page sortBy}).merge(expand: 'all') } %>
+<%= component_wrapper(tag: "turbo-frame") do %>
+  <div class="project-list-page--table" data-controller="table-action-menu">
+    <div class="generic-table--flex-container">
+      <div class="generic-table--container <%= container_class %>">
+        <div class="generic-table--results-container">
+          <%= content_tag :table,
+                          id: table_id,
+                          class: "generic-table",
+                          data: { controller: "table-highlighting" } do %>
+            <colgroup>
+              <% columns.each do |column| %>
+                <col <%= "opHighlightCol" unless column.attribute == :hierarchy %>>
+              <% end %>
+              <col>
+            </colgroup>
+            <thead class="-sticky">
+              <tr>
+                <% columns.each do |column| %>
+                  <% if column.attribute == :hierarchy %>
+                    <th id="project-table--hierarchy-header">
+                      <div class="generic-table--sort-header-outer generic-table--sort-header-outer_no-highlighting">
+                        <div class="generic-table--sort-header">
+                          <%= content_tag :a,
+                                          helpers.op_icon("icon-hierarchy"),
+                                          href: href_only_when_not_sort_lft,
+                                          class: "spot-link #{deactivate_class_on_lft_sort}",
+                                          data: { "turbo-stream": true },
+                                          title: t(:label_sort_by, value: %("#{t(:label_project_hierarchy)}")) %>
+                        </div>
+                      </div>
+                    </th>
+                  <% else %>
+                    <% if use_quick_action_table_headers? %>
+                      <%= quick_action_table_header column, order_options(column, turbo: true) %>
+                    <% else %>
+                      <th>
+                        <div class="generic-table--sort-header-outer">
+                          <div class="generic-table--sort-header">
+                          <span>
+                            <%= column.caption %>
+                          </span>
+                          </div>
+                        </div>
+                      </th>
+                    <% end %>
+                  <% end %>
                 <% end %>
-              </div>
+                <th>
+                  <div class="generic-table--empty-header">
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <% if rows.empty? %>
+                <tr class="generic-table--empty-row">
+                  <td colspan="<%= columns.length + 1 %>"><%= empty_row_message %></td>
+                </tr>
+              <% end %>
+              <%= render_collection rows %>
+            </tbody>
+          <% end %>
+          <% if inline_create_link && show_inline_create %>
+            <div class="wp-inline-create-button">
+              <%= inline_create_link %>
             </div>
-          </th>
-        </tr>
-        </thead>
-        <tbody>
-        <% if rows.empty? %>
-          <tr class="generic-table--empty-row">
-            <td colspan="<%= headers.length + 1 %>"><%= empty_row_message %></td>
-          </tr>
-        <% end %>
-        <%= render_collection rows %>
-        </tbody>
-      </table>
-      <% if inline_create_link && show_inline_create %>
-        <div class="wp-inline-create-button">
-          <%= inline_create_link %>
+          <% end %>
         </div>
-      <% end %>
+      </div>
     </div>
   </div>
   <% if paginated? %>
-    <%= helpers.pagination_links_full model %>
+    <%= helpers.pagination_links_full(model, **pagination_options) %>
   <% end %>
-</div>
+<% end %>

@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,45 +21,37 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { ToastService } from 'core-app/shared/components/toaster/toast.service';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 
 @Injectable({
   providedIn: 'root',
 })
-
 export class CopyToClipboardService {
-  constructor(
-    readonly toastService:ToastService,
-    readonly I18n:I18nService,
-  ) { }
+  readonly toastService = inject(ToastService);
+  readonly I18n = inject(I18nService);
 
-  copy(content:string) {
+
+  copy(content:string, successMessage?:string) {
     if (!navigator.clipboard) {
       // fallback for browsers that don't support clipboard API at all
-      this.addNotification('addError', this.I18n.t('js.clipboard.browser_error', { content }));
+      this.toastService.addWarning(this.I18n.t('js.clipboard.browser_error', { content }));
     } else {
       void navigator.clipboard.writeText(content)
         .then(() => {
-          this.addNotification('addSuccess', this.I18n.t('js.clipboard.copied_successful'));
+          const notification = this.toastService.addSuccess(successMessage ?? this.I18n.t('js.clipboard.copied_successful'));
+          setTimeout(() => this.toastService.remove(notification), 5000);
         })
         .catch(() => {
           // fallback when running into e.g. browser permission errors
-          this.addNotification('addError', this.I18n.t('js.clipboard.browser_error', { content }));
+          this.toastService.addWarning(this.I18n.t('js.clipboard.browser_error', { content }));
         });
     }
-  }
-
-  addNotification(type:'addSuccess'|'addError', message:string) {
-    const notification = this.toastService[type](message);
-
-    // Remove the notification some time later
-    setTimeout(() => this.toastService.remove(notification), 5000);
   }
 }

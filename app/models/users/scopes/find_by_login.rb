@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,6 +36,10 @@ module Users::Scopes
     class_methods do
       def by_login(login)
         where(["LOWER(login) = ?", login.to_s.downcase])
+      end
+
+      def by_logins(logins)
+        where(["LOWER(login) IN (?)", Array(logins).map { it.to_s.downcase }])
       end
 
       # Find a user scope by matching the exact login and then a case-insensitive

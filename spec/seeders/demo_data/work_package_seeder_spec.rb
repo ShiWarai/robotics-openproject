@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +28,10 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe DemoData::WorkPackageSeeder do
-  include_context 'with basic seed data'
+  include_context "with basic seed data"
 
   shared_let(:work_week) { week_with_saturday_and_sunday_as_weekend }
 
@@ -37,7 +39,8 @@ RSpec.describe DemoData::WorkPackageSeeder do
   let(:new_project_role) { seed_data.find_reference(:default_role_project_admin) }
   let(:closed_status) { seed_data.find_reference(:default_status_closed) }
   let(:work_packages_data) { [] }
-  let(:seed_data) { basic_seed_data.merge(Source::SeedData.new('work_packages' => work_packages_data)) }
+  let(:seed_data) { basic_seed_data.merge(Source::SeedData.new("work_packages" => work_packages_data)) }
+  let(:work_package_seeder) { described_class.new(project, seed_data) }
 
   def work_package_data(**attributes)
     {
@@ -49,24 +52,23 @@ RSpec.describe DemoData::WorkPackageSeeder do
   end
 
   before do
-    work_package_seeder = described_class.new(project, seed_data)
     work_package_seeder.seed!
   end
 
-  context 'with work package data with start: 0' do
+  context "with work package data with start: 0" do
     let(:work_packages_data) do
       [
         work_package_data(start: 0)
       ]
     end
 
-    it 'start on the Monday of the current week' do
+    it "start on the Monday of the current week" do
       current_week_monday = Date.current.monday
       expect(WorkPackage.first.start_date).to eq(current_week_monday)
     end
   end
 
-  context 'with work package data with start: n' do
+  context "with work package data with start: n" do
     let(:work_packages_data) do
       [
         work_package_data(start: 2),
@@ -74,14 +76,14 @@ RSpec.describe DemoData::WorkPackageSeeder do
       ]
     end
 
-    it 'will start n days after the Monday of the current week' do
+    it "starts n days after the Monday of the current week" do
       current_week_monday = Date.current.monday
       expect(WorkPackage.first.start_date).to eq(current_week_monday + 2.days)
       expect(WorkPackage.second.start_date).to eq(current_week_monday + 42.days)
     end
   end
 
-  context 'with work package data with start: -n' do
+  context "with work package data with start: -n" do
     let(:work_packages_data) do
       [
         work_package_data(start: -3),
@@ -89,14 +91,14 @@ RSpec.describe DemoData::WorkPackageSeeder do
       ]
     end
 
-    it 'will start n days before the Monday of the current week' do
+    it "starts n days before the Monday of the current week" do
       current_week_monday = Date.current.monday
       expect(WorkPackage.first.start_date).to eq(current_week_monday - 3.days)
       expect(WorkPackage.second.start_date).to eq(current_week_monday - 17.days)
     end
   end
 
-  context 'with work package data with duration' do
+  context "with work package data with duration" do
     let(:work_packages_data) do
       [
         work_package_data(start: 0, duration: 1), # from Monday to Saturday
@@ -105,7 +107,7 @@ RSpec.describe DemoData::WorkPackageSeeder do
       ]
     end
 
-    it 'will have finish date calculated being start + duration - 1' do
+    it "has finish date calculated being start + duration - 1" do
       current_week_monday = Date.current.monday
       expect(WorkPackage.first.due_date).to eq(current_week_monday)
       expect(WorkPackage.second.due_date).to eq(current_week_monday + 5.days)
@@ -113,45 +115,45 @@ RSpec.describe DemoData::WorkPackageSeeder do
     end
   end
 
-  context 'with work package data without duration' do
+  context "with work package data without duration" do
     let(:work_packages_data) do
       [
         work_package_data(duration: nil)
       ]
     end
 
-    it 'will have no duration' do
+    it "has no duration" do
       expect(WorkPackage.first.duration).to be_nil
     end
 
-    it 'will have no finish date' do
+    it "has no finish date" do
       expect(WorkPackage.first.due_date).to be_nil
     end
   end
 
-  context 'when both start date and due date are on a working day' do
+  context "when both start date and due date are on a working day" do
     let(:work_packages_data) do
       [
         work_package_data(start: 1, duration: 10) # from Tuesday to next Thursday
       ]
     end
 
-    it 'will have ignore_non_working_day set to true' do
+    it "has ignore_non_working_day set to true" do
       expect(WorkPackage.first.ignore_non_working_days).to be(false)
     end
 
-    it 'will have finish date calculated from duration based on real days' do
+    it "has finish date calculated from duration based on real days" do
       work_package = WorkPackage.first
       expect(work_package.due_date).to eq(work_package.start_date + 9.days)
       expect(work_package.due_date.wday).to eq(4)
     end
 
-    it 'will have duration adjusted to count only working days' do
+    it "has duration adjusted to count only working days" do
       expect(WorkPackage.first.duration).to eq(8)
     end
   end
 
-  context 'when either start date or finish date is on a non-working day' do
+  context "when either start date or finish date is on a non-working day" do
     let(:work_packages_data) do
       [
         work_package_data(start: -1, duration: 3), # start date non working: from Sunday to Tuesday
@@ -159,102 +161,187 @@ RSpec.describe DemoData::WorkPackageSeeder do
       ]
     end
 
-    it 'will have ignore_non_working_day set to true' do
+    it "has ignore_non_working_day set to true" do
       expect(WorkPackage.first.ignore_non_working_days).to be(true)
       expect(WorkPackage.second.ignore_non_working_days).to be(true)
     end
 
-    it 'will have duration being the same as defined' do
+    it "has duration being the same as defined" do
       expect(WorkPackage.first.duration).to eq(3)
       expect(WorkPackage.second.duration).to eq(7)
     end
   end
 
-  context 'with work package data with estimated_hours' do
+  context "with work package data with estimated_hours" do
     let(:work_packages_data) do
       [
         work_package_data(estimated_hours: 3)
       ]
     end
 
-    it 'sets estimated_hours to the given value' do
+    it "sets estimated_hours to the given value" do
       expect(WorkPackage.first.estimated_hours).to eq(3)
     end
   end
 
-  context 'with work package data without estimated_hours' do
+  context "with work package data without estimated_hours" do
     let(:work_packages_data) do
       [
         work_package_data(estimated_hours: nil)
       ]
     end
 
-    it 'does not set estimated_hours' do
+    it "does not set estimated_hours" do
       expect(WorkPackage.first.estimated_hours).to be_nil
     end
   end
 
-  context 'with a parent relation by reference' do
+  context "with work package data with remaining_hours and done_ratio" do
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Parent', reference: :wp_parent),
-        work_package_data(subject: 'Child', parent: :wp_parent)
+        work_package_data(estimated_hours: 8, remaining_hours: 4, done_ratio: 50)
       ]
     end
 
-    it 'creates a parent-child relation between work packages' do
+    it "sets remaining_hours and done_ratio to the given values" do
+      work_package = WorkPackage.first
+      expect(work_package.remaining_hours).to eq(4)
+      expect(work_package.done_ratio).to eq(50)
+    end
+  end
+
+  context "with work package data without remaining_hours and done_ratio" do
+    let(:work_packages_data) do
+      [
+        work_package_data(estimated_hours: 8)
+      ]
+    end
+
+    it "does not set remaining_hours or done_ratio" do
+      work_package = WorkPackage.first
+      expect(work_package.remaining_hours).to be_nil
+      expect(work_package.done_ratio).to be_nil
+    end
+  end
+
+  context "with work package data with schedule_manually" do
+    let(:work_packages_data) do
+      [
+        work_package_data(schedule_manually: false),
+        work_package_data(schedule_manually: true)
+      ]
+    end
+
+    it "sets schedule_manually to the given value" do
+      expect(WorkPackage.first.schedule_manually).to be(false)
+      expect(WorkPackage.second.schedule_manually).to be(true)
+    end
+  end
+
+  context "with work package data without schedule_manually" do
+    let(:work_packages_data) do
+      [
+        work_package_data(schedule_manually: nil)
+      ]
+    end
+
+    it "sets schedule_manually to true, its default value" do
+      expect(WorkPackage.first.schedule_manually).to be(true)
+    end
+  end
+
+  context "with a parent relation by reference" do
+    let(:work_packages_data) do
+      [
+        work_package_data(subject: "Parent", reference: :wp_parent),
+        work_package_data(subject: "Child", parent: :wp_parent)
+      ]
+    end
+
+    it "correctly returns the required references" do
+      expect(work_package_seeder.all_required_references)
+        .to contain_exactly(:default_status_new, :default_type_task)
+    end
+
+    it "creates a parent-child relation between work packages" do
       expect(WorkPackage.count).to eq(2)
-      expect(WorkPackage.second.parent).to eq(WorkPackage.first)
+      parent, child = WorkPackage.order(:id).to_a
+      expect(child.parent).to eq(parent)
     end
   end
 
-  context 'with a parent relation by reference inside a nested children property' do
+  context "with a parent relation by reference inside a nested children property" do
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Grand-parent',
+        work_package_data(subject: "Grand-parent",
                           children: [
-                            work_package_data(subject: 'Parent', reference: :this_one)
+                            work_package_data(subject: "Parent", reference: :this_one)
                           ]),
-        work_package_data(subject: 'Child', parent: :this_one)
+        work_package_data(subject: "Child", parent: :this_one)
       ]
     end
 
-    it 'creates parent-child relations between work packages' do
-      expect(WorkPackage.find_by(subject: 'Child').parent).to eq(WorkPackage.find_by(subject: 'Parent'))
-      expect(WorkPackage.find_by(subject: 'Parent').parent).to eq(WorkPackage.find_by(subject: 'Grand-parent'))
+    it "correctly returns the required references" do
+      expect(work_package_seeder.all_required_references)
+        .to contain_exactly(:default_status_new, :default_type_task)
+    end
+
+    it "creates parent-child relations between work packages" do
+      expect(WorkPackage.find_by(subject: "Child").parent).to eq(WorkPackage.find_by(subject: "Parent"))
+      expect(WorkPackage.find_by(subject: "Parent").parent).to eq(WorkPackage.find_by(subject: "Grand-parent"))
     end
   end
 
-  context 'with a parent relation by reference inside a nested children property with a bcf uuid' do
+  context "with a parent relation by reference inside a nested children property with a bcf uuid" do
     let(:bcf_work_package) { create(:work_package, project:) }
-    let(:bcf_issue) { create(:bcf_issue, work_package: bcf_work_package, uuid: 'fbbf9ecf-5721-4bf1-a08c-aed50dc19353') }
+    let(:bcf_issue) { create(:bcf_issue, work_package: bcf_work_package, uuid: "fbbf9ecf-5721-4bf1-a08c-aed50dc19353") }
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Grand-parent',
+        work_package_data(subject: "Grand-parent",
                           children: [
-                            work_package_data(subject: 'Parent', reference: :this_one)
+                            work_package_data(subject: "Parent", reference: :this_one)
                           ]),
         work_package_data(bcf_issue_uuid: bcf_issue.uuid, parent: :this_one)
       ]
     end
 
-    it 'creates parent-child relations between work packages' do
-      expect(bcf_work_package.reload.parent).to eq(WorkPackage.find_by(subject: 'Parent'))
-      expect(WorkPackage.find_by(subject: 'Parent').parent).to eq(WorkPackage.find_by(subject: 'Grand-parent'))
+    it "creates parent-child relations between work packages" do
+      expect(bcf_work_package.reload.parent).to eq(WorkPackage.find_by(subject: "Parent"))
+      expect(WorkPackage.find_by(subject: "Parent").parent).to eq(WorkPackage.find_by(subject: "Grand-parent"))
     end
   end
 
-  context 'with a work package description referencing a work package with ##wp:ref notation' do
+  context "with a relations array" do
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Major thing to do',
-                          reference: :major_thing),
-        work_package_data(subject: 'Other thing',
-                          description: 'Check [this work package](##wp:major_thing) of id ##wp.id:major_thing.')
+        work_package_data(subject: "predecessor", reference: :predecessor),
+        work_package_data(subject: "related", reference: :related),
+        work_package_data(subject: "successor", relations: [{ to: :predecessor, type: "follows" },
+                                                            { to: :related, type: "relates" }])
       ]
     end
 
-    it 'creates parent-child relations between work packages' do
+    it "creates relations between work packages" do
+      expect(WorkPackage.count).to eq(3)
+      predecessor, related, successor = WorkPackage.order(:id).to_a
+      expect(successor.relations.pluck(:relation_type, :to_id)).to contain_exactly(
+        ["follows", predecessor.id],
+        ["relates", related.id]
+      )
+    end
+  end
+
+  context "with a work package description referencing a work package with ##wp:ref notation" do
+    let(:work_packages_data) do
+      [
+        work_package_data(subject: "Major thing to do",
+                          reference: :major_thing),
+        work_package_data(subject: "Other thing",
+                          description: "Check [this work package](##wp:major_thing) of id ##wp.id:major_thing.")
+      ]
+    end
+
+    it "creates parent-child relations between work packages" do
       wp_major, wp_other = WorkPackage.order(:id).to_a
       expect(wp_other.description)
         .to eq("Check [this work package](/projects/#{project.identifier}/" \
@@ -262,78 +349,127 @@ RSpec.describe DemoData::WorkPackageSeeder do
     end
   end
 
-  context 'with a work package description referencing a query with ##query:ref notation' do
+  context "with a work package description referencing a query with ##query:ref notation" do
     let(:seed_data) do
-      seed_data = basic_seed_data.merge(Source::SeedData.new('work_packages' => work_packages_data))
+      seed_data = basic_seed_data.merge(Source::SeedData.new("work_packages" => work_packages_data))
       seed_data.store_reference(:q_project_plan, query)
       seed_data
     end
     let(:query) { create(:query, project:) }
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Referencing query',
-                          description: 'The [query](##query:q_project_plan) of id ##query.id:q_project_plan.')
+        work_package_data(subject: "Referencing query",
+                          description: "The [query](##query:q_project_plan) of id ##query.id:q_project_plan.")
       ]
     end
 
-    it 'creates link to the query with the right id' do
+    it "creates link to the query with the right id" do
       expect(WorkPackage.last.description)
         .to eq("The [query](/projects/#{project.identifier}/work_packages?query_id=#{query.id}) of id #{query.id}.")
     end
   end
 
-  context 'with a work package description referencing a sprint with ##sprint:ref notation' do
+  context "with a work package description referencing a sprint with ##sprint:ref notation" do
     let(:seed_data) do
-      seed_data = basic_seed_data.merge(Source::SeedData.new('work_packages' => work_packages_data))
+      seed_data = basic_seed_data.merge(Source::SeedData.new("work_packages" => work_packages_data))
       seed_data.store_reference(:sprint_backlog, sprint)
       seed_data
     end
     let(:sprint) { create(:sprint, project:) }
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'Referencing sprint',
-                          description: 'The [sprint](##sprint:sprint_backlog) of id ##sprint.id:sprint_backlog.')
+        work_package_data(subject: "Referencing sprint",
+                          description: "The [sprint](##sprint:sprint_backlog) of id ##sprint.id:sprint_backlog.")
       ]
     end
 
-    it 'creates link to the sprint with the right id' do
+    it "creates link to the sprint with the right id" do
       expect(WorkPackage.last.description)
-        .to eq("The [sprint](/projects/#{project.identifier}/sprints/#{sprint.id}/taskboard) of id #{sprint.id}.")
+        .to eq("The [sprint](/projects/#{project.identifier}/backlogs/sprints/#{sprint.id}/taskboard) of id #{sprint.id}.")
     end
   end
 
-  describe 'assigned_to' do
+  describe "target_versions" do
+    let(:version_alpha) { create(:version, project:, name: "Alpha") }
+    let(:version_beta) { create(:version, project:, name: "Beta") }
     let(:seed_data) do
-      seed_data = basic_seed_data.merge(Source::SeedData.new('work_packages' => work_packages_data))
+      seed_data = basic_seed_data.merge(Source::SeedData.new("work_packages" => work_packages_data))
+      seed_data.store_reference(:version_alpha, version_alpha)
+      seed_data.store_reference(:version_beta, version_beta)
+      seed_data
+    end
+
+    context "without target_versions" do
+      let(:work_packages_data) do
+        [work_package_data(subject: "no versions")]
+      end
+
+      it "creates no work_package_versions rows" do
+        wp = WorkPackage.find_by(subject: "no versions")
+        expect(wp.work_package_versions).to be_empty
+        expect(wp.target_versions).to be_empty
+      end
+    end
+
+    context "with a single target_versions reference" do
+      let(:work_packages_data) do
+        [work_package_data(subject: "single", target_versions: [:version_alpha])]
+      end
+
+      it "creates one kind: 'target' associated version row" do
+        wp = WorkPackage.find_by(subject: "single")
+        expect(wp.work_package_versions.pluck(:kind, :version_id))
+          .to contain_exactly(["target", version_alpha.id])
+        expect(wp.target_versions).to contain_exactly(version_alpha)
+      end
+    end
+
+    context "with multiple target_versions references" do
+      let(:work_packages_data) do
+        [work_package_data(subject: "multi", target_versions: %i[version_alpha version_beta])]
+      end
+
+      it "creates one kind: 'target' row per resolved version" do
+        wp = WorkPackage.find_by(subject: "multi")
+        expect(wp.work_package_versions.pluck(:kind, :version_id))
+          .to contain_exactly(["target", version_alpha.id], ["target", version_beta.id])
+        expect(wp.target_versions).to contain_exactly(version_alpha, version_beta)
+      end
+    end
+  end
+
+  describe "assigned_to" do
+    let(:seed_data) do
+      seed_data = basic_seed_data.merge(Source::SeedData.new("work_packages" => work_packages_data))
       seed_data.store_reference(:user_bernard, a_user)
       seed_data
     end
-    let(:a_user) { create(:user, lastname: 'Bernard') }
+    let(:a_user) { create(:user, lastname: "Bernard") }
     let(:work_packages_data) do
       [
-        work_package_data(subject: 'without assigned_to'),
-        work_package_data(subject: 'with assigned_to', assigned_to: :user_bernard)
+        work_package_data(subject: "without assigned_to"),
+        work_package_data(subject: "with assigned_to", assigned_to: :user_bernard)
       ]
     end
 
-    it 'assigns work packages without assigned_to to the admin user' do
-      work_package = WorkPackage.find_by(subject: 'without assigned_to')
+    it "assigns work packages without assigned_to to the admin user" do
+      work_package = WorkPackage.find_by(subject: "without assigned_to")
       expect(work_package.assigned_to).to eq(User.user.admin.last)
     end
 
-    it 'assigns work packages with assigned_to referencing the user' do
-      work_package = WorkPackage.find_by(subject: 'with assigned_to')
+    it "assigns work packages with assigned_to referencing the user" do
+      work_package = WorkPackage.find_by(subject: "with assigned_to")
       expect(work_package.assigned_to).to eq(a_user)
     end
 
-    context 'with a BCF work package data' do
+    context "with a BCF work package data" do
       let(:bcf_work_package_without_assigned_to) { create(:work_package, project:) }
       let(:bcf_issue_without_assigned_to) do
-        create(:bcf_issue, work_package: bcf_work_package_without_assigned_to, uuid: 'aaaaaaaa-5721-4bf1-a08c-aed50dc19353')
+        create(:bcf_issue, work_package: bcf_work_package_without_assigned_to, uuid: "aaaaaaaa-5721-4bf1-a08c-aed50dc19353")
       end
       let(:bcf_work_package_with_assigned_to) { create(:work_package, project:) }
       let(:bcf_issue_with_assigned_to) do
-        create(:bcf_issue, work_package: bcf_work_package_with_assigned_to, uuid: 'bbbbbbbb-5721-4bf1-a08c-aed50dc19353')
+        create(:bcf_issue, work_package: bcf_work_package_with_assigned_to, uuid: "bbbbbbbb-5721-4bf1-a08c-aed50dc19353")
       end
       let(:work_packages_data) do
         [
@@ -342,12 +478,12 @@ RSpec.describe DemoData::WorkPackageSeeder do
         ]
       end
 
-      it 'assigns work packages without assigned_to to the admin user' do
+      it "assigns work packages without assigned_to to the admin user" do
         expect(bcf_work_package_without_assigned_to.reload.assigned_to)
           .to eq(User.user.admin.last)
       end
 
-      it 'assigns work packages with assigned_to referencing the user lastname' do
+      it "assigns work packages with assigned_to referencing the user lastname" do
         expect(bcf_work_package_with_assigned_to.reload.assigned_to)
           .to eq(a_user)
       end

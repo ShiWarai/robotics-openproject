@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -32,8 +34,6 @@ class Notifications::CreateDateAlertsNotificationsJob::Service
   end
 
   def call
-    return unless EnterpriseToken.allows_to?(:date_alerts)
-
     Time.use_zone(user.time_zone) do
       send_date_alert_notifications(user)
     end
@@ -70,7 +70,6 @@ class Notifications::CreateDateAlertsNotificationsJob::Service
     create_service = Notifications::CreateService.new(user:)
     create_service.call(
       recipient_id: user.id,
-      project_id: work_package.project_id,
       resource: work_package,
       reason:
     )

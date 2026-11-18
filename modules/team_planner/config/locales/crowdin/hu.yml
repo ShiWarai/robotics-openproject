@@ -1,19 +1,21 @@
-#English strings go here
+---
 hu:
-  permission_view_team_planner: "Csoport tervező megtekintése"
-  permission_manage_team_planner: "Csoport tervező kezelése"
-  project_module_team_planner_view: "Csoport tervezők"
+  ee:
+    feature_names:
+      team_planner_view: Csoport tervező
+    upsell:
+      team_planner_view:
+        description: Szerezz áttekintést arról, hogy a csapatod mit tervez a Csapattervezővel. Nyújtsd, rövidítsd, fogd és dobd a munkacsomagokat, hogy módosítsd az időpontokat, áthelyezd őket vagy megváltoztasd a hozzárendelt felhasználót.
+        title: Csoport tervező
+  permission_manage_team_planner: Csoport tervező kezelése
+  permission_view_team_planner: Csoport tervező megtekintése
+  plugin_openproject_team_planner:
+    description: Csapat tervező nézeteket biztosít.
+    name: OpenProject Csapat tervező
+  project_module_team_planner_view: Csoport tervezők
   team_planner:
-    label_team_planner: "Csoport tervező"
-    label_new_team_planner: "New team planner"
-    label_create_new_team_planner: "Új csoport tervező létrehozása"
-    label_team_planner_plural: "Csoport tervezők"
-    label_assignees: "Megbízottak"
-    label_favoured: "Favoured"
-    help_text:
-      project: Team planners are always attached to a project. After creating a team planner you can add work packages from other projects to it.
-      public: Publish this view, allowing other users to access your view. Users with the 'Manage public views' permission can modify or remove public query. This does not affect the visibility of work package results in that view and depending on their permissions, users may see different results.
-      favoured: Mark this view as favourite and add to the saved views sidebar on the left.
-    upsale:
-      title: "Csoport tervező"
-      description: "Get a complete overview of your team’s planning with Team Planner. Stretch, shorten and drag-and-drop work packages to modify dates, move them or change assignees."
+    label_assignees: Megbízottak
+    label_create_new_team_planner: Új csoport tervező létrehozása
+    label_new_team_planner: Új csapattervező
+    label_team_planner: Csoport tervező
+    label_team_planner_plural: Csoport tervezők

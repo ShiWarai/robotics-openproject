@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,13 +28,11 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Role creation',
-               js: true,
-               with_cuprite: true do
+RSpec.describe "Role creation", :js do
   let!(:admin) { create(:admin) }
-  let!(:existing_role) { create(:role) }
+  let!(:existing_role) { create(:project_role) }
   let!(:existing_workflow) { create(:workflow_with_default_status, role: existing_role, type:) }
   let!(:type) { create(:type) }
   let!(:non_member) do
@@ -43,81 +43,74 @@ RSpec.describe 'Role creation',
     login_as admin
   end
 
-  it 'allows creating roles and handles errors' do
+  it "allows creating roles and handles errors" do
     visit roles_path
 
-    within '.toolbar-item' do
-      click_link 'Role'
+    within ".SubHeader" do
+      page.find_test_selector("roles--create-button").click
     end
 
-    fill_in 'Name', with: existing_role.name
-    select existing_role.name, from: 'Copy workflow from'
-    check 'Edit work packages'
-    check 'Edit project'
+    fill_in "Name", with: existing_role.name
+    select existing_role.name, from: "Copy workflow from"
+    check "Edit work packages"
+    check "Edit project"
 
-    click_button 'Create'
+    click_button "Create"
 
-    expect(page)
-      .to have_selector('.errorExplanation', text: 'Name has already been taken')
+    expect_flash(type: :error, message: "Name has already been taken")
 
-    fill_in 'Name', with: 'New role name'
+    fill_in "Name", with: "New role name"
 
     # This will lead to an error as manage versions requires view versions
-    check 'Manage members'
+    check "Manage members"
 
-    click_button 'Create'
+    click_button "Create"
 
-    expect(page)
-      .to have_selector('.errorExplanation',
-                        text: "Permissions need to also include 'View members' as 'Manage members' is selected.")
+    expect_flash(type: :error,
+                 message: "Permissions need to also include 'View members' as 'Manage members' is selected.")
 
-    check 'View members'
-    select existing_role.name, from: 'Copy workflow from'
+    check "View members"
+    select existing_role.name, from: "Copy workflow from"
 
-    click_button 'Create'
+    click_button "Create"
 
-    expect(page)
-      .to have_selector('.notice', text: 'Successful creation.')
+    expect_and_dismiss_flash(message: "Successful creation.")
 
     expect(page)
       .to have_current_path(roles_path)
 
     expect(page)
-      .to have_selector('table td', text: 'New role name')
+      .to have_link("New role name")
 
-    click_link 'New role name'
+    click_link "New role name"
 
     expect(page)
-      .to have_checked_field('Edit work packages')
+      .to have_checked_field("Edit work packages")
     expect(page)
-      .to have_checked_field('Edit project')
+      .to have_checked_field("Edit project")
     expect(page)
-      .to have_checked_field('Manage members')
+      .to have_checked_field("Manage members")
     expect(page)
-      .to have_checked_field('View members')
+      .to have_checked_field("View members")
 
     # By default as Non Member has that permissions
     expect(page)
-      .to have_checked_field('View work packages')
+      .to have_checked_field("View work packages")
     expect(page)
-      .to have_checked_field('View wiki')
+      .to have_checked_field("View wiki")
 
     expect(page)
-      .to have_unchecked_field('Select types')
+      .to have_unchecked_field("Select types")
     expect(page)
-      .to have_unchecked_field('Delete watchers')
+      .to have_unchecked_field("Delete watchers")
 
-    # Workflow should be copied over.
-    # Workflow routes are not resource-oriented.
-    visit(url_for(controller: :workflows, action: :edit, only_path: true))
-
-    select 'New role name', from: 'Role'
-    select type.name, from: 'Type'
-    click_button 'Edit'
-
-    from_id = existing_workflow.old_status_id
-    to_id = existing_workflow.new_status_id
-
-    expect(page).to have_field("status_#{from_id}_#{to_id}_", checked: true)
+    # Workflow should be copied over from the source role.
+    new_role = Role.find_by!(name: "New role name")
+    expect(
+      Workflow.exists?(role_id: new_role.id,
+                       type_variant_id: type.default_variant.id,
+                       old_status_id: existing_workflow.old_status_id,
+                       new_status_id: existing_workflow.new_status_id)
+    ).to be true
   end
 end

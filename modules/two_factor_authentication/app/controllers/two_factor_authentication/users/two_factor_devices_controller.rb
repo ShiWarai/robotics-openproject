@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ::TwoFactorAuthentication
   module Users
     class TwoFactorDevicesController < ::TwoFactorAuthentication::BaseController
@@ -7,8 +9,12 @@ module ::TwoFactorAuthentication
       # Ensure where not the user under edit
       before_action :require_not_self
 
+      # Ensure that only mobile devices are added for other users
+      before_action :ensure_only_sms_type, only: :new
+
       # Password confirmation helpers and actions
       include PasswordConfirmation
+
       before_action :check_password_confirmation,
                     only: :make_default
 
@@ -19,7 +25,7 @@ module ::TwoFactorAuthentication
 
       ##
       # Register the device and let the user confirm
-      def register
+      def register # rubocop:disable Metrics/AbcSize
         @device_type = params[:key].to_sym
         @device = new_device_type! @device_type
 
@@ -31,7 +37,7 @@ module ::TwoFactorAuthentication
           redirect_to index_path
         else
           Rails.logger.info "Admin ##{current_user.id} failed to register a new device #{@device_type} for #{@user.id}."
-          render 'two_factor_authentication/two_factor_devices/new'
+          render "two_factor_authentication/two_factor_devices/new", status: :unprocessable_entity
         end
       end
 
@@ -39,7 +45,7 @@ module ::TwoFactorAuthentication
       # Delete all devices
       def delete_all
         @user.otp_devices.delete_all
-        flash[:notice] = I18n.t('two_factor_authentication.admin.all_devices_deleted')
+        flash[:notice] = I18n.t("two_factor_authentication.admin.all_devices_deleted")
         redirect_to index_path
       end
 
@@ -51,24 +57,24 @@ module ::TwoFactorAuthentication
         if @device.make_default!
           flash[:notice] = t(:notice_successful_update)
         else
-          flash[:error] = t('two_factor_authentication.devices.make_default_failed')
+          flash[:error] = t("two_factor_authentication.devices.make_default_failed")
         end
 
         redirect_to index_path
       end
 
       ##
-      # Destroy the given device if its not the default
+      # Destroy the given device if it's not the default
       def destroy
         if @device.default && strategy_manager.enforced?
-          render_400 message: t('two_factor_authentication.devices.is_default_cannot_delete')
+          render_400 message: t("two_factor_authentication.devices.is_default_cannot_delete")
           return
         end
 
         if @device.destroy
           flash[:notice] = t(:notice_successful_delete)
         else
-          flash[:error] = t('two_factor_authentication.devices.failed_to_delete')
+          flash[:error] = t("two_factor_authentication.devices.failed_to_delete")
           Rails.logger.error "Failed to delete #{@device.id} of user#{@user.id}. Errors: #{@device.errors.full_messages.join(' ')}"
         end
 
@@ -76,6 +82,12 @@ module ::TwoFactorAuthentication
       end
 
       private
+
+      def ensure_only_sms_type
+        return if params[:type] == "sms"
+
+        render_400(message: I18n.t("two_factor_authentication.admin.only_sms_allowed"))
+      end
 
       def new_device_params
         # Overrides the base controller to active the device
@@ -95,9 +107,7 @@ module ::TwoFactorAuthentication
       end
 
       def find_user
-        @user = User.find(params[:id])
-      rescue ActiveRecord::RecordNotFound
-        render_404
+        @user = User.visible.find(params[:id])
       end
 
       def target_user
@@ -106,7 +116,7 @@ module ::TwoFactorAuthentication
 
       def require_not_self
         if current_user.id == @user.id
-          render_403(message: I18n.t('two_factor_authentication.admin.self_edit_forbidden'))
+          render_403(message: I18n.t("two_factor_authentication.admin.self_edit_forbidden"))
         end
       end
     end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Journable::HistoricActiveRecordRelation do
   # See: https://github.com/opf/openproject/pull/11243
@@ -37,51 +39,33 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
   let(:wednesday) { "2022-08-03".to_datetime }
   let(:thursday) { "2022-08-04".to_datetime }
   let(:friday) { "2022-08-05".to_datetime }
-  let(:default_work_package_attributes) do
-    { description: "The work package as it is since Friday", estimated_hours: 10, project: }
-  end
   let(:work_package_attributes) { {} }
   let(:project) { create(:project) }
   let!(:work_package) do
-    new_work_package = create(:work_package, default_work_package_attributes.merge(work_package_attributes))
-    new_work_package.update_columns created_at: monday
-    new_work_package
+    create(:work_package,
+           description: "The work package as it is since Friday",
+           estimated_hours: 10,
+           project:,
+           journals: {
+             monday => { description: "The work package as it has been on Monday", estimated_hours: 5 },
+             wednesday => { description: "The work package as it has been on Wednesday", estimated_hours: 10 },
+             friday => { description: "The work package as it is since Friday", estimated_hours: 10 }
+           },
+           position: 1)
   end
   let(:journable) { work_package }
-
   let(:monday_journal) do
-    create_journal(journable: work_package, timestamp: monday,
-                   attributes: { description: "The work package as it has been on Monday", estimated_hours: 5 })
+    work_package.journals.find_by(created_at: monday)
   end
   let(:wednesday_journal) do
-    create_journal(journable: work_package, timestamp: wednesday,
-                   attributes: { description: "The work package as it has been on Wednesday", estimated_hours: 10 })
+    work_package.journals.find_by(created_at: wednesday)
   end
   let(:friday_journal) do
-    create_journal(journable: work_package, timestamp: friday,
-                   attributes: { description: "The work package as it is since Friday", estimated_hours: 10 })
+    work_package.journals.find_by(created_at: friday)
   end
 
   let(:relation) { WorkPackage.all }
   let(:historic_relation) { relation.at_timestamp(wednesday) }
-
-  def create_journal(journable:, timestamp:, attributes: {})
-    work_package_attributes = work_package.attributes.except("id")
-    journal_attributes = work_package_attributes \
-        .extract!(*Journal::WorkPackageJournal.attribute_names) \
-        .symbolize_keys.merge(attributes)
-    create(:work_package_journal,
-           journable:, created_at: timestamp, updated_at: timestamp,
-           data: build(:journal_work_package_journal, journal_attributes))
-  end
-
-  before do
-    work_package.journals.destroy_all
-    monday_journal
-    wednesday_journal
-    friday_journal
-    work_package.reload
-  end
 
   subject { historic_relation }
 
@@ -113,8 +97,16 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
     describe "updated_at" do
       subject { historic_relation.pluck(:updated_at) }
 
-      it "returns the updated_at of the work package" do
+      it "returns the updated_at of the journal active on the queried for date" do
         expect(subject).to eq [wednesday]
+      end
+    end
+
+    describe "timestamp" do
+      subject { historic_relation.pluck(:timestamp) }
+
+      it "returns the timestamp queried for" do
+        expect(subject).to eq [wednesday.to_s]
       end
     end
 
@@ -137,145 +129,110 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
     end
   end
 
+  shared_examples "historic work package is returned" do
+    let(:expected_timestamp) { wednesday }
+    let(:expected_journal) { wednesday_journal }
+
+    it "returns the requested work package with journal_id and timestamp added and attributes adapted", :aggregate_failures do
+      expect(subject.to_a).to match [work_package]
+      expect(subject.to_a.first.journal_id).to eql expected_journal.id
+      expect(subject.to_a.first.timestamp).to eql expected_timestamp.to_s
+      expect(subject.to_a.first.created_at).to eql work_package.created_at
+      expect(subject.to_a.first.updated_at).to eql expected_journal.updated_at
+      expect(subject.to_a.first.position).to be_nil
+    end
+  end
+
   describe "#where" do
     describe "project_id in array (Arel::Nodes::HomogeneousIn)" do
       let(:relation) { WorkPackage.where(project_id: [project.id, 1, 2, 3]) }
 
-      describe "#to_sql" do
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "\"work_package_journals\".\"project_id\" IN (#{project.id}, 1, 2, 3)"
-        end
-      end
-
       describe "#to_a" do
-        it "returns the requested work package" do
-          expect(subject.to_a).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
 
     describe "project_id not in array (Arel::Nodes::HomogeneousIn)" do
       let(:relation) { WorkPackage.where.not(project_id: [9999, 999]) }
 
-      describe "#to_sql" do
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "\"work_package_journals\".\"project_id\" NOT IN (9999, 999)"
-        end
-      end
-
       describe "#to_a" do
-        it "returns the requested work package" do
-          expect(subject.to_a).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
 
     describe "id in array (Arel::Nodes::HomogeneousIn)" do
       let(:relation) { WorkPackage.where(id: [work_package.id, 999, 9999]) }
 
-      describe "#to_sql" do
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "\"journals\".\"journable_id\" IN (#{work_package.id}, 999, 9999)"
-        end
-      end
-
       describe "#to_a" do
-        it "returns the requested work package" do
-          expect(subject.to_a).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
 
     describe "id in subquery (Arel::Nodes::In)" do
-      let(:relation) { WorkPackage.where(id: WorkPackage.where(id: [work_package.id, 999, 9999])) }
-
-      describe "#to_sql" do
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "\"journals\".\"journable_id\" IN (SELECT \"work_packages\".\"id\""
-        end
-      end
+      let(:relation) { WorkPackage.where(id: [work_package.id, 99, 999, 9999]) }
 
       describe "#to_a" do
-        it "returns the requested work package" do
-          expect(subject.to_a).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
 
     describe "sql string (as used by Query#statement)" do
       let(:relation) { WorkPackage.where("(work_packages.description ILIKE '%been on Wednesday%')") }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include "work_package_journals.description ILIKE"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
 
       describe "when the sql where statement includes work_package.id" do
         # This is used, for example, in 'follows' relations.
         let(:relation) { WorkPackage.where("(work_packages.id IN (#{work_package.id}))") }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "journals.journable_id IN (#{work_package.id})"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
 
       describe "when the sql where statement includes \"work_package\".\"id\"" do
         # This is used in the manual-sorting feature.
         let(:relation) { WorkPackage.where("(\"work_packages\".\"id\" IN (#{work_package.id}))") }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include "\"journals\".\"journable_id\" IN (#{work_package.id})"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
 
-      describe "when searching for custom fields" do
+      describe "when searching for a single custom field" do
         let(:custom_field) do
           create(:text_wp_custom_field,
-                 name: 'Text CF',
-                 types: project.types,
+                 name: "Text CF",
+                 types: project.enabled_types,
                  projects: [project])
         end
         let!(:monday_cf_journal) do
-          create(:journal_customizable_journal, journal: monday_journal, custom_field:, value: 'Monday_CV')
+          create(:journal_customizable_journal, journal: monday_journal, custom_field:, value: "Monday_CV")
         end
         let!(:wednesday_cf_journal) do
-          create(:journal_customizable_journal, journal: wednesday_journal, custom_field:, value: 'Wednesday_CV')
+          create(:journal_customizable_journal, journal: wednesday_journal, custom_field:, value: "Wednesday_CV")
         end
         let!(:friday_cf_journal) do
-          create(:journal_customizable_journal, journal: friday_journal, custom_field:, value: 'Friday_CV')
+          create(:journal_customizable_journal, journal: friday_journal, custom_field:, value: "Friday_CV")
         end
-        let(:work_package_attributes) { { custom_values: { custom_field.id => 'Friday_CV' } } }
+        let(:work_package_attributes) { { custom_values: { custom_field.id => "Friday_CV" } } }
         let(:filter) do
           Queries::WorkPackages::Filter::CustomFieldFilter.create!(
             name: custom_field.column_name,
             context: build_stubbed(:query, project:),
-            operator: '~',
+            operator: "~",
             values:
           )
         end
         let(:relation) { WorkPackage.where(filter.where) }
 
-        context 'with the current value at the current time' do
+        context "with the current value at the current time" do
           let(:values) { %w(Friday_CV) }
           let(:historic_relation) { relation.at_timestamp(Timestamp.new("PT0S")) }
 
-          it "returns the requested work package" do
-            expect(subject).to include work_package
+          it_behaves_like "historic work package is returned" do
+            let(:expected_timestamp) { "PT0S" }
+            let(:expected_journal) { friday_journal }
           end
         end
 
-        context 'with the matching historic value' do
+        context "with the matching historic value" do
           let(:values) { %w(Wednesday_CV) }
 
           it "transforms the expression to join the customizable_journals" do
@@ -283,23 +240,198 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
               expect(subject_sql)
                 .to include <<~SQL.squish
                   JOIN customizable_journals ON
-                  customizable_journals.journal_id = journals.id
+                  customizable_journals.journal_id = work_packages.journal_id
                   AND customizable_journals.custom_field_id = #{custom_field.id}
                 SQL
-              expect(subject_sql).to include "customizable_journals.value ILIKE '%Wednesday_CV%'"
+              expect(subject_sql).to include "customizable_journals.value ILIKE '%Wednesday\\_CV%'"
             end
           end
 
-          it "returns the requested work package" do
-            expect(subject).to include work_package
-          end
+          it_behaves_like "historic work package is returned"
         end
 
-        context 'with a different historic value' do
+        context "with a different historic value" do
           let(:values) { %w(Monday_CV) }
 
           it "does not return the requested work package" do
             expect(subject).not_to include work_package
+          end
+        end
+
+        context "with 'is empty' on list field and 'is not' on hierarchy field (Regression#70490)",
+                with_ee: [:custom_field_hierarchies] do
+          let(:list_custom_field) do
+            create(:list_wp_custom_field,
+                   name: "List CF",
+                   types: project.enabled_types,
+                   projects: [project])
+          end
+          let(:hierarchy_custom_field) do
+            create(:hierarchy_wp_custom_field,
+                   name: "Hierarchy CF",
+                   types: project.enabled_types,
+                   projects: [project])
+          end
+
+          let!(:wednesday_list_cf_journal) do
+            create(:journal_customizable_journal,
+                   journal: wednesday_journal,
+                   custom_field: list_custom_field,
+                   value: "1")
+          end
+          let!(:wednesday_hierarchy_cf_journal) do
+            create(:journal_customizable_journal,
+                   journal: wednesday_journal,
+                   custom_field: hierarchy_custom_field,
+                   value: "1")
+          end
+
+          let!(:work_package_matching) do
+            create(:work_package, project:, journals: { monday => {}, wednesday => {}, friday => {} })
+          end
+
+          let(:is_empty_filter) do
+            Queries::WorkPackages::Filter::CustomFieldFilter.create!(
+              name: list_custom_field.column_name,
+              context: build_stubbed(:query, project:),
+              operator: "!*",
+              values: []
+            )
+          end
+          let(:is_not_filter) do
+            Queries::WorkPackages::Filter::CustomFieldFilter.create!(
+              name: hierarchy_custom_field.column_name,
+              context: build_stubbed(:query, project:),
+              operator: "!",
+              values: ["1"]
+            )
+          end
+          let(:relation) { WorkPackage.where("(#{is_empty_filter.where}) AND (#{is_not_filter.where})") }
+          let(:historic_relation) { relation.at_timestamp(wednesday) }
+
+          it "transforms the expression to join the customizable_journals with correct value substitutions" do
+            subject.to_sql.squish.tap do |subject_sql|
+              expect(subject_sql)
+                .to include <<~SQL.squish
+                  JOIN customizable_journals ON
+                  customizable_journals.journal_id = work_packages.journal_id
+                  AND customizable_journals.custom_field_id = #{list_custom_field.id}
+                SQL
+              expect(subject_sql)
+                .to include <<~SQL.squish
+                  JOIN customizable_journals ON
+                  customizable_journals.journal_id = work_packages.journal_id
+                  AND customizable_journals.custom_field_id = #{hierarchy_custom_field.id}
+                SQL
+              expect(subject_sql).not_to include "custom_values.value"
+            end
+          end
+
+          it "returns only work packages matching both filters at the timestamp" do
+            expect(subject).to include work_package_matching
+            expect(subject).not_to include work_package
+          end
+        end
+      end
+
+      describe "when searching for two custom fields (concatenated into string as Query#results does)" do
+        let(:text_custom_field) do
+          create(:text_wp_custom_field,
+                 name: "Text CF",
+                 types: project.enabled_types,
+                 projects: [project])
+        end
+        let!(:monday_text_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: monday_journal,
+                 custom_field: text_custom_field,
+                 value: "Monday_CV")
+        end
+        let!(:wednesday_text_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: wednesday_journal,
+                 custom_field: text_custom_field,
+                 value: "Wednesday_CV")
+        end
+        let!(:friday_text_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: friday_journal,
+                 custom_field: text_custom_field,
+                 value: "Friday_CV")
+        end
+        let(:int_custom_field) do
+          create(:integer_wp_custom_field,
+                 name: "Int CF",
+                 types: project.enabled_types,
+                 projects: [project])
+        end
+        let!(:monday_int_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: monday_journal,
+                 custom_field: int_custom_field,
+                 value: "1")
+        end
+        let!(:wednesday_int_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: wednesday_journal,
+                 custom_field: int_custom_field,
+                 value: "2")
+        end
+        let!(:friday_int_cf_journal) do
+          create(:journal_customizable_journal,
+                 journal: friday_journal,
+                 custom_field: int_custom_field,
+                 value: "3")
+        end
+        let(:work_package_attributes) do
+          { custom_values: { text_custom_field.id => "Friday_CV", int_custom_field.id => "3" } }
+        end
+        let(:text_filter) do
+          Queries::WorkPackages::Filter::CustomFieldFilter.create!(
+            name: text_custom_field.column_name,
+            context: build_stubbed(:query, project:),
+            operator: "~",
+            values: text_values
+          )
+        end
+        let(:int_filter) do
+          Queries::WorkPackages::Filter::CustomFieldFilter.create!(
+            name: int_custom_field.column_name,
+            context: build_stubbed(:query, project:),
+            operator: "=",
+            values: int_values
+          )
+        end
+        # Done just like Query#results does it by fetching Query#statement
+        let(:relation) { WorkPackage.where("(#{text_filter.where}) AND (#{int_filter.where})") }
+
+        context "with the current value at the current time" do
+          let(:text_values) { %w(Friday_CV) }
+          let(:int_values) { "3" }
+          let(:historic_relation) { relation.at_timestamp(Timestamp.new("PT0S")) }
+
+          it_behaves_like "historic work package is returned" do
+            let(:expected_timestamp) { "PT0S" }
+            let(:expected_journal) { friday_journal }
+          end
+        end
+
+        context "with matching historic values" do
+          let(:text_values) { %w(Wednesday) }
+          let(:int_values) { "2" }
+          let(:historic_relation) { relation.at_timestamp(wednesday) }
+
+          it_behaves_like "historic work package is returned"
+        end
+
+        # Guards against regression #58600
+        context "with only one filter matching historic values" do
+          let(:text_values) { %w(Friday) }
+          let(:int_values) { "2" }
+          let(:historic_relation) { relation.at_timestamp(wednesday) }
+
+          it "returns no work package" do
+            expect(subject).to be_empty
           end
         end
       end
@@ -313,54 +445,25 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
         )
       end
 
-      it "transforms the expression to query the correct table" do
-        expect(subject.to_sql).to include \
-          "\"work_package_journals\".\"subject\" = 'Foo' OR " \
-          "\"work_package_journals\".\"description\" = 'The work package as it has been on Wednesday'"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "work_packages.updated_at > ?" do
       # as used by spec/features/work_packages/timeline/timeline_dates_spec.rb
       let(:relation) { WorkPackage.where("work_packages.updated_at > '2022-01-01'") }
 
-      it "transforms the expression to query the correct table" do
-        expect(subject.to_sql).to include \
-          "journals.updated_at > '2022-01-01'"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
 
       describe "when using quotation marks" do
         let(:relation) { WorkPackage.where("\"work_packages\".\"updated_at\" > '2022-01-01'") }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include \
-            "\"journals\".\"updated_at\" > '2022-01-01'"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
 
       describe "when using a hash" do
         let(:relation) { WorkPackage.where(work_packages: { updated_at: ("2022-01-01".to_datetime).. }) }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include \
-            "\"journals\".\"updated_at\" >= '2022-01-01"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
 
@@ -368,39 +471,18 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
       # as used by spec/features/work_packages/table/queries/filter_spec.rb
       let(:relation) { WorkPackage.where("work_packages.created_at > '2022-01-01'") }
 
-      it "transforms the expression to query the correct table" do
-        expect(subject.to_sql).to include \
-          "journables.created_at > '2022-01-01'"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
 
       describe "when using quotation marks" do
         let(:relation) { WorkPackage.where("\"work_packages\".\"created_at\" > '2022-01-01'") }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include \
-            "\"journables\".\"created_at\" > '2022-01-01'"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
 
       describe "when using a hash" do
         let(:relation) { WorkPackage.where(work_packages: { created_at: ("2022-01-01".to_datetime).. }) }
 
-        it "transforms the expression to query the correct table" do
-          expect(subject.to_sql).to include \
-            "\"journables\".\"created_at\" >= '2022-01-01"
-        end
-
-        it "returns the requested work package" do
-          expect(subject).to include work_package
-        end
+        it_behaves_like "historic work package is returned"
       end
     end
   end
@@ -408,62 +490,31 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
   describe "#order" do
     let(:relation) { WorkPackage.order(description: :desc) }
 
-    it "transforms the table name" do
-      expect(subject.to_sql).to include "\"work_package_journals\".\"description\" DESC"
-    end
-
-    it "returns the requested work package" do
-      expect(subject).to include work_package
-    end
+    it_behaves_like "historic work package is returned"
 
     describe "manual order clause" do
       let(:relation) { WorkPackage.order("work_packages.description DESC") }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include "work_package_journals.description DESC"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "manual order clause using work_packages.id" do
       # This is used in the manual-sorting feature.
       let(:relation) { WorkPackage.order("work_packages.id DESC") }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include "journals.journable_id DESC"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "order clause with work_packages.id" do
       let(:relation) { WorkPackage.order(id: :desc) }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include "\"journals\".\"journable_id\" DESC"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "several order clauses" do
       let(:relation) { WorkPackage.order(subject: :asc, id: :desc) }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include "\"work_package_journals\".\"subject\" ASC"
-        expect(subject.to_sql).to include "\"journals\".\"journable_id\" DESC"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
   end
 
@@ -473,31 +524,17 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
 
       before { work_package.time_entries << create(:time_entry) }
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include \
-          "JOIN \"time_entries\" ON \"time_entries\".\"work_package_id\" = \"journals\".\"journable_id\""
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "using a manual sql expression" do
       # This is used in the manual-sorting feature.
       let(:relation) do
-        WorkPackage \
+        WorkPackage
           .joins("LEFT OUTER JOIN ordered_work_packages ON ordered_work_packages.work_package_id = work_packages.id")
       end
 
-      it "transforms the table name" do
-        expect(subject.to_sql).to include \
-          "LEFT OUTER JOIN ordered_work_packages ON ordered_work_packages.work_package_id = journals.journable_id"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
-      end
+      it_behaves_like "historic work package is returned"
     end
 
     describe "using an initial scope with a include(:project)" do
@@ -508,16 +545,14 @@ RSpec.describe Journable::HistoricActiveRecordRelation do
           .where(projects: { id: project.id })
       end
 
-      it "joins the projects table" do
-        sql = subject.to_sql.tr('"', '')
-        expect(sql).to include \
-          "LEFT OUTER JOIN projects ON projects.id = work_package_journals.project_id"
-        expect(sql).to include \
-          "WHERE projects.id = #{project.id}"
-      end
-
-      it "returns the requested work package" do
-        expect(subject).to include work_package
+      it "returns the requested work package with attributes adapted", :aggregate_failures do
+        # Different from the other cases, the work package will not have journal_id and timestamp properties here since
+        # an include will lead to an explicit projection which does not include the fields as the values
+        # seem to be taken from WorkPackage.column_names
+        expect(subject.to_a).to match [work_package]
+        expect(subject.to_a.first.created_at).to eql work_package.created_at
+        expect(subject.to_a.first.updated_at).to eql wednesday_journal.updated_at
+        expect(subject.to_a.first.position).to be_nil
       end
     end
   end

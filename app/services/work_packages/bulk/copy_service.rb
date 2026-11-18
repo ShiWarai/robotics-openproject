@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,13 +31,54 @@
 module WorkPackages
   module Bulk
     class CopyService < BulkedService
+      attr_reader :wp_map
+
       def initialize(user:, work_packages:)
         super
+
+        @wp_map = {}
 
         self.work_packages = remove_hierarchy_duplicates(work_packages)
       end
 
       private
+
+      def bulk(params)
+        result = ServiceResult.success result: true
+
+        work_packages.each do |work_package|
+          # As updating one work package might have already saved another one,
+          # e.g. by changing the start/due date or the version
+          # we need to reload the work packages to avoid running into stale object errors.
+          work_package.reload
+
+          call_move_hook(work_package, params)
+          wp_copy = alter_work_package(work_package, params)
+
+          result.add_dependent!(wp_copy)
+
+          wp_map.store(work_package.id, wp_copy.result.id)
+        end
+
+        result.on_success do
+          copy_relations
+        end
+
+        result.result = false if result.failure?
+
+        result
+      end
+
+      def copy_relations
+        relations = Relation.where(to_id: wp_map.keys, from_id: wp_map.keys)
+
+        relations.each do |relation|
+          new_relation = relation.dup
+          new_relation.from_id = wp_map[relation.from_id]
+          new_relation.to_id = wp_map[relation.to_id]
+          new_relation.save!
+        end
+      end
 
       def alter_work_package(work_package, attributes)
         ancestors = {}
@@ -43,14 +86,27 @@ module WorkPackages
 
         work_package
           .descendants
-          .order_by_ancestors('asc')
+          .order_by_ancestors("asc")
           .each do |wp|
+          # Only copy a descendant when its parent has been copied as well
+          # (skipping a node also skips its whole subtree) and the user is
+          # allowed to copy it. This prevents copying descendants reachable
+          # through a shared ancestor for which the user lacks permission.
+          next unless copyable_descendant?(wp, ancestors)
+
           copied = copy_with_updated_parent_id(wp, attributes, ancestors)
+
+          wp_map.store(wp.id, copied.result.id)
 
           result.add_dependent!(copied)
         end
 
         result
+      end
+
+      def copyable_descendant?(work_package, ancestors)
+        ancestors.key?(work_package.parent_id) &&
+          user.allowed_in_work_package?(:copy_work_packages, work_package)
       end
 
       def call_move_hook(work_package, params)
@@ -68,6 +124,7 @@ module WorkPackages
           WorkPackages::CopyService
             .new(user:,
                  work_package:)
+            .with_state(bulk_duplicate_in_progress: true)
             .call(**overridden_attributes.symbolize_keys)
         end
       end

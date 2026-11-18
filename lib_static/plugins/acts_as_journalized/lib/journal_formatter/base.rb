@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -35,6 +37,8 @@ module JournalFormatter
     include Rails.application.routes.url_helpers
     include ERB::Util
 
+    delegate :project, to: :@journal
+
     # We break the values between from and to values
     # in the formatter if the length of one of the values
     # exceeds this magic number of characters
@@ -45,6 +49,8 @@ module JournalFormatter
     end
 
     def render(key, values, options = { html: true })
+      return render_permission_denied_message(options) unless permission_granted?(options.merge(key:))
+
       label, old_value, value = format_details(key, values)
 
       if options[:html]
@@ -67,10 +73,10 @@ module JournalFormatter
 
     def format_html_details(label, old_value, value)
       label = content_tag(:strong, label)
-      old_value = content_tag('i', h(old_value)) if old_value.present?
-      old_value = content_tag('strike', old_value) if old_value and value.blank?
-      value = content_tag('i', h(value)) if value.present?
-      value ||= ''
+      old_value = content_tag("i", h(old_value)) if old_value.present?
+      old_value = content_tag("strike", old_value) if old_value and value.blank?
+      value = content_tag("i", h(value)) if value.present?
+      value ||= ""
 
       [label, old_value, value]
     end
@@ -80,6 +86,7 @@ module JournalFormatter
     end
 
     def render_ternary_detail_text(label, value, old_value, options)
+      return I18n.t(:text_journal_deleted_no_detail, label:) if value.blank? && old_value.blank?
       return I18n.t(:text_journal_deleted, label:, old: old_value) if value.blank?
       return I18n.t(:text_journal_set_to, label:, value:) if old_value.blank?
 
@@ -94,11 +101,33 @@ module JournalFormatter
              new: value)
     end
 
-    def render_binary_detail_text(label, value, old_value)
-      if value.blank?
-        I18n.t(:text_journal_deleted, label:, old: old_value)
+    # @param options [Hash] the rendering options.
+    # @option options [Symbol, Proc] :view_permission a permission to check via
+    #   User.current.allowed_in_project?, or a lambda/proc performing a custom
+    #   permission check, instance_exec'd against this formatter with no
+    #   arguments. Subclasses may override this method to instance_exec the
+    #   proc with additional context relevant to the field being rendered
+    #   (see e.g. OpenProject::JournalFormatter::CustomComment#permission_granted?).
+    # @option options [String] :key the field being rendered, made available
+    #   to such overrides.
+    def permission_granted?(options)
+      permission = options[:view_permission]
+      return true unless permission
+
+      if permission.is_a?(Symbol)
+        User.current.allowed_in_project?(permission, project)
       else
-        I18n.t(:text_journal_added, label:, value:)
+        instance_exec(&permission)
+      end
+    end
+
+    def render_permission_denied_message(options)
+      message = I18n.t(:text_journal_permission_denied)
+
+      if options[:html]
+        content_tag("em", message)
+      else
+        "_#{message}_"
       end
     end
 

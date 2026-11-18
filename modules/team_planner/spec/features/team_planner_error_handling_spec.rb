@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,11 +26,14 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require_relative './shared_context'
+require "spec_helper"
+require_relative "shared_context"
 
-RSpec.describe 'Team planner error handling', js: true do
-  include_context 'with team planner full access'
+RSpec.describe "Team planner error handling",
+               :js,
+               :selenium,
+               with_settings: { start_of_week: 1 } do
+  include_context "with team planner full access"
 
   let!(:work_package) do
     create(:work_package,
@@ -42,7 +45,7 @@ RSpec.describe 'Team planner error handling', js: true do
   end
 
   let!(:custom_field) do
-    create(:work_package_custom_field,
+    create(:string_wp_custom_field,
            default_value: nil,
            is_for_all: true,
            is_required: false)
@@ -50,9 +53,9 @@ RSpec.describe 'Team planner error handling', js: true do
 
   let(:type) { create(:type, custom_fields: [custom_field]) }
 
-  context 'with full permissions', with_ee: %i[team_planner_view] do
+  context "with full permissions", with_ee: %i[team_planner_view] do
     before do
-      project.types << type
+      project.project_types.create!(type:)
       project.save!
 
       team_planner.visit!
@@ -64,25 +67,25 @@ RSpec.describe 'Team planner error handling', js: true do
       end
     end
 
-    it 'cannot change the wp because of required fields not being set' do
+    it "can assign the wp despite the required field not being set" do
       custom_field.is_required = true
       custom_field.save!
 
-      # Try to move the wp
       retry_block do
         team_planner.drag_wp_by_pixel(work_package, 200, 0)
       end
-      team_planner.expect_toast(type: :error, message: "#{custom_field.name} can't be blank")
+
+      team_planner.expect_toast(type: :success, message: "Successful update.")
 
       team_planner.within_lane(user) do
         team_planner.expect_event work_package
       end
     end
 
-    it 'cannot change the wp because of conflicting modifications' do
+    it "cannot change the wp because of conflicting modifications" do
       # Try to move the wp
       retry_block do
-        wp_strip = page.find('.fc-event', text: work_package.subject)
+        wp_strip = page.find(".fc-event", text: work_package.subject)
 
         page
           .driver
@@ -104,7 +107,7 @@ RSpec.describe 'Team planner error handling', js: true do
           .perform
       end
 
-      team_planner.expect_toast(type: :error, message: I18n.t('api_v3.errors.code_409'))
+      expect_flash(type: :error, message: I18n.t("notice_locking_conflict_danger"))
 
       work_package.reload
       expect(work_package.start_date).to eq(Time.zone.today.beginning_of_week.next_occurring(:tuesday))

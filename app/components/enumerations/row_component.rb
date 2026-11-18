@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -51,7 +51,7 @@ module Enumerations
     end
 
     def sort
-      helpers.reorder_links('enumeration', { action: 'update', id: enumeration }, method: :put)
+      helpers.reorder_links("enumeration", { action: "move", id: enumeration }, method: :post)
     end
 
     def button_links
@@ -62,10 +62,9 @@ module Enumerations
 
     def delete_link
       helpers.link_to(
-        helpers.op_icon('icon icon-delete'),
+        helpers.op_icon("icon icon-delete"),
         helpers.enumeration_path(enumeration),
-        method: :delete,
-        data: { confirm: I18n.t(:text_are_you_sure) },
+        data: { turbo_method: :delete, turbo_confirm: I18n.t(:text_are_you_sure) },
         title: t(:button_delete)
       )
     end

@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -36,18 +36,26 @@ class OpenProject::JournalFormatter::Attachment < JournalFormatter::Base
   end
 
   def render(key, values, options = { html: true })
-    label, old_value, value = format_details(key.to_s.sub('attachments_', ''), values)
+    label, old_value, value = format_details(key.to_s.sub("attachments_", ""), values)
 
     if options[:html]
       label, old_value, value = *format_html_details(label, old_value, value)
 
-      value = format_html_attachment_detail(key.to_s.sub('attachments_', ''), value)
+      value = format_html_attachment_detail(key.to_s.sub("attachments_", ""), value)
     end
 
-    render_binary_detail_text(label, value, old_value)
+    render_attachment_detail_text(label, value, old_value)
   end
 
   private
+
+  def render_attachment_detail_text(label, value, old_value)
+    if value.blank?
+      I18n.t(:text_journal_attachment_deleted, label:, old: old_value)
+    else
+      I18n.t(:text_journal_attachment_added, label:, value:)
+    end
+  end
 
   def label(_key)
     Attachment.model_name.human
@@ -61,7 +69,7 @@ class OpenProject::JournalFormatter::Attachment < JournalFormatter::Base
 
   def format_html_attachment_detail(key, value)
     if value.present? && a = Attachment.find_by(id: key.to_i)
-      link_to_attachment(a, only_path: false)
+      link_to_attachment(a, only_path: false, target: "_blank")
     elsif value.present?
       value
     end

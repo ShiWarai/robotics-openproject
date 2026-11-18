@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -53,14 +55,24 @@ module Acts::Journalized
 
     module ClassMethods
       # Shortcut to register a formatter for a number of fields
-      def register_journal_formatted_fields(formatter_key, *field_names)
+      #
+      # @param field_names [Array<String, Symbol, Regexp>] the fields to register the formatter for.
+      # @param formatter_key [Symbol] the key of the formatter to use for these fields.
+      # @param view_permission [Symbol, Proc, nil] a permission to check via
+      #   User.current.allowed_in_project?, or a lambda/proc performing a custom
+      #   permission check, instance_exec'd against the formatter (see
+      #   JournalFormatter::Base#permission_granted?). Whether the proc receives
+      #   arguments, and what they are, depends on the formatter's own
+      #   permission_granted? implementation (e.g. the CustomField/CustomComment
+      #   formatters instance_exec it with the CustomField being rendered).
+      def register_journal_formatted_fields(*field_names, formatter_key:, view_permission: nil)
         journal_data_type = journal_class.name
         field_names.each do |field|
-          JournalFormatter.register_formatted_field(journal_data_type, field, formatter_key)
+          JournalFormatter.register_formatted_field(journal_data_type:, field:, formatter_key:, view_permission:)
         end
       end
 
-      def register_journal_formatter(formatter_key, formatter_class)
+      def register_journal_formatter(formatter_class, formatter_key: formatter_class.name.demodulize.underscore)
         JournalFormatter.register formatter_key.to_sym => formatter_class
       end
     end

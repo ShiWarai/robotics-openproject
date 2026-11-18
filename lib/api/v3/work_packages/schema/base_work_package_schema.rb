@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -39,6 +39,12 @@ module API
             nil
           end
 
+          # The type to read configuration from: #type is the family's root, while the project
+          # may resolve the family to a variant configured differently.
+          def type_variant
+            project&.type_variant(type)
+          end
+
           def assignable_values(_property, _current_user)
             nil
           end
@@ -51,11 +57,14 @@ module API
             []
           end
 
+          delegate :assignable_project_phases,
+                   to: :contract
+
           def writable?(property)
             property = property.to_s
 
             # Special case for milestones + date property
-            property = 'start_date' if property == 'date' && milestone?
+            property = "start_date" if property == "date" && milestone?
 
             @writable_attributes ||= contract.writable_attributes
             @writable_attributes.include?(property)
@@ -77,7 +86,7 @@ module API
           private
 
           def contract
-            raise NotImplementedError
+            raise SubclassResponsibilityError
           end
         end
       end

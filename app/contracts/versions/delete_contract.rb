@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -35,9 +37,13 @@ module Versions
     protected
 
     def validate_no_work_packages_attached
-      return unless model.work_packages.exists?
+      return unless work_packages_attached?
 
       errors.add(:base, :undeletable_work_packages_attached)
+    end
+
+    def work_packages_attached?
+      model.work_package_versions.exists?
     end
   end
 end

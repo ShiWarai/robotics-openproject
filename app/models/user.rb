@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,60 +28,121 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'digest/sha1'
+require "digest/sha1"
 
 class User < Principal
-  CURRENT_USER_LOGIN_ALIAS = 'me'.freeze
+  ScimEmail = Struct.new("ScimEmail", :value, :primary, :type)
+
+  VALID_NAME_CHARS = "\\d\\p{Alpha}\\p{Mark}\\p{Space}\\p{Emoji}'\\u{2019}´\\-_.,@()+&*–"
+  INVALID_NAME_REGEX = /[^#{VALID_NAME_CHARS}]/
+  VALID_NAME_REGEX   = /\A[#{VALID_NAME_CHARS}]+\z/
+  CURRENT_USER_LOGIN_ALIAS = "me"
   USER_FORMATS_STRUCTURE = {
     firstname_lastname: %i[firstname lastname],
     firstname: [:firstname],
     lastname_firstname: %i[lastname firstname],
     lastname_n_firstname: %i[lastname firstname],
-    lastname_coma_firstname: %i[lastname firstname],
+    lastname_comma_firstname: %i[lastname firstname],
     username: [:login]
   }.freeze
 
   include ::Associations::Groupable
   include ::Users::Avatars
+  include ::Users::PermissionChecks
   extend DeprecatedAlias
 
-  has_many :categories, foreign_key: 'assigned_to_id',
-                        dependent: :nullify
-  has_many :watches, class_name: 'Watcher',
+  # Join association backing #departments. The group_users lifecycle is already
+  # managed by the `groups` HABTM above, so no :dependent option is declared here.
+  has_many :group_users, inverse_of: :user # rubocop:disable Rails/HasManyOrHasOneDependent
+  # A user belongs to at most one department (an organizational unit group).
+  # Modeled as a has_many because Rails forbids a has_one :through a collection
+  # (group memberships). Use #department for the single value, and eager-load
+  # with User.includes(:departments) to avoid N+1 queries in user lists.
+  has_many :departments,
+           -> { Group.organizational_units },
+           through: :group_users,
+           source: :group
+  # Departments are surfaced as their own attribute, so they are left out here.
+  has_many :regular_groups,
+           -> { Group.not_organizational_units },
+           through: :group_users,
+           source: :group
+
+  has_many :watches, class_name: "Watcher",
                      dependent: :delete_all
   has_many :changesets, dependent: :nullify
   has_many :passwords, -> {
-    order('id DESC')
-  }, class_name: 'UserPassword',
+    order("id DESC")
+  }, class_name: "UserPassword",
      dependent: :destroy,
      inverse_of: :user
-  has_one :rss_token, class_name: '::Token::RSS', dependent: :destroy
-  has_one :api_token, class_name: '::Token::API', dependent: :destroy
+  has_one :rss_token, class_name: "::Token::RSS", dependent: :destroy
+  has_many :api_tokens, class_name: "::Token::API", dependent: :destroy
+  has_many :oauth_client_tokens, dependent: :destroy
+  has_many :working_hours, class_name: "UserWorkingHours",
+                           dependent: :destroy,
+                           inverse_of: :user
+  has_many :non_working_times, class_name: "UserNonWorkingTime",
+                               dependent: :destroy,
+                               inverse_of: :user
+
+  # The user might have one invitation token
+  has_one :invitation_token, class_name: "::Token::Invitation", dependent: :destroy
 
   # everytime a user subscribes to a calendar, a new ical_token is generated
   # unlike on other token types, all previously generated ical_tokens are kept
   # in order to keep all previously generated ical urls valid and usable
-  has_many :ical_tokens, class_name: '::Token::ICal', dependent: :destroy
+  has_many :ical_tokens, class_name: "::Token::ICal", dependent: :destroy
+  has_many :ical_meeting_tokens, class_name: "::Token::ICalMeeting", dependent: :destroy
 
-  belongs_to :auth_source, optional: true
+  belongs_to :ldap_auth_source, optional: true
 
   # Authorized OAuth grants
-  has_many :oauth_grants,
-           class_name: 'Doorkeeper::AccessGrant',
-           foreign_key: 'resource_owner_id'
+  has_many :oauth_grants, # rubocop:disable Rails/InverseOf
+           class_name: "Doorkeeper::AccessGrant",
+           foreign_key: "resource_owner_id",
+           dependent: :delete_all
 
   # User-defined oauth applications
   has_many :oauth_applications,
-           class_name: 'Doorkeeper::Application',
-           as: :owner
+           class_name: "Doorkeeper::Application",
+           as: :owner,
+           dependent: :destroy
 
   # Meeting memberships
   has_many :meeting_participants,
-           class_name: 'MeetingParticipant',
+           class_name: "MeetingParticipant",
            inverse_of: :user,
            dependent: :destroy
 
-  has_many :notification_settings, dependent: :destroy
+  has_many :recurring_meeting_interim_responses,
+           inverse_of: :user,
+           dependent: :destroy
+
+  has_many :notification_settings,
+           dependent: :destroy
+
+  has_many :project_queries,
+           class_name: "ProjectQuery",
+           inverse_of: :user,
+           dependent: :destroy
+
+  has_many :emoji_reactions, dependent: :destroy
+  has_many :reminders, foreign_key: "creator_id", dependent: :destroy, inverse_of: :creator
+  has_many :remote_identities, dependent: :destroy
+  has_many :ai_text_transform_runs, class_name: "AI::TextTransformRun", dependent: :delete_all
+
+  # Resource allocations assigned to this user. Normal user-deletion goes
+  # through Principals::DeleteJob, which rewrites principal_id to a
+  # DeletedUser placeholder before destroy fires (registered in the
+  # resource_management engine). The `dependent: :nullify` here is a
+  # defensive fallback if a user is destroyed outside that flow — the column
+  # is already nullable for the unassigned/filter-only state.
+  has_many :resource_allocations,
+           class_name: "ResourceAllocation",
+           foreign_key: :principal_id,
+           dependent: :nullify,
+           inverse_of: :principal
 
   # Users blocked via brute force prevention
   # use lambda here, so time is evaluated on each query
@@ -99,17 +162,17 @@ class User < Principal
 
   def self.blocked_condition(blocked)
     block_duration = Setting.brute_force_block_minutes.to_i.minutes
-    blocked_if_login_since = Time.now - block_duration
-    negation = blocked ? '' : 'NOT'
+    blocked_if_login_since = Time.zone.now - block_duration
+    negation = blocked ? "" : "NOT"
 
     ["#{negation} (users.failed_login_count >= ? AND users.last_failed_login_on > ?)",
      Setting.brute_force_block_after_failed_logins.to_i,
      blocked_if_login_since]
   end
 
-  acts_as_customizable
+  acts_as_customizable admin_only_allowed: true
 
-  attr_accessor :password, :password_confirmation, :last_before_login_on
+  attr_accessor :password, :password_confirmation, :last_before_login_on, :current_password_input, :consent_check
 
   validates :login,
             :firstname,
@@ -120,16 +183,21 @@ class User < Principal
   validates :login, uniqueness: { if: Proc.new { |user| user.login.present? }, case_sensitive: false }
   validates :mail, uniqueness: { allow_blank: true, case_sensitive: false }
   # Login must contain letters, numbers, underscores only
-  validates :login, format: { with: /\A[a-z0-9_\-@.+ ]*\z/i }
+  validates :login, format: { with: /\A[\p{L}0-9_\-@.+ ]*\z/i }
   validates :login, length: { maximum: 256 }
+
   validates :firstname, :lastname, length: { maximum: 256 }
+  validates :firstname, :lastname, format: { with: VALID_NAME_REGEX, allow_blank: true }
+
   validates :mail, email: true, unless: Proc.new { |user| user.mail.blank? }
   validates :mail, length: { maximum: 256, allow_nil: true }
+  # Only on change so that blocking a domain does not make its existing users unsaveable
+  validates :mail, blocked_email_domain: true, if: Proc.new { |user| user.mail_changed? }
 
   validates :password,
             confirmation: {
               allow_nil: true,
-              message: ->(*) { I18n.t('activerecord.errors.models.user.attributes.password_confirmation.confirmation') }
+              message: ->(*) { I18n.t("activerecord.errors.models.user.attributes.password_confirmation.confirmation") }
             }
 
   auto_strip_attributes :login, nullify: false
@@ -145,6 +213,7 @@ class User < Principal
   def self.unique_attribute
     :login
   end
+
   prepend ::Mixins::UniqueFinder
 
   def current_password
@@ -157,7 +226,7 @@ class User < Principal
 
   # create new password if password was set
   def update_password
-    if password && auth_source_id.blank?
+    if password && ldap_auth_source_id.blank?
       new_password = passwords.build(type: UserPassword.active_type.to_s)
       new_password.plain_password = password
       new_password.save
@@ -170,16 +239,28 @@ class User < Principal
     end
   end
 
-  def reload(*args)
-    @name = nil
-    @user_allowed_service = nil
-    @project_role_cache = nil
-
-    super
-  end
-
   def mail=(arg)
     write_attribute(:mail, arg.to_s.strip)
+  end
+
+  def self.available_custom_fields(_user)
+    user = User.current
+    RequestStore.fetch(:"#{name.underscore}_custom_fields_#{user.id}_#{user.admin?}") do
+      scope = CustomField.where(type: "#{name}CustomField").order(:position)
+      scope = scope.where(admin_only: false) if !user.admin?
+      scope
+    end
+  end
+
+  # Override acts_as_customizable to skip custom field validation for invited users
+  # since custom field values cannot be provided during the invitation process.
+  # We only skip the validation if no custom field changes are present.
+  def custom_values_to_validate
+    if invited? && custom_field_changes.empty?
+      []
+    else
+      super
+    end
   end
 
   def self.search_in_project(query, options)
@@ -209,14 +290,10 @@ class User < Principal
   def self.try_authentication_for_existing_user(user, password, session = nil)
     activate_user! user, session if session
 
-    return nil if !user.active? || OpenProject::Configuration.disable_password_login?
+    return nil unless user.active?
+    return nil unless user.check_password?(password)
 
-    if user.auth_source
-      # user has an external authentication method
-      return nil unless user.auth_source.authenticate(user.login, password)
-    else
-      # authentication with local password
-      return nil unless user.check_password?(password)
+    unless user.ldap_auth_source
       return nil if user.force_password_change
       return nil if user.password_expired?
     end
@@ -238,47 +315,40 @@ class User < Principal
 
   # Tries to authenticate with available sources and creates user on success
   def self.try_authentication_and_create_user(login, password)
-    return nil if OpenProject::Configuration.disable_password_login?
+    return nil if Users::PasswordLogin.none?
 
-    attrs = AuthSource.authenticate(login, password)
-    return unless attrs
+    user = LdapAuthSource.authenticate(login, password)
 
-    call = Users::CreateService
-      .new(user: User.system)
-      .call(attrs)
-
-    user = call.result
-
-    call.on_failure do |result|
-      Rails.logger.error "Failed to auto-create user from auth-source: #{result.message}"
-
-      # TODO We have no way to pass back the contract errors in this place
-      user.errors.merge! call.errors
+    if user&.new_record?
+      Rails.logger.error "Failed to auto-create user from auth-source, as data is missing."
     end
 
     user
   end
 
-  # Returns the user who matches the given autologin +key+ or nil
-  def self.try_to_autologin(key)
-    token = Token::AutoLogin.find_by_plaintext_value(key)
-    # Make sure there's only 1 token that matches the key
-    if token && ((token.created_at > Setting.autologin.to_i.day.ago) && token.user && token.user.active?)
-      token.user.log_successful_login
-      token.user
+  # Columns required for formatting the user's name.
+  def self.columns_for_name(formatter = nil)
+    case formatter || Setting.user_format
+    when :firstname
+      [:firstname]
+    when :username
+      [:login]
+    else
+      %i[firstname lastname]
     end
   end
 
   # Formats the user's name.
   def name(formatter = nil)
+    # Don't forget to check columns_for_name
     case formatter || Setting.user_format
 
-    when :firstname_lastname      then "#{firstname} #{lastname}"
-    when :lastname_firstname      then "#{lastname} #{firstname}"
-    when :lastname_n_firstname    then "#{lastname}#{firstname}"
-    when :lastname_coma_firstname then "#{lastname}, #{firstname}"
-    when :firstname               then firstname
-    when :username                then login
+    when :firstname_lastname then "#{firstname} #{lastname}"
+    when :lastname_firstname then "#{lastname} #{firstname}"
+    when :lastname_n_firstname then "#{lastname}#{firstname}"
+    when :lastname_comma_firstname then "#{lastname}, #{firstname}"
+    when :firstname then firstname
+    when :username then login
 
     else
       "#{firstname} #{lastname}"
@@ -286,10 +356,12 @@ class User < Principal
   end
 
   # Return user's authentication provider for display
-  def authentication_provider
-    return if identity_url.blank?
+  def human_authentication_provider
+    authentication_provider&.display_name
+  end
 
-    identity_url.split(':', 2).first.titleize
+  def provided_by_oidc?
+    authentication_provider.is_a?(OpenIDConnect::Provider)
   end
 
   ##
@@ -326,8 +398,10 @@ class User < Principal
   # If +update_legacy+ is set, will automatically save legacy passwords using the current
   # format.
   def check_password?(clear_password, update_legacy: true)
-    if auth_source_id.present?
-      auth_source.authenticate(login, clear_password)
+    return false unless password_login_allowed?
+
+    if ldap_auth_source.present?
+      ldap_auth_source.authenticate(login, clear_password)
     else
       return false if current_password.nil?
 
@@ -337,16 +411,20 @@ class User < Principal
 
   # Does the backend storage allow this user to change their password?
   def change_password_allowed?
-    return false if uses_external_authentication? ||
-                    OpenProject::Configuration.disable_password_login?
-    return true if auth_source_id.blank?
+    return false unless password_login_allowed?
+    return false if uses_external_authentication? && current_password.nil?
 
-    auth_source.allow_password_changes?
+    ldap_auth_source_id.blank?
   end
 
   # Is the user authenticated via an external authentication source via OmniAuth?
   def uses_external_authentication?
-    identity_url.present?
+    # using #any? instead of #exists? so that it also works on unpersisted auth provider links
+    user_auth_provider_links.any?
+  end
+
+  def password_login_allowed?
+    Users::PasswordLogin.allowed?(self)
   end
 
   #
@@ -370,8 +448,8 @@ class User < Principal
     block_threshold = Setting.brute_force_block_after_failed_logins.to_i
     return false if block_threshold == 0 # disabled
 
-    (last_failed_login_within_block_time? and
-            failed_login_count >= block_threshold)
+    last_failed_login_within_block_time? and
+      failed_login_count >= block_threshold
   end
 
   def log_failed_login
@@ -381,7 +459,7 @@ class User < Principal
   end
 
   def log_successful_login
-    update_attribute(:last_login_on, Time.now)
+    update_attribute(:last_login_on, Time.current)
   end
 
   def pref
@@ -389,7 +467,13 @@ class User < Principal
   end
 
   def time_zone
-    @time_zone ||= (pref.time_zone.blank? ? nil : ActiveSupport::TimeZone[pref.time_zone])
+    @time_zone ||= ActiveSupport::TimeZone[pref.time_zone] || ActiveSupport::TimeZone["Etc/UTC"]
+  end
+
+  def reload(*)
+    @time_zone = nil
+
+    super
   end
 
   def wants_comments_in_reverse_order?
@@ -407,7 +491,7 @@ class User < Principal
   end
 
   def self.find_by_api_key(key)
-    return nil unless Setting.rest_api_enabled?
+    return nil unless Setting.api_tokens_enabled?
 
     token = Token::API.find_by_plaintext_value(key)
 
@@ -453,7 +537,7 @@ class User < Principal
   # Returns the current day according to user's time zone
   def today
     if time_zone.nil?
-      Date.today
+      Time.zone.today
     else
       Time.now.in_time_zone(time_zone).to_date
     end
@@ -467,11 +551,25 @@ class User < Principal
     !logged?
   end
 
-  # Return user's roles for project
-  def roles_for_project(project)
-    project_role_cache.fetch(project)
+  def active_admin?
+    admin? && active?
   end
-  alias :roles :roles_for_project
+
+  # The single organizational unit (department) the user belongs to, if any.
+  def department
+    departments.first
+  end
+
+  def consent_expired?
+    # Always if the user has not consented
+    return true if consented_at.blank?
+
+    # Did not expire if no consent_time set, but user has consented at some point
+    return false if Setting.consent_time.blank?
+
+    # Otherwise, expires when consent_time is newer than last consented_at
+    consented_at < Setting.consent_time
+  end
 
   # Cheap version of Project.visible.count
   def number_of_known_projects
@@ -481,33 +579,6 @@ class User < Principal
       Project.public_projects.count + memberships.size
     end
   end
-
-  # Return true if the user is a member of project
-  def member_of?(project)
-    roles_for_project(project).any?(&:member?)
-  end
-
-  def self.allowed(action, project)
-    Authorization.users(action, project)
-  end
-
-  def self.allowed_members(action, project)
-    Authorization.users(action, project).where.not(members: { id: nil })
-  end
-
-  def allowed_to?(action, context, global: false)
-    user_allowed_service.call(action, context, global:)
-  end
-
-  def allowed_to_in_project?(action, project)
-    allowed_to?(action, project)
-  end
-
-  def allowed_to_globally?(action)
-    allowed_to?(action, nil, global: true)
-  end
-
-  delegate :preload_projects_allowed_to, to: :user_allowed_service
 
   def reported_work_package_count
     WorkPackage.on_active_project.with_author(self).visible.count
@@ -529,6 +600,30 @@ class User < Principal
     User.current = previous_user
   end
 
+  # Temporarily elevates a user's permissions to admin for the duration
+  # of the given block.
+  #
+  # This method ensures that any changes to the user's admin status are
+  # safely reverted after the block is executed, regardless of whether
+  # an exception is raised within the block.
+  #
+  # Saving of the user is attempted to be prevented but this might not be foolproof.
+  # Saving the user within the block should be avoided to prevent undesired side effects.
+  #
+  # @param user [User] The user that requires temporary admin elevation.
+  def self.execute_as_admin(user)
+    previous_user_admin_state = user.admin
+    previous_user_readonly_state = user.readonly?
+    user.admin = true
+    user.reset_permission_caches
+    user.readonly!
+    yield
+  ensure
+    user.admin = previous_user_admin_state
+    user.reset_permission_caches
+    user.instance_variable_set(:@readonly, previous_user_readonly_state)
+  end
+
   ##
   # Returns true if no authentication method has been chosen for this user yet.
   # There are three possible methods currently:
@@ -537,50 +632,121 @@ class User < Principal
   #   - OmniAuth
   #   - LDAP
   def missing_authentication_method?
-    identity_url.nil? && passwords.empty? && auth_source.nil?
+    !uses_external_authentication? && passwords.empty? && ldap_auth_source_id.nil?
   end
 
   # Returns the anonymous user.  If the anonymous user does not exist, it is created.  There can be only
   # one anonymous user per database.
   def self.anonymous
-    RequestStore[:anonymous_user] ||= begin
-      anonymous_user = AnonymousUser.first
-
-      if anonymous_user.nil?
-        (anonymous_user = AnonymousUser.new.tap do |u|
-          u.lastname = 'Anonymous'
-          u.login = ''
-          u.firstname = ''
-          u.mail = ''
-          u.status = User.statuses[:active]
-        end).save
-
-        raise 'Unable to create the anonymous user.' if anonymous_user.new_record?
-      end
-      anonymous_user
-    end
+    RequestStore[:anonymous_user] ||= AnonymousUser.first
   end
 
   def self.system
-    system_user = SystemUser.first
+    SystemUser.first
+  end
 
-    if system_user.nil?
-      system_user = SystemUser.new(
-        firstname: "",
-        lastname: "System",
-        login: "",
-        mail: "",
-        admin: true,
-        status: User.statuses[:active],
-        first_login: false
-      )
+  def scim_emails
+    [ScimEmail.new(mail, true, "work")]
+  end
 
-      system_user.save(validate: false)
+  def scim_emails=(emails)
+    email = emails.find { |email| email.primary == true } ||
+            emails.find { |email| email.type == "work" } ||
+            emails.min
 
-      raise 'Unable to create the automatic migration user.' unless system_user.persisted?
+    self.mail = email&.value
+  end
+
+  # rubocop:disable Naming/PredicateMethod
+  def scim_active=(is_active)
+    if is_active
+      activate
+      true
+    else
+      lock if active?
+      false
     end
+  end
 
-    system_user
+  def scim_active
+    active?
+  end
+  # rubocop:enable Naming/PredicateMethod
+
+  def self.scim_resource_type
+    Scimitar::Resources::User
+  end
+
+  def self.scim_attributes_map
+    {
+      id: :id,
+      externalId: :scim_external_id,
+      userName: :login,
+      name: {
+        givenName: :firstname,
+        familyName: :lastname
+      },
+      emails: [
+        {
+          list: :scim_emails,
+          class: User,
+          using: {
+            value: :value,
+            primary: :primary,
+            type: :type
+          },
+          find_with: Proc.new do |qwe|
+            ScimEmail.new(qwe["value"], qwe["primary"] == true, qwe["type"])
+          end
+        }
+      ],
+      groups: [
+        {
+          list: :groups,
+          using: {
+            value: :id
+          }
+        }
+      ],
+      active: :scim_active
+    }
+  end
+
+  def self.scim_queryable_attributes
+    {
+      externalId: { column: UserAuthProviderLink.arel_table[:external_id] },
+      username: { column: :login },
+      givenName: { column: :firstname },
+      familyName: { column: :lastname },
+      emails: { column: :mail },
+      groups: { column: Group.arel_table[:id] },
+      "groups.value" => { column: Group.arel_table[:id] }
+    }
+  end
+
+  include Scimitar::Resources::Mixin
+
+  def non_working_time_entities_for_year(year)
+    NonWorkingDay.for_year(year).to_a + non_working_times.for_year(year).to_a
+  end
+
+  def non_working_days_for_year(year)
+    working_wdays = Setting.working_days.map { |d| d % 7 }
+    all_dates = system_non_working_dates_for_year(year) | user_non_working_dates_for_year(year)
+    all_dates.select { |d| working_wdays.include?(d.wday) }
+  end
+
+  private
+
+  def system_non_working_dates_for_year(year)
+    NonWorkingDay.for_year(year).pluck(:date).to_set
+  end
+
+  def user_non_working_dates_for_year(year)
+    year_range = Date.new(year, 1, 1)..Date.new(year, 12, 31)
+    non_working_times.for_year(year).flat_map do |t|
+      ([t.start_date, year_range.begin].max..[t.end_date, year_range.end].min).to_a
+    end.to_set
   end
 
   protected
@@ -603,7 +769,7 @@ class User < Principal
 
       if former_passwords_include?(password)
         errors.add(:password,
-                   I18n.t('activerecord.errors.models.user.attributes.password.reused',
+                   I18n.t("activerecord.errors.models.user.attributes.password.reused",
                           count: Setting[:password_count_former_banned].to_i))
       end
     end
@@ -613,19 +779,11 @@ class User < Principal
 
   def self.mail_regexp(mail)
     separators = Regexp.escape(Setting.mail_suffix_separators)
-    recipient, domain = mail.split('@').map { |part| Regexp.escape(part) }
+    recipient, domain = mail.split("@").map { |part| Regexp.escape(part) }
     skip_suffix_check = recipient.nil? || Setting.mail_suffix_separators.empty? || recipient.match?(/.+[#{separators}].+/)
     regexp = "^#{recipient}([#{separators}][^@]+)*@#{domain}$"
 
     [skip_suffix_check, regexp]
-  end
-
-  def user_allowed_service
-    @user_allowed_service ||= ::Authorization::UserAllowedService.new(self, role_cache: project_role_cache)
-  end
-
-  def project_role_cache
-    @project_role_cache ||= ::Users::ProjectRoleCache.new(self)
   end
 
   def former_passwords_include?(password)
@@ -640,7 +798,7 @@ class User < Principal
   def clean_up_former_passwords
     # minimum 1 to keep the actual user password
     keep_count = [1, Setting[:password_count_former_banned].to_i].max
-    (passwords[keep_count..-1] || []).each(&:destroy)
+    (passwords[keep_count..] || []).each(&:destroy)
   end
 
   def clean_up_password_attribute
@@ -660,7 +818,7 @@ class User < Principal
 
   def self.register_failed_login_attempt_if_user_exists_for(login)
     user = User.find_by_login(login)
-    user.log_failed_login if user.present?
+    user.presence&.log_failed_login
     nil
   end
 
@@ -684,7 +842,7 @@ class User < Principal
   def last_failed_login_within_block_time?
     block_duration = Setting.brute_force_block_minutes.to_i.minutes
     last_failed_login_on and
-      Time.now - last_failed_login_on < block_duration
+      Time.zone.now - last_failed_login_on < block_duration
   end
 
   def log_failed_login_count
@@ -696,10 +854,10 @@ class User < Principal
   end
 
   def log_failed_login_timestamp
-    self.last_failed_login_on = Time.now
+    self.last_failed_login_on = Time.zone.now
   end
 
   def self.default_admin_account_changed?
-    !User.active.find_by_login('admin').try(:current_password).try(:matches_plaintext?, 'admin')
+    !User.active.find_by_login("admin").try(:current_password).try(:matches_plaintext?, "admin")
   end
 end

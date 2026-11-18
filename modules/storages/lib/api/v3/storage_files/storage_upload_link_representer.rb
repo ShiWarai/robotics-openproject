@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -36,12 +38,10 @@ module API::V3::StorageFiles
       {
         href: represented.destination,
         method: represented.method,
-        title: 'Upload File'
+        title: "Upload File"
       }
     end
 
-    def _type
-      Storages::UploadLink.name.split('::').last
-    end
+    def _type = "UploadLink"
   end
 end

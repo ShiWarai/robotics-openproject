@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,12 +26,21 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'open_project/plugins/auth_plugin'
+require "open_project/plugins/auth_plugin"
 
 module OmniAuth
+  # OmniAuth decides request vs callback by comparing
+  # the current path to +request_path+ / +callback_path+, which it derives from
+  # +name+ and then memoizes later on.
+  # For this reason, we need to verride the on_request_path and on_callback_path? methods
+  # to make sure we match our provider strategy class from the request (e.g., /auth/saml)
   module FlexibleStrategy
-    def on_auth_path?
-      possible_auth_path? && (match_provider! || false) && super
+    def on_request_path?
+      possible_auth_path? && match_provider! && super
+    end
+
+    def on_callback_path?
+      possible_auth_path? && match_provider! && super
     end
 
     ##
@@ -41,11 +50,13 @@ module OmniAuth
       return false unless providers
 
       @provider = providers.find do |p|
-        (current_path =~ /#{path_for_provider(p.to_hash[:name])}/) == 0
+        current_path.match?(/#{path_for_provider(p.to_hash[:name])}(\/|\s*$)/)
       end
 
       if @provider
         options.merge! provider.to_hash
+        @request_path = nil
+        @callback_path = nil
       end
 
       @provider
@@ -90,8 +101,8 @@ module OmniAuth
   end
 
   module FlexibleStrategyClass
-    def new(app, *args, &)
-      super(app, *args, &).tap do |strategy|
+    def new(app, *, **, &)
+      super.tap do |strategy|
         strategy.extend FlexibleStrategy
       end
     end

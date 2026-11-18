@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,6 +33,29 @@ module OmniauthHelper
     direct_login_provider.is_a? String
   end
 
+  def omniauth_start_url_options
+    { script_name: OpenProject::Configuration.rails_relative_url_root }.compact
+  end
+
+  def omniauth_login_path_options
+    omniauth_start_url_options.tap do |opts|
+      opts[:back_url] = params[:back_url] if params[:back_url].present?
+    end
+  end
+
+  def omniauth_provider_button(name, display_name: nil, icon: false)
+    classes = ["auth-provider", "auth-provider-#{name}", "button"]
+    classes << "auth-provider--imaged" if icon
+
+    link_to(
+      omniauth_login_path(name, omniauth_login_path_options),
+      class: classes.join(" "),
+      data: { turbo: false }
+    ) do
+      tag.span(display_name.presence || name, class: "auth-provider-name")
+    end
+  end
+
   ##
   # Per default the user may choose the usual password login as well as several omniauth providers
   # on the login page and in the login drop down menu.
@@ -39,9 +64,15 @@ module OmniauthHelper
   # used for direct login. Meaning that the login provider selection is skipped and
   # the configured provider is used directly instead.
   #
-  # If this option is active /login will lead directly to the configured omniauth provider
-  # and so will a click on 'Sign in' (as opposed to opening the drop down menu).
+  # If this option is active /login will lead directly to the configured omniauth provider,
+  # with a temporary form in between so that we can ensure we only POST to the provider (CVE-2015-9284).
   def direct_login_provider
-    OpenProject::Configuration['omniauth_direct_login_provider']
+    Setting.omniauth_direct_login_provider.presence
+  end
+
+  # Uses the controller-assigned flag so /login/internal can still render the
+  # password form when instance-wide password login is off.
+  def show_password_login_form?
+    @force_password_login_form || Users::PasswordLogin.enabled? # rubocop:disable Rails/HelperInstanceVariable
   end
 end

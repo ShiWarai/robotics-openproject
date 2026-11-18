@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,13 +30,18 @@
 
 class WorkPackages::MovesController < ApplicationController
   include WorkPackages::BulkErrorMessage
+  include WorkPackages::VersionIdsNormalization
+  include OpTurbo::ComponentStream
 
   default_search_scope :work_packages
   before_action :find_work_packages, :check_project_uniqueness
-  before_action :authorize
+  before_action :authorize_move_or_copy
+  authorization_checked! :new, :create, :refresh_form
 
   def new
     prepare_for_work_package_move
+
+    @move_form_component = move_form_component
   end
 
   def create
@@ -43,7 +50,20 @@ class WorkPackages::MovesController < ApplicationController
     perform_operation
   end
 
+  def refresh_form
+    prepare_for_work_package_move
+
+    update_via_turbo_stream(component: move_form_component)
+
+    respond_with_turbo_streams
+  end
+
   private
+
+  def authorize_move_or_copy
+    permission = params.has_key?(:copy) ? :copy_work_packages : :move_work_packages
+    do_authorize(permission)
+  end
 
   def perform_operation
     if within_frontend_treshold?
@@ -60,7 +80,7 @@ class WorkPackages::MovesController < ApplicationController
   # rubocop:disable Metrics/AbcSize
   def perform_in_frontend
     call = job_class
-      .perform_now(**job_args)
+             .perform_now(**job_args)
 
     if call.success? && @work_packages.any?
       flash[:notice] = call.message
@@ -70,6 +90,7 @@ class WorkPackages::MovesController < ApplicationController
       redirect_back_or_default(project_work_packages_path(@project))
     end
   end
+
   # rubocop:enable Metrics/AbcSize
 
   def perform_in_background
@@ -96,37 +117,50 @@ class WorkPackages::MovesController < ApplicationController
     end
   end
 
-  def default_breadcrumb
-    I18n.t(:label_move_work_package)
-  end
-
   # Check if project is unique before bulk operations
   def check_project_uniqueness
     unless @project
       # TODO: let users bulk move/copy work packages from different projects
-      render_error message: :'work_packages.move.unsupported_for_multiple_projects', status: 400
+      render_error message: :"work_packages.move.unsupported_for_multiple_projects", status: 400
       false
     end
   end
 
+  def move_form_component
+    WorkPackages::Moves::FormComponent.new(
+      work_packages: @work_packages,
+      project: @project,
+      target_project: @target_project,
+      notes: @notes,
+      copy: @copy,
+      selected_values: permitted_params.move_work_package_form_values,
+      current_user:
+    )
+  end
+
   def prepare_for_work_package_move
     @copy = params.has_key? :copy
-    @allowed_projects = WorkPackage.allowed_target_projects_on_move(current_user)
-    @target_project = @allowed_projects.detect { |p| p.id.to_s == params[:new_project_id].to_s } if params[:new_project_id]
+    if params[:new_project_id]
+      @target_project = WorkPackage.allowed_target_projects_on_move(current_user).find_by(id: params[:new_project_id])
+    end
     @target_project ||= @project
-    @types = @target_project.types
-    @target_type = @types.find { |t| t.id.to_s == params[:new_type_id].to_s }
-    @available_versions = @target_project.assignable_versions
-    @available_statuses = Workflow.available_statuses(@project)
-    @notes = params[:notes] || ''
+    @notes = params[:notes] || ""
   end
 
   def attributes_for_create
-    permitted_params
-      .move_work_package
+    attributes = permitted_params.move_work_package
+    # target_version_ids and observed_in_version_ids are array params and must not be run through
+    # the scalar "none"/blank magic value transforms below.
+    target_version_ids = normalized_target_version_ids(attributes.delete(:target_version_ids))
+    observed_in_version_ids = normalized_observed_in_version_ids(attributes.delete(:observed_in_version_ids))
+
+    attributes = attributes
       .compact_blank
       # 'none' is used in the frontend as a value to unset the property, e.g. the assignee.
-      .transform_values { |v| v == 'none' ? nil : v }
+      .transform_values { |v| v == "none" ? nil : v }
       .to_h
+    attributes[:target_version_ids] = target_version_ids unless target_version_ids.nil?
+    attributes[:observed_in_version_ids] = observed_in_version_ids unless observed_in_version_ids.nil?
+    attributes
   end
 end

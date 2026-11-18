@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,16 +28,45 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require_relative 'cache/cache_key'
+require_relative "cache/cache_key"
 
 module OpenProject
+  ##
+  # A cache accessor that ensures cache keys expire after OpenProject version bumps.
+  # Using OpenProject::Cache should be preferred over using Rails.cache directly.
   module Cache
-    def self.fetch(*parts, **options, &)
-      Rails.cache.fetch(CacheKey.key(*parts), **options, &)
-    end
+    class << self
+      def fetch(*, **, &)
+        Rails.cache.fetch(CacheKey.key(*), **, &)
+      end
 
-    def self.clear
-      Rails.cache.clear
+      # Like .fetch, but caches the result in RequestStore for the
+      # lifetime of the current request.
+      # Useful when accessing many times during a request to avoid
+      # multiple cache round-trips.
+      def fetch_request_cached(*, **, &)
+        key = CacheKey.key(*)
+
+        RequestStore.fetch(key) do
+          Rails.cache.fetch(key, **, &)
+        end
+      end
+
+      def read(name, **)
+        Rails.cache.read(CacheKey.key(name), **)
+      end
+
+      def write(name, value, **)
+        Rails.cache.write(CacheKey.key(name), value, **)
+      end
+
+      def delete(*)
+        Rails.cache.delete(CacheKey.key(*))
+      end
+
+      def clear
+        Rails.cache.clear
+      end
     end
   end
 end

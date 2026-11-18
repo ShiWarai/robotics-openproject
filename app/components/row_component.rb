@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -33,8 +33,8 @@
 class RowComponent < ApplicationComponent
   attr_reader :table
 
-  def initialize(row:, table:, **options)
-    super(row, **options)
+  def initialize(row:, table:, **)
+    super(row, **)
     @table = table
   end
 
@@ -45,7 +45,20 @@ class RowComponent < ApplicationComponent
   end
 
   def column_value(column)
+    return custom_field_column(column) if custom_field_column?(column)
+
     send(column)
+  end
+
+  def custom_field_column?(column)
+    column.is_a?(Queries::Selects::Shared::CustomFieldSelect)
+  end
+
+  def custom_field_column(column)
+    cf = column.custom_field
+    return "" unless cf
+
+    format_custom_field_value(cf, custom_field_column_subject.formatted_custom_value_for(cf))
   end
 
   def column_css_class(column)
@@ -68,9 +81,35 @@ class RowComponent < ApplicationComponent
     nil
   end
 
-  def checkmark(condition)
-    if condition
-      helpers.op_icon 'icon icon-checkmark'
+  def row_data
+    {}
+  end
+
+  def scheme
+    :default
+  end
+
+  def checkmark(condition, primerized: false)
+    return unless condition
+
+    if primerized
+      render(Primer::Beta::Octicon.new(icon: :check))
+    else
+      helpers.op_icon "icon icon-checkmark"
+    end
+  end
+
+  private
+
+  def custom_field_column_subject
+    model
+  end
+
+  def format_custom_field_value(_cf, custom_value)
+    if custom_value.is_a?(Array)
+      safe_join(Array(custom_value).compact_blank, ", ")
+    else
+      custom_value.to_s
     end
   end
 end

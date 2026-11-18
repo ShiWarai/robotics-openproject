@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,27 +30,40 @@
 
 class Wiki < ApplicationRecord
   belongs_to :project
-  has_many :pages, -> {
-    order('title')
-  }, class_name: 'WikiPage', dependent: :destroy
-  has_many :wiki_menu_items, -> {
-    order('name')
-  }, class_name: 'MenuItems::WikiMenuItem', dependent: :delete_all, foreign_key: 'navigatable_id'
-  has_many :redirects, class_name: 'WikiRedirect', dependent: :delete_all
+
+  has_many :pages, -> { order(:title) }, class_name: "WikiPage", inverse_of: :wiki, dependent: :destroy
+
+  has_many :wiki_menu_items,
+           -> { order(:name) },
+           class_name: "MenuItems::WikiMenuItem",
+           inverse_of: :wiki,
+           dependent: :delete_all,
+           foreign_key: "navigatable_id"
+
+  has_many :redirects, class_name: "WikiRedirect", dependent: :delete_all
 
   acts_as_watchable permission: :view_wiki_pages
 
+  scope :visible, ->(user = User.current) {
+    where(enabled: true)
+      .includes(:project)
+      .references(:project)
+      .merge(Project.allowed_to(user, :view_wiki_pages))
+  }
+
   accepts_nested_attributes_for :wiki_menu_items,
                                 allow_destroy: true,
-                                reject_if: proc { |attr| attr['name'].blank? && attr['title'].blank? }
+                                reject_if: proc { |attr| attr["name"].blank? && attr["title"].blank? }
 
   validates :start_page, presence: true
 
   after_create :create_menu_item_for_start_page
 
   def visible?(user = User.current)
-    !user.nil? && user.allowed_to?(:view_wiki_pages, project)
+    enabled && user.allowed_in_project?(:view_wiki_pages, project)
   end
+
+  def disabled? = !enabled?
 
   # find the page with the given title
   # if page doesn't exist, return a new page
@@ -105,7 +120,7 @@ class Wiki < ApplicationRecord
 
   def create_menu_item_for_start_page
     wiki_menu_item = wiki_menu_items.find_or_initialize_by(title: start_page) do |item|
-      item.name = 'wiki'
+      item.name = "wiki"
     end
     wiki_menu_item.new_wiki_page = true
     wiki_menu_item.index_page = true

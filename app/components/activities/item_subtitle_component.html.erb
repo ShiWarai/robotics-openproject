@@ -1,6 +1,6 @@
 <%#-- copyright
 OpenProject is an open source project management software.
-Copyright (C) 2012-2023 the OpenProject GmbH
+Copyright (C) the OpenProject GmbH
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License version 3.
@@ -29,9 +29,11 @@ See COPYRIGHT and LICENSE files for more details.
 
 <div class="op-activity-list--item-subtitle">
   <%=
-    I18n.t(i18n_key,
-      user: user_html,
-      datetime: datetime_html
-    ).html_safe
+    # OG: html_safe usage has been double-checked and would otherwise require a lot of i18n key change
+    I18n.t(
+      i18n_key,
+      user: h(user_html),
+      datetime: h(datetime_html)
+    ).html_safe # rubocop:disable Rails/OutputSafety
   %>
 </div>

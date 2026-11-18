@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -47,15 +47,17 @@ module OpenProject::NestedSet::RebuildPatch
   module ClassMethods
     # Rebuilds the left & rights if unset or invalid.  Also very useful for converting from acts_as_tree.
     # Very similar to original nested_set implementation but uses update_all so that callbacks are not triggered
-    def rebuild_silently!(roots = nil)
+    def rebuild_silently!(roots = nil) # rubocop:disable Metrics/AbcSize,Metrics/PerceivedComplexity
       # Don't rebuild a valid tree.
       return true if valid?
 
       scope = lambda { |_node| }
       if acts_as_nested_set_options[:scope]
         scope = lambda { |node|
-          scope_column_names.inject('') do |str, column_name|
-            str << "AND #{connection.quote_column_name(column_name)} = #{connection.quote(node.send(column_name.to_sym))} "
+          scope_column_names.inject("") do |str, column_name|
+            str << OpenProject::SqlSanitization.sanitize(
+              "AND #{connection.quote_column_name(column_name)} = ? ", node.send(column_name.to_sym)
+            )
           end
         }
       end
@@ -73,7 +75,7 @@ module OpenProject::NestedSet::RebuildPatch
         children = where(["#{quoted_parent_column_name} = ? #{scope.call(node)}", node])
                    .order([quoted_left_column_name,
                            quoted_right_column_name,
-                           acts_as_nested_set_options[:order]].compact.join(', '))
+                           acts_as_nested_set_options[:order]].compact.join(", "))
 
         children.each { |n| set_left_and_rights.call(n) }
 
@@ -98,7 +100,7 @@ module OpenProject::NestedSet::RebuildPatch
                      where("#{quoted_parent_column_name} IS NULL")
                      .order([quoted_left_column_name,
                              quoted_right_column_name,
-                             acts_as_nested_set_options[:order]].compact.join(', '))
+                             acts_as_nested_set_options[:order]].compact.join(", "))
                    end
 
       root_nodes.each do |root_node|

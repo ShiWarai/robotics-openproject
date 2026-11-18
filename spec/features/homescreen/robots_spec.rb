@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,25 +28,29 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'robots.txt' do
-  let!(:project) { create(:public_project) }
-
+RSpec.describe "robots.txt" do
   before do
-    visit '/robots.txt'
+    visit "/robots.txt"
   end
 
-  it 'disallows global paths and paths from public project' do
-    expect(page).to have_content('Disallow: /activity')
-    expect(page).to have_content('Disallow: /activities')
-    expect(page).to have_content('Disallow: /search')
+  context "when login_required", with_settings: { login_required: true } do
+    it "disallows everything" do
+      expect(page).to have_text("Disallow: /")
+    end
+  end
 
-    [project.identifier, project.id].each do |identifier|
-      expect(page).to have_content("Disallow: /projects/#{identifier}/repository")
-      expect(page).to have_content("Disallow: /projects/#{identifier}/work_packages")
-      expect(page).to have_content("Disallow: /projects/#{identifier}/activity")
-      expect(page).to have_content("Disallow: /projects/#{identifier}/search")
+  context "when not login_required", with_settings: { login_required: false } do
+    it "disallows global paths and paths from projects" do
+      expect(page).to have_text("Disallow: /activity")
+      expect(page).to have_text("Disallow: /activities")
+      expect(page).to have_text("Disallow: /search")
+
+      expect(page).to have_text("Disallow: /projects/*/repository")
+      expect(page).to have_text("Disallow: /projects/*/work_packages")
+      expect(page).to have_text("Disallow: /projects/*/activity")
+      expect(page).to have_text("Disallow: /projects/*/search")
     end
   end
 end

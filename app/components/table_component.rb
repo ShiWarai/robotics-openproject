@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,8 +31,23 @@
 ##
 # Abstract view component. Subclass this for a concrete table.
 class TableComponent < ApplicationComponent
-  def initialize(rows: [], **options)
-    super(rows, **options)
+  include Primer::AttributesHelper
+  include OpTurbo::Streamable
+
+  def initialize(rows: [], table_arguments: {}, **)
+    super(rows, **)
+
+    @system_arguments = table_arguments
+    @system_arguments[:tag] = :table
+    @system_arguments[:classes] = class_names(
+      @system_arguments[:classes],
+      "generic-table"
+    )
+    @system_arguments[:data] ||= {}
+    @system_arguments[:data] = merge_data(
+      @system_arguments,
+      data: { controller: "table-highlighting" }
+    )
   end
 
   class << self
@@ -80,7 +95,7 @@ class TableComponent < ApplicationComponent
     rescue NameError
       raise(
         NameError,
-        "#{mod}::RowComponent required by #{mod}::TableComponent not defined. " +
+        "#{mod}::RowComponent required by #{name} not defined. " +
         "Expected to be defined in `app/components/#{mod.underscore}/row_component.rb`."
       )
     end
@@ -92,8 +107,23 @@ class TableComponent < ApplicationComponent
 
   def initialize_sorted_model
     helpers.sort_init *initial_sort.map(&:to_s)
-    helpers.sort_update sortable_columns.map(&:to_s)
+    helpers.sort_update sortable_columns_correlation
     @model = paginate_collection apply_sort(model)
+  end
+
+  ##
+  # If +initial_sort+ or +sortable_columns+ and the table column names in the database
+  # don't map 1 to 1, or there is an ambiguous column dilemma due
+  # to the joining of tables, these correlation methods can be extended by +TableComponent+
+  # subclasses to set the appropriate sort criteria for said edge-cases.
+  #
+  def initial_sort_correlation
+    initial_sort
+  end
+
+  def sortable_columns_correlation
+    sortable_columns.to_h { [it.to_s, it.to_s] }
+                    .with_indifferent_access
   end
 
   def sort_criteria
@@ -130,20 +160,30 @@ class TableComponent < ApplicationComponent
       .per_page(helpers.per_page_param)
   end
 
+  def test_selector
+    options.fetch(:test_selector) { self.class.name.dasherize }
+  end
+
   def rows
     model
   end
 
-  def row_class
-    self.class.row_class
+  delegate :row_class, to: :class
+
+  def container_class
+    nil
+  end
+
+  def container_id
+    nil
   end
 
   def columns
-    self.class.columns
+    self.class.columns.reject { skip_column?(it) }
   end
 
   def sortable_columns
-    self.class.sortable_columns
+    self.class.sortable_columns.reject { skip_column?(it) }
   end
 
   def render_collection(rows)
@@ -155,7 +195,7 @@ class TableComponent < ApplicationComponent
   end
 
   def initial_order
-    initial_sort.join(' ')
+    initial_sort_correlation.join(" ")
   end
 
   def paginated?
@@ -168,6 +208,10 @@ class TableComponent < ApplicationComponent
 
   def sortable?
     true
+  end
+
+  def skip_column?(_column)
+    false
   end
 
   def sortable_column?(column)

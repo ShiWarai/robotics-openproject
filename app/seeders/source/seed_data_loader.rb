@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -37,33 +37,41 @@ class Source::SeedDataLoader
   include Source::Translate
 
   class << self
-    def get_data(edition: nil)
-      edition ||= OpenProject::Configuration['edition']
-      loader = new(seed_name: edition)
+    def get_data(edition: nil, only: nil)
+      edition ||= OpenProject::Configuration["edition"]
+      loader = new(seed_name: edition, only:)
       loader.seed_data
     end
   end
 
-  attr_reader :seed_name, :locale
+  attr_reader :seed_name, :locale, :only
 
-  def initialize(seed_name: 'standard', locale: I18n.locale)
+  def initialize(seed_name: "standard", locale: I18n.locale, only: nil)
     @seed_name = seed_name
     @locale = locale
+    @only = only
   end
 
   def seed_data
-    @seed_data ||= Source::SeedData.new(translate(raw_seed_files_content))
+    @seed_data ||= Source::SeedData.new(translated_seed_files_content)
   end
 
-  def raw_seed_files_content
-    seed_files.reduce({}) do |raw_content, seed_file|
-      raw_content.deep_merge(seed_file.raw_content)
-    end
+  def translated_seed_files_content
+    seed_files
+      .map { |seed_file| translate_seed_file(seed_file) }
+      .reduce({}) do |merged_content, seed_file_content|
+        merged_content.deep_merge(seed_file_content)
+      end
   end
 
   private
 
   def seed_files
-    Source::SeedFile.with_names(seed_name, 'common')
+    Source::SeedFile.with_names(seed_name, "common")
+  end
+
+  def translate_seed_file(seed_file)
+    raw_content = only ? seed_file.raw_content.slice(*Array(only)) : seed_file.raw_content
+    translate(raw_content, "#{Source::Translate::I18N_PREFIX}.#{seed_file.name}")
   end
 end

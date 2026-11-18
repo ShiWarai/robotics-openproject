@@ -2,13 +2,13 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -42,36 +42,40 @@ class IndividualPrincipalBaseFilterComponent < ApplicationComponent
       query(params).results
     end
 
+    def filter_param_keys
+      %i(name status group_id role_id)
+    end
+
     def filtered?(params)
-      %i(name status group_id role_id).any? { |name| params[name].present? }
+      filter_param_keys.any? { |name| params[name].present? }
     end
 
     def filter_name(query, name)
       if name.present?
-        query.where(:any_name_attribute, '~', name)
+        query.where(:any_name_attribute, "~", name)
       end
     end
 
     def filter_group(query, group_id)
       if group_id.present?
-        query.where(:group, '=', group_id)
+        query.where(:group, "=", group_id)
       end
     end
 
     def filter_role(query, role_id)
       if role_id.present?
-        query.where(:role_id, '=', role_id)
+        query.where(:role_id, "=", role_id)
       end
     end
 
     def filter_project(query, project_id)
       if project_id.present?
-        query.where(:project_id, '=', project_id)
+        query.where(:project_id, "=", project_id)
       end
     end
 
     def base_query
-      raise NotImplementedError
+      raise SubclassResponsibilityError
     end
 
     protected
@@ -89,7 +93,7 @@ class IndividualPrincipalBaseFilterComponent < ApplicationComponent
   # INSTANCE METHODS:
 
   def filter_path
-    raise NotImplementedError
+    raise SubclassResponsibilityError
   end
 
   def initially_visible?
@@ -106,6 +110,10 @@ class IndividualPrincipalBaseFilterComponent < ApplicationComponent
 
   def has_groups?
     defined?(groups) && groups.present?
+  end
+
+  def has_shares?
+    false
   end
 
   def params

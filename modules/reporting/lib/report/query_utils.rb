@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,21 +30,10 @@ module Report::QueryUtils
   Infinity = 1.0 / 0
   include Engine
 
-  delegate :quoted_false, :quoted_true, to: 'engine.reporting_connection'
+  delegate :quoted_false, :quoted_true, to: "engine.reporting_connection"
   attr_writer :engine
 
   include Costs::NumberHelper
-
-  ##
-  # Graceful string quoting.
-  #
-  # @param [Object] str String to quote
-  # @return [Object] Quoted version
-  def quote_string(str)
-    return str unless str.respond_to? :to_str
-
-    engine.reporting_connection.quote_string(str)
-  end
 
   def current_language
     ::I18n.locale
@@ -53,11 +42,11 @@ module Report::QueryUtils
   ##
   # Creates a SQL fragment representing a collection/array.
   #
-  # @see quote_string
+  # @see quote_sql_string_value
   # @param [#flatten] *values Ruby collection
   # @return [String] SQL collection
   def collection(*values)
-    return '' if values.empty?
+    return "" if values.empty?
 
     v = if values.is_a?(Array)
           values.flatten.each_with_object([]) do |str, l|
@@ -67,24 +56,24 @@ module Report::QueryUtils
           split_with_safe_return(str)
         end
 
-    "(#{v.flatten.map { |x| "'#{quote_string(x)}'" }.join(', ')})"
+    "(#{v.flatten.map { |x| quote_sql_string_value(x) }.join(', ')})"
   end
 
   def split_with_safe_return(str)
     # From ruby doc:
     # When the input str is empty an empty Array is returned as the string is
     # considered to have no fields to split.
-    str.to_s.empty? ? '' : str.to_s.split(',')
+    str.to_s.empty? ? "" : str.to_s.split(",")
   end
 
   ##
   # Graceful, internationalized quoted string.
   #
-  # @see quote_string
+  # @see quote_sql_string_value
   # @param [Object] str String to quote/translate
   # @return [Object] Quoted, translated version
   def quoted_label(ident)
-    "'#{quote_string ::I18n.t(ident)}'"
+    quote_sql_string_value(::I18n.t(ident))
   end
 
   def quoted_date(date)
@@ -129,7 +118,7 @@ module Report::QueryUtils
   # @param [Object, optional] default_table Table name to use if no table name is given.
   # @return [String] Field name.
   def field_name_for(arg)
-    return 'NULL' unless arg
+    return "NULL" unless arg
     return field_name_for(arg.keys.first) if arg.is_a? Hash
     return "#{table_name_for(arg.first)}.#{arg.last}" if arg.is_a? Array and arg.size == 2
 
@@ -179,7 +168,7 @@ module Report::QueryUtils
 
   def map_field(key, value)
     case key.to_s
-    when 'tweek', 'tmonth', 'tweek' then value.to_i
+    when "tweek", "tmonth", "tweek" then value.to_i
     else convert_unless_nil(value, &:to_s)
     end
   end
@@ -202,8 +191,12 @@ module Report::QueryUtils
   end
 
   def typed(type, value, escape = true)
-    safe_value = escape ? "'#{quote_string value}'" : value
+    safe_value = escape ? quote_sql_string_value(value) : value
     "#{safe_value}::#{type}"
+  end
+
+  def quote_sql_string_value(value)
+    engine.reporting_connection.quote(value.to_s)
   end
 
   def iso_year_week(field_name)

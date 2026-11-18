@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -33,7 +33,11 @@ class OpenProject::JournalFormatter::Diff < JournalFormatter::Base
     merge_options = { only_path: true,
                       html: true }.merge(options)
 
-    render_ternary_detail_text(key, values.last, values.first, merge_options)
+    if permission_granted?(merge_options.merge(key:))
+      render_ternary_detail_text(key, values.last, values.first, merge_options)
+    else
+      render_permission_denied_message(merge_options)
+    end
   end
 
   private
@@ -42,7 +46,7 @@ class OpenProject::JournalFormatter::Diff < JournalFormatter::Base
     label = super(key)
 
     if html
-      content_tag('strong', label)
+      content_tag("strong", label)
     else
       label
     end
@@ -74,7 +78,8 @@ class OpenProject::JournalFormatter::Diff < JournalFormatter::Base
     if options[:html]
       link_to(I18n.t(:label_details),
               url_attr,
-              class: 'description-details')
+              target: "_top",
+              class: "diff-details")
     else
       url_for url_attr
     end
@@ -82,8 +87,8 @@ class OpenProject::JournalFormatter::Diff < JournalFormatter::Base
 
   def url_attr(key, options)
     default_attributes(options)
-    .merge(controller: '/journals',
-           action: 'diff',
+    .merge(controller: "/journals",
+           action: "diff",
            id: @journal.id,
            field: key.downcase,
            activity_page: options[:activity_page])

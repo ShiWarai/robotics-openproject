@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,12 +28,12 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe WikiPages::SetAttributesService, type: :model do
   let(:user) { build_stubbed(:user) }
   let(:contract_class) do
-    contract = double('contract_class')
+    contract = double("contract_class")
 
     allow(contract)
       .to receive(:new)
@@ -41,11 +43,11 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
     contract
   end
   let(:contract_instance) do
-    double('contract_instance', validate: contract_valid, errors: contract_errors)
+    double("contract_instance", validate: contract_valid, errors: contract_errors)
   end
   let(:contract_valid) { true }
   let(:contract_errors) do
-    double('contract_errors')
+    double("contract_errors")
   end
   let(:wiki_page_valid) { true }
   let(:instance) do
@@ -58,13 +60,13 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
     build_stubbed(:wiki_page)
   end
 
-  describe 'call' do
+  describe "call" do
     let(:call_attributes) do
       {
-        text: 'some new text',
-        title: 'a new title',
-        slug: 'a new slug',
-        journal_notes: 'the journal notes'
+        text: "some new text",
+        title: "a new title",
+        slug: "a new slug",
+        journal_notes: "the journal notes"
       }
     end
 
@@ -80,12 +82,12 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
 
     subject { instance.call(call_attributes) }
 
-    it 'is successful' do
+    it "is successful" do
       expect(subject).to be_success
     end
 
-    context 'for an existing wiki page' do
-      it 'sets the attributes' do
+    context "for an existing wiki page" do
+      it "sets the attributes" do
         subject
 
         expect(wiki_page.attributes.slice(*wiki_page.changed).symbolize_keys)
@@ -95,7 +97,7 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
           .to eql call_attributes[:journal_notes]
       end
 
-      it 'does not persist the wiki_page' do
+      it "does not persist the wiki_page" do
         expect(wiki_page)
           .not_to receive(:save)
 
@@ -103,12 +105,12 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
       end
     end
 
-    context 'for a new wiki page' do
+    context "for a new wiki page" do
       let(:wiki_page) do
         WikiPage.new
       end
 
-      it 'sets the attributes with the user being the author' do
+      it "sets the attributes with the user being the author" do
         subject
 
         expect(wiki_page.attributes.slice(*wiki_page.changed).symbolize_keys)
@@ -118,10 +120,10 @@ RSpec.describe WikiPages::SetAttributesService, type: :model do
           .to eql call_attributes[:journal_notes]
       end
 
-      it 'marks the author to be system changed' do
+      it "marks the author to be system changed" do
         subject
 
-        expect(wiki_page.changed_by_system['author_id'])
+        expect(wiki_page.changed_by_system["author_id"])
           .to eql [nil, user.id]
       end
     end

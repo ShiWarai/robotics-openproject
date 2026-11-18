@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,50 +28,47 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require_relative './expected_markdown'
+require "spec_helper"
+require_relative "expected_markdown"
 
-RSpec.describe OpenProject::TextFormatting,
-               'mentions' do
-  include_context 'expected markdown modules'
+RSpec.describe OpenProject::TextFormatting, "mentions" do # rubocop:disable RSpec/SpecFilePathFormat
+  include_context "expected markdown modules"
 
-  describe '.format_text' do
+  describe ".format_text" do
     shared_let(:project) { create(:valid_project) }
     let(:identifier) { project.identifier }
     let(:options) { { project: } }
 
     shared_let(:role) do
-      create(:role,
+      create(:project_role,
              permissions: %i(view_work_packages edit_work_packages
                              browse_repository view_changesets view_wiki_pages))
     end
 
     shared_let(:project_member) do
       create(:user,
-             member_in_project: project,
-             member_through_role: role)
+             member_with_roles: { project => role })
     end
 
     before do
       login_as(project_member)
     end
 
-    context 'User links' do
+    context "User links" do
       let(:role) do
-        create(:role,
+        create(:project_role,
                permissions: %i[view_work_packages edit_work_packages
                                browse_repository view_changesets view_wiki_pages])
       end
 
       let(:linked_project_member) do
         create(:user,
-               member_in_project: project,
-               member_through_role: role)
+               member_with_roles: { project => role })
       end
 
-      context 'User link via mention' do
-        context 'existing user' do
-          it_behaves_like 'format_text produces' do
+      context "User link via mention" do
+        context "existing user" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 <mention class="mention"
@@ -86,16 +85,46 @@ RSpec.describe OpenProject::TextFormatting,
                 <p class="op-uc-p">
                   #{link_to(linked_project_member.name,
                             { controller: :users, action: :show, id: linked_project_member.id },
-                            title: "User #{linked_project_member.name}",
-                            class: 'user-mention op-uc-link')}
+                            aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                            class: 'user-mention op-uc-link',
+                            target: '_top',
+                            data: {
+                              hover_card_trigger_target: 'trigger',
+                              hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                            })}
                 </p>
               EXPECTED
             end
           end
         end
 
-        context 'inexistent user' do
-          it_behaves_like 'format_text produces' do
+        context "existing user, but not visible to current user" do
+          let(:non_visible_user) { create(:user) } # no project membership, not visible to project_member
+
+          it_behaves_like "format_text produces" do
+            let(:raw) do
+              <<~RAW
+                <mention class="mention"
+                         data-id="#{non_visible_user.id}"
+                         data-type="user"
+                         data-text="@#{non_visible_user.name}">
+                   @#{non_visible_user.name}
+                </mention>
+              RAW
+            end
+
+            let(:expected) do
+              <<~EXPECTED
+                <p class="op-uc-p">
+                  @#{non_visible_user.name}
+                </p>
+              EXPECTED
+            end
+          end
+        end
+
+        context "inexistent user" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 <mention class="mention"
@@ -116,11 +145,34 @@ RSpec.describe OpenProject::TextFormatting,
             end
           end
         end
+
+        context "with HTML-encoded content inside the mention body" do
+          it_behaves_like "format_text produces" do
+            let(:raw) do
+              # data-id 0 matches no user; the inner body contains an HTML-injecting payload
+              # encoded as entities. Nokogiri decodes entities when reading .text
+              <<~RAW
+                <mention class="mention"
+                         data-id="0"
+                         data-type="user"
+                         data-text="@Attacker">&lt;script&gt;alert('xss')&lt;/script&gt;</mention>
+              RAW
+            end
+
+            let(:expected) do
+              <<~EXPECTED
+                <p class="op-uc-p">
+                  &lt;script&gt;alert('xss')&lt;/script&gt;
+                </p>
+              EXPECTED
+            end
+          end
+        end
       end
 
-      context 'User link via ID' do
-        context 'when linked user visible for reader' do
-          it_behaves_like 'format_text produces' do
+      context "User link via ID" do
+        context "when linked user visible for reader" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 user##{linked_project_member.id}
@@ -132,18 +184,23 @@ RSpec.describe OpenProject::TextFormatting,
                 <p class="op-uc-p">
                   #{link_to(linked_project_member.name,
                             { controller: :users, action: :show, id: linked_project_member.id },
-                            title: "User #{linked_project_member.name}",
-                            class: 'user-mention op-uc-link')}
+                            aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                            class: 'user-mention op-uc-link',
+                            target: '_top',
+                            data: {
+                              hover_card_trigger_target: 'trigger',
+                              hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                            })}
                 </p>
               EXPECTED
             end
           end
         end
 
-        context 'when linked user not visible for reader' do
+        context "when linked user not visible for reader" do
           let(:role) { create(:non_member) }
 
-          it_behaves_like 'format_text produces' do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 user##{linked_project_member.id}
@@ -155,8 +212,13 @@ RSpec.describe OpenProject::TextFormatting,
                 <p class="op-uc-p">
                   #{link_to(linked_project_member.name,
                             { controller: :users, action: :show, id: linked_project_member.id },
-                            title: "User #{linked_project_member.name}",
-                            class: 'user-mention op-uc-link')}
+                            aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                            class: 'user-mention op-uc-link',
+                            target: '_top',
+                            data: {
+                              hover_card_trigger_target: 'trigger',
+                              hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                            })}
                 </p>
               EXPECTED
             end
@@ -164,10 +226,10 @@ RSpec.describe OpenProject::TextFormatting,
         end
       end
 
-      context 'User link via login name' do
-        context 'when linked user visible for reader' do
-          context 'with a common login name' do
-            it_behaves_like 'format_text produces' do
+      context "User link via login name" do
+        context "when linked user visible for reader" do
+          context "with a common login name" do
+            it_behaves_like "format_text produces" do
               let(:raw) do
                 <<~RAW
                   user:"#{linked_project_member.login}"
@@ -179,8 +241,13 @@ RSpec.describe OpenProject::TextFormatting,
                   <p class="op-uc-p">
                     #{link_to(linked_project_member.name,
                               { controller: :users, action: :show, id: linked_project_member.id },
-                              title: "User #{linked_project_member.name}",
-                              class: 'user-mention op-uc-link')}
+                              aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                              class: 'user-mention op-uc-link',
+                              target: '_top',
+                              data: {
+                                hover_card_trigger_target: 'trigger',
+                                hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                              })}
                   </p>
                 EXPECTED
               end
@@ -190,12 +257,11 @@ RSpec.describe OpenProject::TextFormatting,
           context "with an email address as login name" do
             let(:linked_project_member) do
               create(:user,
-                     member_in_project: project,
-                     member_through_role: role,
+                     member_with_roles: { project => role },
                      login: "foo@bar.com")
             end
 
-            it_behaves_like 'format_text produces' do
+            it_behaves_like "format_text produces" do
               let(:raw) do
                 <<~RAW
                   user:"#{linked_project_member.login}"
@@ -207,8 +273,13 @@ RSpec.describe OpenProject::TextFormatting,
                   <p class="op-uc-p">
                     #{link_to(linked_project_member.name,
                               { controller: :users, action: :show, id: linked_project_member.id },
-                              title: "User #{linked_project_member.name}",
-                              class: 'user-mention op-uc-link')}
+                              aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                              class: 'user-mention op-uc-link',
+                              target: '_top',
+                              data: {
+                                hover_card_trigger_target: 'trigger',
+                                hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                              })}
                   </p>
                 EXPECTED
               end
@@ -216,10 +287,10 @@ RSpec.describe OpenProject::TextFormatting,
           end
         end
 
-        context 'when linked user not visible for reader' do
+        context "when linked user not visible for reader" do
           let(:role) { create(:non_member) }
 
-          it_behaves_like 'format_text produces' do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 user:"#{linked_project_member.login}"
@@ -231,8 +302,13 @@ RSpec.describe OpenProject::TextFormatting,
                 <p class="op-uc-p">
                   #{link_to(linked_project_member.name,
                             { controller: :users, action: :show, id: linked_project_member.id },
-                            title: "User #{linked_project_member.name}",
-                            class: 'user-mention op-uc-link')}
+                            aria: { label: "#{linked_project_member.name}: A dynamic link to a user placed using a macro." },
+                            class: 'user-mention op-uc-link',
+                            target: '_top',
+                            data: {
+                              hover_card_trigger_target: 'trigger',
+                              hover_card_url: "/users/#{linked_project_member.id}/hover_card"
+                            })}
                 </p>
               EXPECTED
             end
@@ -240,9 +316,9 @@ RSpec.describe OpenProject::TextFormatting,
         end
       end
 
-      context 'User link via mail' do
-        context 'for user references not existing' do
-          it_behaves_like 'format_text produces' do
+      context "User link via mail" do
+        context "for user references not existing" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 Link to user:"foo@bar.com"
@@ -252,28 +328,26 @@ RSpec.describe OpenProject::TextFormatting,
             let(:expected) do
               <<~EXPECTED
                 <p class="op-uc-p">
-                  Link to user:"<a class="op-uc-link" href="mailto:foo@bar.com">foo@bar.com</a>"
+                  Link to user:"<a class="op-uc-link" rel="noopener noreferrer nofollow" target="_top" href="mailto:foo@bar.com">foo@bar.com</a>"
                 </p>
               EXPECTED
             end
           end
         end
 
-        context 'when visible user exists' do
+        context "when visible user exists" do
           let(:project) { create(:project) }
-          let(:role) { create(:role, permissions: %i(view_work_packages)) }
+          let(:role) { create(:project_role, permissions: %i(view_work_packages)) }
           let(:current_user) do
             create(:user,
-                   member_in_project: project,
-                   member_through_role: role)
+                   member_with_roles: { project => role })
           end
           let(:user) do
             create(:user,
-                   login: 'foo@bar.com',
-                   firstname: 'Foo',
-                   lastname: 'Barrit',
-                   member_in_project: project,
-                   member_through_role: role)
+                   login: "foo@bar.com",
+                   firstname: "Foo",
+                   lastname: "Barrit",
+                   member_with_roles: { project => role })
           end
 
           before do
@@ -281,8 +355,8 @@ RSpec.describe OpenProject::TextFormatting,
             login_as current_user
           end
 
-          context 'with only_path true (default)' do
-            it_behaves_like 'format_text produces' do
+          context "with only_path true (default)" do
+            it_behaves_like "format_text produces" do
               let(:raw) do
                 <<~RAW
                   Link to user:"foo@bar.com"
@@ -292,17 +366,24 @@ RSpec.describe OpenProject::TextFormatting,
               let(:expected) do
                 <<~EXPECTED
                   <p class="op-uc-p">
-                    Link to <a class="user-mention op-uc-link" href="/users/#{user.id}" title="User Foo Barrit">Foo Barrit</a>
+                    Link to
+                      <a
+                        class="user-mention op-uc-link"
+                        target="_top"
+                        data-hover-card-trigger-target="trigger"
+                        data-hover-card-url="/users/#{user.id}/hover_card"
+                        href="/users/#{user.id}"
+                        aria-label="Foo Barrit: A dynamic link to a user placed using a macro.">Foo Barrit</a>
                   </p>
                 EXPECTED
               end
             end
           end
 
-          context 'with only_path false (default)', with_settings: { host_name: "openproject.org" } do
+          context "with only_path false (default)", with_settings: { host_name: "openproject.org" } do
             let(:options) { { only_path: false } }
 
-            it_behaves_like 'format_text produces' do
+            it_behaves_like "format_text produces" do
               let(:raw) do
                 <<~RAW
                   Link to user:"foo@bar.com"
@@ -312,7 +393,14 @@ RSpec.describe OpenProject::TextFormatting,
               let(:expected) do
                 <<~EXPECTED
                   <p class="op-uc-p">
-                    Link to <a class="user-mention op-uc-link" href="http://openproject.org/users/#{user.id}" title="User Foo Barrit">Foo Barrit</a>
+                    Link to
+                      <a
+                        class="user-mention op-uc-link"
+                        target="_top"
+                        data-hover-card-trigger-target="trigger"
+                        data-hover-card-url="http://openproject.org/users/#{user.id}/hover_card"
+                        href="http://openproject.org/users/#{user.id}"
+                        aria-label="Foo Barrit: A dynamic link to a user placed using a macro.">Foo Barrit</a>
                   </p>
                 EXPECTED
               end
@@ -322,24 +410,19 @@ RSpec.describe OpenProject::TextFormatting,
       end
     end
 
-    context 'Group reference' do
+    context "Group reference" do
       let(:role) do
-        create(:role,
+        create(:project_role,
                permissions: [])
       end
 
       let(:linked_project_member_group) do
-        create(:group).tap do |group|
-          create(:member,
-                 principal: group,
-                 project:,
-                 roles: [role])
-        end
+        create(:group, member_with_roles: { project => role })
       end
 
-      context 'via hash syntax' do
-        context 'group exists' do
-          it_behaves_like 'format_text produces' do
+      context "via hash syntax" do
+        context "group exists" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 Link to group##{linked_project_member_group.id}
@@ -351,8 +434,9 @@ RSpec.describe OpenProject::TextFormatting,
                 <p class="op-uc-p">
                   Link to
                   <a class="user-mention op-uc-link"
+                     target="_top"
                      href="/groups/#{linked_project_member_group.id}"
-                     title="Group #{linked_project_member_group.name}">
+                     aria-label="#{linked_project_member_group.name}: A dynamic link to a group placed using a macro.">
                     #{linked_project_member_group.name}
                   </a>
                 </p>
@@ -361,8 +445,8 @@ RSpec.describe OpenProject::TextFormatting,
           end
         end
 
-        context 'group does not exist' do
-          it_behaves_like 'format_text produces' do
+        context "group does not exist" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 Link to group#000000
@@ -380,9 +464,9 @@ RSpec.describe OpenProject::TextFormatting,
         end
       end
 
-      context 'via mention' do
-        context 'existing group' do
-          it_behaves_like 'format_text produces' do
+      context "via mention" do
+        context "existing group" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 <mention class="mention"
@@ -396,8 +480,9 @@ RSpec.describe OpenProject::TextFormatting,
               <<~EXPECTED
                 <p class="op-uc-p">
                   <a class="user-mention op-uc-link"
+                     target="_top"
                      href="/groups/#{linked_project_member_group.id}"
-                     title="Group #{linked_project_member_group.name}">
+                     aria-label="#{linked_project_member_group.name}: A dynamic link to a group placed using a macro.">
                     #{linked_project_member_group.name}
                   </a>
                 </p>
@@ -406,8 +491,8 @@ RSpec.describe OpenProject::TextFormatting,
           end
         end
 
-        context 'inexistent group' do
-          it_behaves_like 'format_text produces' do
+        context "inexistent group" do
+          it_behaves_like "format_text produces" do
             let(:raw) do
               <<~RAW
                 <mention class="mention"

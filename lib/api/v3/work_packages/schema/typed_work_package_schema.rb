@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -44,11 +44,15 @@ module API
           end
 
           def available_custom_fields
-            custom_fields || (project.all_work_package_custom_fields.to_a & type.custom_fields.to_a)
+            custom_fields || (project.all_work_package_custom_fields.to_a & type_variant.custom_fields.to_a)
           end
 
           def no_caching?
             false
+          end
+
+          def work_package
+            @work_package ||= WorkPackage.new(project:, type:)
           end
 
           private
@@ -57,12 +61,6 @@ module API
             @contract ||= ::API::V3::WorkPackages::Schema::TypedSchemaContract
                 .new(work_package,
                      User.current)
-          end
-
-          def work_package
-            @work_package ||= WorkPackage
-                              .new(project:,
-                                   type:)
           end
         end
       end

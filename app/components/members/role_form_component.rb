@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -41,7 +41,7 @@ module Members
         id: "#{row.roles_css_id}-form",
         class: row.toggle_item_class_name,
         style: "display:none",
-        data: { 'members-form-target': 'membershipEditForm' }
+        data: { "members-form-target": "membershipEditForm" }
       }
     end
 

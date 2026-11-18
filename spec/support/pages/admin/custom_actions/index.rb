@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,16 +28,14 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'support/pages/page'
+require "support/pages/page"
 
 module Pages
   module Admin
     module CustomActions
       class Index < ::Pages::Page
         def new
-          within '.toolbar-items' do
-            click_link 'Custom action'
-          end
+          page.find_test_selector("op-admin-custom-actions--button-new", text: "Custom action").click
 
           wait_for_reload
 
@@ -44,7 +44,7 @@ module Pages
 
         def edit(name)
           within_buttons_of name do
-            find('.icon-edit').click
+            find(".icon-edit").click
           end
 
           custom_action = CustomAction.find_by!(name:)
@@ -54,13 +54,13 @@ module Pages
         def delete(name)
           accept_alert do
             within_buttons_of name do
-              find('.icon-delete').click
+              find(".icon-delete").click
             end
           end
         end
 
         def expect_listed(*names)
-          within 'table' do
+          within "table" do
             Array(names).each do |name|
               expect(page)
                 .to have_content name
@@ -70,26 +70,30 @@ module Pages
 
         def move_top(name)
           within_row_of(name) do
-            find("a[title='Move to top']").trigger('click')
+            find("a[title='Move to top']").trigger("click")
           end
+          wait_for_network_idle
         end
 
         def move_bottom(name)
           within_row_of(name) do
-            find("a[title='Move to bottom']").trigger('click')
+            find("a[title='Move to bottom']").trigger("click")
           end
+          wait_for_network_idle
         end
 
         def move_up(name)
           within_row_of(name) do
-            find("a[title='Move up']").trigger('click')
+            find("a[title='Move up']").trigger("click")
           end
+          wait_for_network_idle
         end
 
         def move_down(name)
           within_row_of(name) do
-            find("a[title='Move down']").trigger('click')
+            find("a[title='Move down']").trigger("click")
           end
+          wait_for_network_idle
         end
 
         def path
@@ -99,14 +103,14 @@ module Pages
         private
 
         def within_row_of(name, &)
-          within 'table' do
-            within(find('tr', text: name), &)
+          within "table" do
+            within(find("tr", text: name), &)
           end
         end
 
         def within_buttons_of(name, &)
           within_row_of(name) do
-            within(find('.buttons'), &)
+            within(find(".buttons"), &)
           end
         end
       end

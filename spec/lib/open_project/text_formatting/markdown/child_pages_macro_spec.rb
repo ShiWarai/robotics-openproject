@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,9 +28,9 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'OpenProject child pages macro' do
+RSpec.describe "OpenProject child pages macro" do
   include ActionView::Helpers::UrlHelper
   include OpenProject::StaticRouting::UrlHelpers
   include OpenProject::TextFormatting
@@ -37,108 +39,103 @@ RSpec.describe 'OpenProject child pages macro' do
     # no-op
   end
 
-  let(:project) do
-    create(:valid_project,
-           enabled_module_names: %w[wiki])
+  shared_let(:project) do
+    create(:valid_project, :with_internal_wiki)
   end
-  let(:input) {}
-  let(:member_project) do
-    create(:valid_project,
-           identifier: 'member-project',
-           enabled_module_names: %w[wiki])
+  shared_let(:member_project) do
+    create(:valid_project, :with_internal_wiki, identifier: "member-project")
   end
-  let(:invisible_project) do
-    create(:valid_project,
-           identifier: 'other-project',
-           enabled_module_names: %w[wiki])
+  shared_let(:invisible_project) do
+    create(:valid_project, :with_internal_wiki, identifier: "other-project")
   end
-  let(:role) { create(:role, permissions: [:view_wiki_pages]) }
-  let(:user) do
-    create(:user, member_in_projects: [project, member_project], member_through_role: role)
+  shared_let(:user) do
+    create(:user, member_with_permissions: { project => [:view_wiki_pages],
+                                             member_project => [:view_wiki_pages] })
   end
 
-  let(:current_page) do
-    create(:wiki_page,
-           title: 'Current page',
-           wiki: project.wiki,
-           text: input)
+  before_all do
+    set_factory_default(:user, user)
   end
 
-  let(:middle_page) do
+  shared_let(:current_page) do
     create(:wiki_page,
-           title: 'Node from same project',
+           title: "Current page",
+           wiki: project.wiki)
+  end
+
+  shared_let(:middle_page) do
+    create(:wiki_page,
+           title: "Node from same project",
            wiki: project.wiki,
            parent_id: current_page.id,
-           text: '# Node Page from same project')
+           text: "# Node Page from same project")
   end
 
-  let(:node_page_invisible_project) do
+  shared_let(:node_page_invisible_project) do
     create(:wiki_page,
-           title: 'Node page from invisible project',
+           title: "Node page from invisible project",
            wiki: invisible_project.wiki,
-           text: '# Page from invisible project')
+           text: "# Page from invisible project")
   end
 
-  let(:leaf_page) do
+  shared_let(:leaf_page) do
     create(:wiki_page,
-           title: 'Leaf page from same project',
+           title: "Leaf page from same project",
            parent_id: middle_page.id,
            wiki: project.wiki,
-           text: '# Leaf page from same project')
+           text: "# Leaf page from same project")
   end
 
-  let(:leaf_page_invisible_project) do
+  shared_let(:leaf_page_invisible_project) do
     create(:wiki_page,
-           title: 'Leaf page from invisible project',
+           title: "Leaf page from invisible project",
            parent_id: node_page_invisible_project.id,
            wiki: invisible_project.wiki,
-           text: '# Leaf page from invisible project')
+           text: "# Leaf page from invisible project")
   end
 
-  let(:leaf_page_member_project) do
+  shared_let(:leaf_page_member_project) do
     create(:wiki_page,
-           title: 'Leaf page from member project',
+           title: "Leaf page from member project",
            wiki: member_project.wiki,
-           text: '# Leaf page from member project')
+           text: "# Leaf page from member project")
   end
 
-  subject { format_text(current_page, :text) }
-
-  before do
-    login_as user
-    leaf_page
-    leaf_page_invisible_project
-    allow(Setting).to receive(:text_formatting).and_return('markdown')
+  subject do
+    current_page.update(text: input)
+    format_text(current_page, :text)
   end
+
+  current_user { user }
 
   def error_html(exception_msg)
     "<p class=\"op-uc-p\"><macro class=\"macro-unavailable\" data-macro-name=\"child_pages\">" \
       "Error executing the macro child_pages (#{exception_msg})</macro></p>"
   end
 
-  context 'with invalid page' do
+  context "with invalid page" do
     let(:input) { '<macro class="child_pages" data-page="Invalid"></macro>' }
 
     it { is_expected.to be_html_eql(error_html("Cannot find the wiki page 'Invalid'.")) }
   end
 
-  context 'old macro syntax no longer works' do
-    let(:input) { '{{child_pages(whatever)}}' }
+  describe "old macro syntax no longer works" do
+    let(:input) { "{{child_pages(whatever)}}" }
 
     it { is_expected.to be_html_eql("<p class=\"op-uc-p\">#{input}</p>") }
   end
 
-  context 'when nothing passed' do
+  context "when nothing passed" do
     let(:input) { '<macro class="child_pages"></macro>' }
 
     it { is_expected.not_to match(current_page.title) }
     it { is_expected.to match(middle_page.title) }
     it { is_expected.to match(leaf_page.title) }
     # Check accessibility
-    it { is_expected.to include('hidden-for-sighted', 'tabindex', 'Expanded. Click to collapse') }
+    it { is_expected.to include("sr-only", "tabindex", "Expanded. Click to collapse") }
   end
 
-  context 'when only include_parent passed' do
+  context "when only include_parent passed" do
     let(:input) { '<macro class="child_pages" data-include-parent="true"></macro>' }
 
     it { is_expected.to match(current_page.title) }
@@ -146,7 +143,7 @@ RSpec.describe 'OpenProject child pages macro' do
     it { is_expected.to match(leaf_page.title) }
   end
 
-  context 'when page title from same project passed' do
+  context "when page title from same project passed" do
     let(:input) { '<macro class="child_pages" data-page="Node from same project"></macro>' }
 
     it { is_expected.not_to match(current_page.title) }
@@ -154,7 +151,7 @@ RSpec.describe 'OpenProject child pages macro' do
     it { is_expected.to match(leaf_page.title) }
   end
 
-  context 'when page slug from same project passed' do
+  context "when page slug from same project passed" do
     let(:input) { '<macro class="child_pages" data-page="node-from-same-project"></macro>' }
 
     it { is_expected.not_to match(current_page.title) }
@@ -162,7 +159,7 @@ RSpec.describe 'OpenProject child pages macro' do
     it { is_expected.to match(leaf_page.title) }
   end
 
-  context 'when page title from same project with include_parent passed' do
+  context "when page title from same project with include_parent passed" do
     let(:input) { '<macro class="child_pages" data-page="Node from same project" data-include-parent="true"></macro>' }
 
     it { is_expected.not_to match(current_page.title) }
@@ -170,18 +167,16 @@ RSpec.describe 'OpenProject child pages macro' do
     it { is_expected.to match(leaf_page.title) }
   end
 
-  context 'when page slug from invisible project passed' do
+  context "when page slug from invisible project passed" do
     let(:input) { '<macro class="child_pages" data-page="other-project:leaf-page-from-other-project"></macro>' }
 
     it { is_expected.to be_html_eql(error_html("Cannot find the wiki page 'other-project:leaf-page-from-other-project'.")) }
   end
 
-  context 'when referencing page from a member project' do
+  context "when referencing page from a member project" do
     let(:input) do
       '<macro class="child_pages" data-page="member-project:leaf-page-from-member-project" data-include-parent="true"></macro>'
     end
-
-    before { leaf_page_member_project }
 
     it { is_expected.to match(leaf_page_member_project.title) }
   end

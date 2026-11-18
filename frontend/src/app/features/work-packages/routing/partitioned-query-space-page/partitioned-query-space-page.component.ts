@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -31,6 +31,7 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  inject,
 } from '@angular/core';
 import { QueryResource } from 'core-app/features/hal/resources/query-resource';
 import { OpTitleService } from 'core-app/core/html/op-title.service';
@@ -39,22 +40,21 @@ import { take } from 'rxjs/operators';
 import { HalResourceNotificationService } from 'core-app/features/hal/services/hal-resource-notification.service';
 import { WorkPackageNotificationService } from 'core-app/features/work-packages/services/notifications/work-package-notification.service';
 import { QueryParamListenerService } from 'core-app/features/work-packages/components/wp-query/query-param-listener.service';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
 import { ComponentType } from '@angular/cdk/overlay';
 import { Ng2StateDeclaration } from '@uirouter/angular';
-import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { OpModalService } from 'core-app/shared/components/modal/modal.service';
-import { InviteUserModalComponent } from 'core-app/features/invite-user-modal/invite-user.component';
 import { WorkPackageFilterContainerComponent } from 'core-app/features/work-packages/components/filters/filter-container/filter-container.directive';
 import isPersistedResource from 'core-app/features/hal/helpers/is-persisted-resource';
 import { UIRouterGlobals } from '@uirouter/core';
 import { ConfigurationService } from 'core-app/core/config/configuration.service';
 import { firstValueFrom } from 'rxjs';
+import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
+import { CurrentProjectService } from 'core-app/core/current-project/current-project.service';
 
 export interface DynamicComponentDefinition {
   component:ComponentType<any>;
-  inputs?:{ [inputName:string]:any };
-  outputs?:{ [outputName:string]:Function };
+  inputs?:Record<string, any>;
+  outputs?:Record<string, Function>;
 }
 
 export interface ToolbarButtonComponentDefinition extends DynamicComponentDefinition {
@@ -73,21 +73,24 @@ export type ViewPartitionState = '-split'|'-left-only'|'-right-only';
     { provide: HalResourceNotificationService, useClass: WorkPackageNotificationService },
     QueryParamListenerService,
   ],
+  standalone: false,
 })
 export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase implements OnInit, OnDestroy {
-  @InjectField() I18n!:I18nService;
+  readonly titleService = inject(OpTitleService);
 
-  @InjectField() titleService:OpTitleService;
+  readonly queryParamListener = inject(QueryParamListenerService);
 
-  @InjectField() queryParamListener:QueryParamListenerService;
+  readonly pathHelperService = inject(PathHelperService);
 
-  @InjectField() opModalService:OpModalService;
+  readonly currentProjectService = inject(CurrentProjectService);
 
-  @InjectField() uiRouterGlobals:UIRouterGlobals;
+  readonly opModalService = inject(OpModalService);
 
-  @InjectField() configuration:ConfigurationService;
+  readonly uiRouterGlobals = inject(UIRouterGlobals);
 
-  text:{ [key:string]:string } = {
+  readonly configuration = inject(ConfigurationService);
+
+  text:Record<string, string> = {
     jump_to_pagination: this.I18n.t('js.work_packages.jump_marks.pagination'),
     text_jump_to_pagination: this.I18n.t('js.work_packages.jump_marks.label_pagination'),
   };
@@ -121,9 +124,6 @@ export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase imp
 
   /** We need to pass the correct partition state to the view to manage the grid */
   currentPartition:ViewPartitionState = '-split';
-
-  /** What route (if any) should we go back to using the back button left of the title? */
-  backButtonCallback:() => void|undefined;
 
   /** Which filter container component to mount */
   filterContainerDefinition:DynamicComponentDefinition = {
@@ -175,6 +175,16 @@ export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase imp
       });
   }
 
+  breadcrumbItems() {
+    throw new Error('Not implemented');
+  }
+
+  currentMenuSectionHeader() {
+    if (!this.currentQuery?.id) return this.I18n.t('js.label_default_queries');
+    if (this.currentQuery.starred) return this.I18n.t('js.label_starred_queries');
+    return this.currentQuery.public ? this.I18n.t('js.label_global_queries') : this.I18n.t('js.label_custom_queries');
+  }
+
   /**
    * We need to set the current partition to the grid to ensure
    * either side gets expanded to full width if we're not in '-split' mode.
@@ -182,7 +192,7 @@ export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase imp
    * @param state The current or entering state
    */
   protected setPartition(state:Ng2StateDeclaration):void {
-    this.currentPartition = (state.data && state.data.partition) ? state.data.partition : '-split';
+    this.currentPartition = (state.data?.partition) ? state.data.partition : '-split';
   }
 
   protected setupInformationLoadedListener():void {
@@ -218,7 +228,10 @@ export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase imp
     this.currentQuery!.name = val;
     this.wpListService
       .save(this.currentQuery)
-      .finally(() => { this.toolbarDisabled = false; });
+      .finally(() => {
+        this.toolbarDisabled = false;
+        this.cdRef.detectChanges();
+      });
   }
 
   updateTitle(query?:QueryResource):void {
@@ -254,8 +267,6 @@ export class PartitionedQuerySpacePageComponent extends WorkPackagesViewBase imp
       });
     }
   }
-
-  protected inviteModal = InviteUserModalComponent;
 
   protected loadQuery(firstPage = false):Promise<QueryResource> {
     let promise:Promise<QueryResource>;

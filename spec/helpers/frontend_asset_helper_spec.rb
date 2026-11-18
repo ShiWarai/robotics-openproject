@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,47 +28,130 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe FrontendAssetHelper do
-  describe '#include_frontend_assets' do
-    context 'when in development or test',
-            with_env: { 'OPENPROJECT_DISABLE_DEV_ASSET_PROXY' => '' } do
+  describe "#include_frontend_assets" do
+    context "when in development or test",
+            with_env: { "OPENPROJECT_DISABLE_DEV_ASSET_PROXY" => "" } do
       before do
         allow(Rails.env).to receive(:production?).and_return(false)
+        allow(Rails.application.config).to receive(:relative_url_root).and_return("")
       end
 
-      it 'returns the proxied frontend server' do
-        expect(helper.include_frontend_assets).to match(%r{script src="http://localhost:4200/assets/frontend/main(.*).js"})
+      it "returns the proxied frontend server" do
+        expect(helper.include_frontend_assets).to match(%r{script src="http://(frontend-test|localhost):4200/assets/frontend/main(.*).js"})
+      end
+
+      context "when using relative_url_root" do
+        before do
+          allow(Rails.application.config).to receive(:relative_url_root).and_return("/openproject")
+        end
+
+        it "prepends it to the asset path" do
+          expect(helper.include_frontend_assets).to match(%r{script src="http://(frontend-test|localhost):4200/openproject/assets/frontend/main(.*).js"})
+        end
       end
     end
 
-    context 'when in production' do
+    # controller.config is an ActiveSupport::InheritableOptions singleton that persists across the
+    # whole spec run and falls back to Rails.application.config.relative_url_root when unset
+    # (RSpec's `allow(...).to receive(...)` stubs don't affect it here — stylesheet_link_tag reads
+    # relative_url_root through a config that resolves the value via its own internal/parent
+    # storage, not a Ruby method dispatch a stub could intercept). So it must be saved and restored
+    # explicitly via real assignment, and even the "no override" baseline must be pinned to a known
+    # value, or these examples become sensitive to whatever RAILS_RELATIVE_URL_ROOT happens to be
+    # set to in the shell/CI environment running the suite.
+    context "when in production" do
+      let(:original_relative_url_root) { controller.config.relative_url_root }
+
       before do
         allow(Rails.env).to receive(:production?).and_return(true)
+        original_relative_url_root # memoize the pre-mutation value before overwriting it below
+        controller.config.relative_url_root = ""
       end
 
-      it 'returns the path to the asset' do
+      after do
+        controller.config.relative_url_root = original_relative_url_root
+      end
+
+      it "returns the path to the asset" do
         expect(helper.include_frontend_assets).to match(%r{script src="/assets/frontend/main(.*).js"})
       end
 
-      context 'when using relative_url_root' do
-        before do
-          controller.config.relative_url_root = "/openproject"
-        end
+      context "when using relative_url_root" do
+        before { controller.config.relative_url_root = "/openproject" }
 
-        it 'prepends it to the asset path' do
+        it "prepends it to the asset path" do
           expect(helper.include_frontend_assets).to match(%r{script src="/openproject/assets/frontend/main(.*).js"})
         end
       end
 
-      context 'when using relative_url_root ending with a slash' do
+      context "when using relative_url_root ending with a slash" do
+        before { controller.config.relative_url_root = "/openproject/" }
+
+        it "prepends it to the asset path only once (bug #41428)" do
+          expect(helper.include_frontend_assets).to match(%r{script src="/openproject/assets/frontend/main(.*).js"})
+        end
+      end
+    end
+  end
+
+  describe "#raw_variable_asset_path" do
+    context "when in development or test",
+            with_env: { "OPENPROJECT_DISABLE_DEV_ASSET_PROXY" => "" } do
+      before do
+        allow(Rails.env).to receive(:production?).and_return(false)
+        allow(Rails.application.config).to receive(:relative_url_root).and_return("")
+      end
+
+      it "returns the proxied frontend server path" do
+        expect(helper.raw_variable_asset_path("blocknote.css"))
+          .to match(%r{\Ahttp://(frontend-test|localhost):4200/assets/frontend/blocknote(.*)\.css\z})
+      end
+
+      context "when using relative_url_root" do
         before do
-          controller.config.relative_url_root = "/openproject/"
+          allow(Rails.application.config).to receive(:relative_url_root).and_return("/openproject")
         end
 
-        it 'prepends it to the asset path only once (bug #41428)' do
-          expect(helper.include_frontend_assets).to match(%r{script src="/openproject/assets/frontend/main(.*).js"})
+        it "prepends it to the proxied path" do
+          expect(helper.raw_variable_asset_path("blocknote.css"))
+            .to match(%r{\Ahttp://(frontend-test|localhost):4200/openproject/assets/frontend/blocknote(.*)\.css\z})
+        end
+      end
+    end
+
+    context "when in production" do
+      before do
+        allow(Rails.env).to receive(:production?).and_return(true)
+        allow(Rails.application.config).to receive(:relative_url_root).and_return("")
+      end
+
+      it "returns a bare root-relative path" do
+        expect(helper.raw_variable_asset_path("blocknote.css"))
+          .to match(%r{\A/assets/frontend/blocknote(.*)\.css\z})
+      end
+
+      context "when using relative_url_root" do
+        before do
+          allow(Rails.application.config).to receive(:relative_url_root).and_return("/openproject")
+        end
+
+        it "prepends it to the raw asset path (regression: BlockNote shadow-DOM stylesheet hrefs)" do
+          expect(helper.raw_variable_asset_path("blocknote.css"))
+            .to match(%r{\A/openproject/assets/frontend/blocknote(.*)\.css\z})
+        end
+      end
+
+      context "when using relative_url_root ending with a slash" do
+        before do
+          allow(Rails.application.config).to receive(:relative_url_root).and_return("/openproject/")
+        end
+
+        it "prepends it exactly once (bug #41428-style double-slash)" do
+          expect(helper.raw_variable_asset_path("blocknote.css"))
+            .to match(%r{\A/openproject/assets/frontend/blocknote(.*)\.css\z})
         end
       end
     end

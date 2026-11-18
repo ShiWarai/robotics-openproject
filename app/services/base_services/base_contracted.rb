@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -50,18 +52,19 @@ module BaseServices
     # Determine the type of context
     # this service is running in
     # e.g., within a resource lock or just executing as the given user
-    def service_context(send_notifications:, &block)
-      in_context(model, send_notifications:, &block)
+    def service_context(send_notifications:, &)
+      in_context(model, send_notifications:, &)
     end
 
-    def perform(params = {})
-      params, send_notifications = extract(params, :send_notifications)
+    def perform # rubocop:disable Metrics/AbcSize
+      self.params, send_notifications = extract(params, :send_notifications)
       service_context(send_notifications:) do
-        service_call = validate_params(params)
-        service_call = before_perform(params, service_call) if service_call.success?
+        service_call = validate_params
+        service_call = before_perform(service_call) if service_call.success?
         service_call = validate_contract(service_call) if service_call.success?
-        service_call = after_validate(params, service_call) if service_call.success?
+        service_call = after_validate(service_call) if service_call.success?
         service_call = persist(service_call) if service_call.success?
+        service_call = after_persist(service_call) if service_call.success?
         service_call = after_perform(service_call) if service_call.success?
 
         service_call
@@ -69,19 +72,19 @@ module BaseServices
     end
 
     def extract(params, attribute)
-      params = params ? params.dup : {}
-      [params, params.delete(attribute)]
+      params ||= {}
+      [params, params[attribute]]
     end
 
-    def validate_params(_params)
+    def validate_params
       ServiceResult.success(result: model)
     end
 
-    def before_perform(*)
+    def before_perform(_)
       ServiceResult.success(result: model)
     end
 
-    def after_validate(_params, contract_call)
+    def after_validate(contract_call)
       contract_call
     end
 
@@ -108,8 +111,13 @@ module BaseServices
       call
     end
 
+    def after_persist(call)
+      # nothing for now but subclasses can override
+      call
+    end
+
     def default_contract_class
-      raise NotImplementedError
+      raise SubclassResponsibilityError
     end
 
     def namespace

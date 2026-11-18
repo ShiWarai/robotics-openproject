@@ -1,6 +1,6 @@
 //-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -41,7 +41,7 @@
 .color--text-preview
   padding: 1px 4px
   font-size: 0.9rem
-  font-weight: bold
+  font-weight: var(--base-text-weight-bold)
 
 .color--milestone-icon,
 .color--phase-icon
@@ -65,7 +65,7 @@
   // Square items
   flex: 0 0 150px
   height: 150px
-  border: 1px solid #CCCCCC
+  border: 1px solid var(--borderColor-default)
   margin: 10px
 
 
@@ -76,7 +76,7 @@
     height: 100%
     align-items: center
     justify-content: center
-    font-weight: bold
+    font-weight: var(--base-text-weight-bold)
     text-align: center
     word-break: break-all
 
@@ -86,17 +86,16 @@
   a.-dark
     color: white
 
-
 // -------------------------- Highlighting colors -----------------------------
 // Inline: type
 [class^='__hl_inline_type'],
 [class*=' __hl_inline_type']
   text-transform: uppercase
-  font-weight: bold
+  font-weight: var(--base-text-weight-bold)
 
 // Inline: all except type
-[class^='__hl_inline_']:not([class^='__hl_inline_type']),
-[class*=' __hl_inline_']:not([class*='__hl_inline_type'])
+[class^='__hl_inline_']:not([class^='__hl_inline_type'], [class^='__hl_inline_project_phase_definition']),
+[class*=' __hl_inline_']:not([class*='__hl_inline_type'], [class*='__hl_inline_project_phase_definition'])
   &::before
     content: ''
     display: inline-block
@@ -109,6 +108,11 @@
     .-small-font &
       width: 10px
       height: 10px
+
+  &.__hl_inline__small_dot:before
+    width: 6px
+    height: 6px
+    vertical-align: 1px
 
 @mixin dot_border_width_style
   [class^='__hl_inline_'],

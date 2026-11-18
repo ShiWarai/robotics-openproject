@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -33,7 +33,7 @@ import { ApiV3ListParameters, listParamsString } from 'core-app/core/apiv3/paths
 import { CollectionResource } from 'core-app/features/hal/resources/collection-resource';
 import { Board, BoardType } from 'core-app/features/boards/board/board';
 import { map, switchMap, tap } from 'rxjs/operators';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { AuthorisationService } from 'core-app/core/model-auth/model-auth.service';
 import { ApiV3Collection } from 'core-app/core/apiv3/cache/cachable-apiv3-collection';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
@@ -42,9 +42,9 @@ import { StateCacheService } from 'core-app/core/apiv3/cache/state-cache.service
 import { MAGIC_PAGE_NUMBER } from 'core-app/core/apiv3/helpers/get-paginated-results';
 
 export class ApiV3BoardsPaths extends ApiV3Collection<Board, ApiV3BoardPath> {
-  @InjectField() private authorisationService:AuthorisationService;
+  @LazyInject() private authorisationService:AuthorisationService;
 
-  @InjectField() private PathHelper:PathHelperService;
+  @LazyInject() private PathHelper:PathHelperService;
 
   constructor(protected apiRoot:ApiV3Service,
     protected basePath:string) {
@@ -102,7 +102,7 @@ export class ApiV3BoardsPaths extends ApiV3Collection<Board, ApiV3BoardPath> {
    * @param projectIdentifier The current project identifier
    */
   public boardPath(projectIdentifier:string) {
-    return this.PathHelper.projectBoardsPath(projectIdentifier);
+    return this.PathHelper.boardsPath(projectIdentifier);
   }
 
   protected createCache():StateCacheService<Board> {
@@ -111,9 +111,16 @@ export class ApiV3BoardsPaths extends ApiV3Collection<Board, ApiV3BoardPath> {
   }
 
   private createGrid(type:BoardType, name:string, scope:string, actionAttribute?:string):Observable<GridResource> {
-    const payload:any = _.set({ name }, '_links.scope.href', scope);
-    payload.options = {
-      type,
+    const payload:{
+      name:string;
+      _links:{ scope:{ href:string } };
+      options:{ type:BoardType; attribute?:string };
+    } = {
+      name,
+      _links: {
+        scope: { href: scope },
+      },
+      options: { type },
     };
 
     if (actionAttribute) {

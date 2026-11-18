@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,13 +29,13 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.shared_context 'with update service setup' do
+RSpec.shared_context "with update service setup" do
   let(:instance) do
     described_class.new(user:)
   end
-  let(:user) { build_stubbed(:user) }
+  let(:user) { build_stubbed(:admin) }
   let(:contract) do
     instance_double(Settings::UpdateContract,
                     validate: contract_success,
@@ -46,8 +46,8 @@ RSpec.shared_context 'with update service setup' do
     instance_double(Settings::Definition)
   end
   let(:setting_name) { :a_setting_name }
-  let(:new_setting_value) { 'a_new_setting_value' }
-  let(:previous_setting_value) { 'the_previous_setting_value' }
+  let(:new_setting_value) { "a_new_setting_value" }
+  let(:previous_setting_value) { "the_previous_setting_value" }
   let(:params) { { setting_name => new_setting_value } }
 
   before do

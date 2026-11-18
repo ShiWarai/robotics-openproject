@@ -1,13 +1,10 @@
-require 'spec_helper'
-require 'features/page_objects/notification'
+# frozen_string_literal: true
+
+require "spec_helper"
+require "features/page_objects/notification"
 
 # rubocop:disable RSpec/ScatteredLet
-RSpec.describe "Notification center date alerts",
-               js: true,
-               with_cuprite: true,
-               with_settings: { journal_aggregation_time_minutes: 0 } do
-  include ActiveSupport::Testing::TimeHelpers
-
+RSpec.describe "Notification center date alerts", :js, with_settings: { journal_aggregation_time_minutes: 0 } do
   # Find an assignable time zone with the same UTC offset as the local time zone
   def find_compatible_local_time_zone
     local_offset = Time.now.gmt_offset # rubocop:disable Rails/TimeZone
@@ -18,7 +15,7 @@ RSpec.describe "Notification center date alerts",
 
   shared_let(:time_zone) { find_compatible_local_time_zone }
   shared_let(:user) do
-    create(:user, preferences: { time_zone: time_zone.tzinfo.name }).tap do |user|
+    create(:user, preferences: { time_zone: time_zone.tzinfo.canonical_zone.name }).tap do |user|
       user.notification_settings.first.update(
         start_date: 7,
         due_date: 3,
@@ -27,7 +24,7 @@ RSpec.describe "Notification center date alerts",
     end
   end
   shared_let(:project) { create(:project_with_types) }
-  shared_let(:role) { create(:role, permissions: %i[view_work_packages edit_work_packages work_package_assigned]) }
+  shared_let(:role) { create(:project_role, permissions: %i[view_work_packages edit_work_packages work_package_assigned]) }
   shared_let(:membership) { create(:member, principal: user, project:, roles: [role]) }
   shared_let(:milestone_type) { create(:type_milestone) }
 
@@ -45,110 +42,104 @@ RSpec.describe "Notification center date alerts",
 
   # notification will be created by the job because `overdue: 1` in user notifications settings
   shared_let(:milestone_wp_past) do
-    create_alertable(subject: 'Milestone WP past', type: milestone_type, due_date: time_zone.today - 2.days)
+    create_alertable(subject: "Milestone WP past", type: milestone_type, due_date: time_zone.today - 2.days)
   end
 
   shared_let(:milestone_wp_future) do
-    create_alertable(subject: 'Milestone WP future', type: milestone_type, due_date: time_zone.today + 1.day)
+    create_alertable(subject: "Milestone WP future", type: milestone_type, due_date: time_zone.today + 1.day)
   end
 
   shared_let(:wp_start_past) do
-    create_alertable(subject: 'WP start past', start_date: time_zone.today - 1.day)
+    create_alertable(subject: "WP start past", start_date: time_zone.today - 1.day)
   end
   # notification will be created by job because `start_date: 7` in user notifications settings
   shared_let(:wp_start_future) do
-    create_alertable(subject: 'WP start future', start_date: time_zone.today + 7.days)
+    create_alertable(subject: "WP start future", start_date: time_zone.today + 7.days)
   end
 
   # notification will be created by job because `overdue: 1` in user notifications settings
   shared_let(:wp_due_past) do
-    create_alertable(subject: 'WP due past', due_date: time_zone.today - 3.days)
+    create_alertable(subject: "WP due past", due_date: time_zone.today - 3.days)
   end
   # notification will be created by job because `due_date: 3` in user notifications settings
   shared_let(:wp_due_future) do
-    create_alertable(subject: 'WP due future', due_date: time_zone.today + 3.days)
+    create_alertable(subject: "WP due future", due_date: time_zone.today + 3.days)
   end
 
   shared_let(:wp_double_notification) do
-    create_alertable(subject: 'Alert + Mention', due_date: time_zone.today + 1.day)
+    create_alertable(subject: "Alert + Mention", due_date: time_zone.today + 1.day)
   end
 
   shared_let(:wp_unset_date) do
-    create_alertable(subject: 'Unset date', due_date: nil)
+    create_alertable(subject: "Unset date", due_date: nil)
   end
 
   shared_let(:wp_due_today) do
-    create_alertable(subject: 'Due today', due_date: time_zone.today)
+    create_alertable(subject: "Due today", due_date: time_zone.today)
   end
 
   shared_let(:wp_double_alert) do
-    create_alertable(subject: 'Double alert', start_date: time_zone.today - 1.day, due_date: time_zone.today + 1.day)
+    create_alertable(subject: "Double alert", start_date: time_zone.today - 1.day, due_date: time_zone.today + 1.day)
   end
 
   # notification created by CreateDateAlertsNotificationsJob
   let(:notification_milestone_past) do
-    Notification.find_by(reason: 'date_alert_due_date', resource: milestone_wp_past)
+    Notification.find_by(reason: "date_alert_due_date", resource: milestone_wp_past)
   end
 
   shared_let(:notification_milestone_future) do
     create(:notification,
            reason: :date_alert_due_date,
            recipient: user,
-           resource: milestone_wp_future,
-           project:)
+           resource: milestone_wp_future)
   end
 
   shared_let(:notification_wp_start_past) do
     create(:notification,
            reason: :date_alert_start_date,
            recipient: user,
-           resource: wp_start_past,
-           project:)
+           resource: wp_start_past)
   end
 
   # notification created by CreateDateAlertsNotificationsJob
   let(:notification_wp_start_future) do
-    Notification.find_by(reason: 'date_alert_start_date', resource: wp_start_future)
+    Notification.find_by(reason: "date_alert_start_date", resource: wp_start_future)
   end
 
   # notification created by CreateDateAlertsNotificationsJob
   let(:notification_wp_due_past) do
-    Notification.find_by(reason: 'date_alert_due_date', resource: wp_due_past)
+    Notification.find_by(reason: "date_alert_due_date", resource: wp_due_past)
   end
 
   # notification created by CreateDateAlertsNotificationsJob
   let(:notification_wp_due_future) do
-    Notification.find_by(reason: 'date_alert_due_date', resource: wp_due_future)
+    Notification.find_by(reason: "date_alert_due_date", resource: wp_due_future)
   end
 
   shared_let(:notification_wp_double_date_alert) do
     create(:notification,
            reason: :date_alert_due_date,
            recipient: user,
-           resource: wp_double_notification,
-           project:)
+           resource: wp_double_notification)
   end
 
   shared_let(:notification_wp_double_mention) do
     create(:notification,
            reason: :mentioned,
            recipient: user,
-           resource: wp_double_notification,
-           project:)
+           resource: wp_double_notification)
   end
 
   shared_let(:notification_wp_double_alerts) do
     due = create(:notification,
                  reason: :date_alert_due_date,
                  recipient: user,
-                 resource: wp_double_alert,
-                 project:)
+                 resource: wp_double_alert)
 
     start = create(:notification,
                    reason: :date_alert_start_date,
                    recipient: user,
-                   resource: wp_double_alert,
-                   project:)
+                   resource: wp_double_alert)
 
     [start, due]
   end
@@ -157,26 +148,24 @@ RSpec.describe "Notification center date alerts",
     create(:notification,
            reason: :date_alert_due_date,
            recipient: user,
-           resource: wp_unset_date,
-           project:)
+           resource: wp_unset_date)
   end
 
   shared_let(:notification_wp_due_today) do
     create(:notification,
            reason: :date_alert_due_date,
            recipient: user,
-           resource: wp_due_today,
-           project:)
+           resource: wp_due_today)
   end
 
   let(:center) { Pages::Notifications::Center.new }
-  let(:side_menu) { Components::Notifications::Sidemenu.new }
+  let(:side_menu) { Components::Submenu.new }
   let(:toaster) { PageObjects::Notifications.new(page) }
-  let(:activity_tab) { Components::WorkPackages::Activities.new(notification_wp_due_today) }
+  let(:tabs) { Components::WorkPackages::PrimerizedTabs.new }
 
   # Converts "hh:mm" into { hour: h, min: m }
   def time_hash(time)
-    %i[hour min].zip(time.split(':', 2).map(&:to_i)).to_h
+    %i[hour min].zip(time.split(":", 2).map(&:to_i)).to_h
   end
 
   def timezone_time(time, timezone)
@@ -185,11 +174,11 @@ RSpec.describe "Notification center date alerts",
 
   # early in the morning, a bit after 1:00 AM local time, the notifications get
   # created by the job
-  let(:notifications_creation_time) { timezone_time('1:04', time_zone) }
+  let(:notifications_creation_time) { timezone_time("1:04", time_zone) }
 
   def run_create_date_alerts_notifications_job
     create_date_alerts_service = Notifications::ScheduleDateAlertsNotificationsJob::Service
-                                   .new([timezone_time('1:00', time_zone)])
+                                   .new([timezone_time("1:00", time_zone)])
     travel_to(notifications_creation_time)
     create_date_alerts_service.call
     travel_back
@@ -203,80 +192,64 @@ RSpec.describe "Notification center date alerts",
     wait_for_reload
   end
 
-  context 'without date alerts ee' do
-    it 'shows the upsale page' do
-      side_menu.click_item 'Date alert'
+  it "shows the date alerts according to specification" do
+    center.expect_item(notification_wp_start_past, "Start date was 1 day ago.")
+    center.expect_item(notification_wp_start_future, "Start date is in 7 days.")
 
-      expect(page).to have_current_path /notifications\/date_alerts/
-      expect(page).to have_text 'Date alerts is an Enterprise'
-      expect(page).to have_text 'Please upgrade to a paid plan '
+    center.expect_item(notification_wp_due_past, "Overdue for 3 days.")
+    center.expect_item(notification_wp_due_future, "Finish date is in 3 days.")
 
-      # It does not allows direct url access
-      visit notifications_center_path(filter: 'reason', name: 'dateAlert')
-      toaster.expect_error('Filters Reason filter has invalid values.')
-    end
-  end
+    center.expect_item(notification_milestone_past, "Overdue for 2 days.")
+    center.expect_item(notification_milestone_future, "Milestone date is in 1 day.")
 
-  context 'with date alerts ee', with_ee: %i[date_alerts] do
-    it 'shows the date alerts according to specification' do
-      center.expect_item(notification_wp_start_past, 'Start date was 1 day ago')
-      center.expect_item(notification_wp_start_future, 'Start date is in 7 days')
+    center.expect_item(notification_wp_unset_date, "Finish date is deleted.")
 
-      center.expect_item(notification_wp_due_past, 'Overdue since 3 days')
-      center.expect_item(notification_wp_due_future, 'Finish date is in 3 days')
+    center.expect_item(notification_wp_due_today, "Finish date is today.")
 
-      center.expect_item(notification_milestone_past, 'Overdue since 2 days')
-      center.expect_item(notification_milestone_future, 'Milestone date is in 1 day')
+    # Doesn't show the date alert for the mention, not the alert
+    center.expect_item(notification_wp_double_mention, "Finish date is in 1 day.")
+    center.expect_no_item(notification_wp_double_date_alert)
 
-      center.expect_item(notification_wp_unset_date, 'Finish date is deleted')
+    # When switch to date alerts, it shows the alert, no longer the mention
+    side_menu.click_item "Date alert"
+    wait_for_network_idle
+    center.expect_item(notification_wp_double_date_alert, "Finish date is in 1 day.")
+    center.expect_no_item(notification_wp_double_mention)
 
-      center.expect_item(notification_wp_due_today, 'Finish date is today')
+    # Ensure that start is created later than due for implicit ID sorting
+    double_alert_start, double_alert_due = notification_wp_double_alerts
+    expect(double_alert_start.id).to be > double_alert_due.id
 
-      # Doesn't show the date alert for the mention, not the alert
-      center.expect_item(notification_wp_double_mention, /(seconds|minutes) ago by Anonymous/)
-      center.expect_no_item(notification_wp_double_date_alert)
+    # We see that start is actually the newest ID, hence shown as the primary notification
+    # but the date alert still shows the finish date
+    center.expect_item(double_alert_start, "Finish date is in 1 day.")
+    center.expect_no_item(double_alert_due)
 
-      # When switch to date alerts, it shows the alert, no longer the mention
-      side_menu.click_item 'Date alert'
-      wait_for_network_idle
-      center.expect_item(notification_wp_double_date_alert, 'Finish date is in 1 day')
-      center.expect_no_item(notification_wp_double_mention)
+    # Opening a date alert opens in overview
+    center.click_item notification_wp_start_past
+    split_screen = Pages::PrimerizedSplitWorkPackage.new wp_start_past
+    split_screen.expect_tab :overview
+    wait_for_network_idle
 
-      # Ensure that start is created later than due for implicit ID sorting
-      double_alert_start, double_alert_due = notification_wp_double_alerts
-      expect(double_alert_start.id).to be > double_alert_due.id
+    # We expect no badge count
+    tabs.expect_no_counter "activity"
 
-      # We see that start is actually the newest ID, hence shown as the primary notification
-      # but the date alert still shows the finish date
-      center.expect_item(double_alert_start, 'Finish date is in 1 day')
-      center.expect_no_item(double_alert_due)
+    # The same is true for the mention item that is opened in date alerts filter
+    center.click_item notification_wp_double_date_alert
+    split_screen = Pages::PrimerizedSplitWorkPackage.new wp_double_notification
+    split_screen.expect_tab :overview
+    wait_for_network_idle
 
-      # Opening a date alert opens in overview
-      center.click_item notification_wp_start_past
-      split_screen = Pages::SplitWorkPackage.new wp_start_past
-      split_screen.expect_tab :overview
-      wait_for_network_idle
+    # We expect one badge
+    tabs.expect_counter "activity", 1
 
-      # We expect no badge count
-      activity_tab.expect_no_notification_badge
+    # When a work package is updated to a different date
+    wp_double_notification.update_column(:due_date, time_zone.now + 5.days)
+    page.driver.refresh
+    wait_for_reload
 
-      # The same is true for the mention item that is opened in date alerts filter
-      center.click_item notification_wp_double_date_alert
-      split_screen = Pages::SplitWorkPackage.new wp_double_notification
-      split_screen.expect_tab :overview
-      wait_for_network_idle
-
-      # We expect one badge
-      activity_tab.expect_notification_count 1
-
-      # When a work package is updated to a different date
-      wp_double_notification.update_column(:due_date, time_zone.now + 5.days)
-      page.driver.refresh
-      wait_for_reload
-
-      center.expect_item(notification_wp_double_date_alert, 'Finish date is in 5 days')
-      center.expect_no_item(notification_wp_double_mention)
-    end
+    center.expect_item(notification_wp_double_date_alert, "Finish date is in 5 days.")
+    center.expect_no_item(notification_wp_double_mention)
   end
 end
 # rubocop:enable RSpec/ScatteredLet

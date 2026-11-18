@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,67 +28,83 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
+require_relative "../../toasts/expectations"
+
 module Components
   module WorkPackages
     class ContextMenu
       include Capybara::DSL
       include Capybara::RSpecMatchers
       include RSpec::Matchers
+      include Toasts::Expectations
 
-      def open_for(work_package, card_view: nil)
+      def open_for(work_package, check_if_open: true, card_view: nil)
         # Close
-        find('body').send_keys :escape
+        find("body").send_keys :escape
         sleep 0.5 unless using_cuprite?
 
-        if card_view.nil?
-          view_toggle_button = find_by_id('wp-view-toggle-button', wait: 0)
-          # DEBUG Remove me
-          if view_toggle_button.nil?
-            puts "DEBUG: #{self}#open_for called for a page without a view toggle button. " \
-                 "Example is #{RSpec.current_example.location} - #{RSpec.current_example.id}"
+        retry_block do
+          if card_view
+            page.find(".op-wp-single-card-#{work_package.id}").right_click
+          else
+            page.find(".wp-row-#{work_package.id}-table").right_click
           end
-          card_view = view_toggle_button&.text == 'Cards'
-        end
 
-        if card_view
-          page.find(".op-wp-single-card-#{work_package.id}").right_click
-        else
-          page.find(".wp-row-#{work_package.id}-table").right_click
+          if check_if_open && !page.find(:menu, work_package_context_menu_label)
+            raise "Menu not open"
+          end
         end
-
-        expect_open
+      rescue StandardError
+        expect_open if check_if_open
       end
 
       def expect_open
-        expect(page).to have_selector(selector)
+        expect(page).to have_selector(:menu, work_package_context_menu_label)
       end
 
       def expect_closed
-        expect(page).not_to have_selector(selector)
+        expect(page).to have_no_selector(:menu, work_package_context_menu_label)
       end
 
       def choose(target)
-        find("#{selector} .menu-item", text: target, exact_text: true).click
+        within_menu do
+          find(:menuitem, text: target, exact_text: true).click
+        end
+      end
+
+      def choose_delete_and_confirm_deletion
+        choose "Delete"
+
+        dialog = ::Components::WorkPackages::DestroyModal.new
+        dialog.confirm_deletion
       end
 
       def expect_no_options(*options)
         expect_open
-        options.each do |text|
-          expect(page).not_to have_selector("#{selector} .menu-item", text:)
+        within_menu do
+          options.each do |text|
+            expect(page).to have_no_selector(:menuitem, text:)
+          end
         end
       end
 
-      def expect_options(options)
+      def expect_options(*options)
         expect_open
-        options.each do |text|
-          expect(page).to have_selector("#{selector} .menu-item", text:)
+        within_menu do
+          options.each do |text|
+            expect(page).to have_selector(:menuitem, text:)
+          end
         end
       end
 
       private
 
-      def selector
-        '#work-package-context-menu'
+      def within_menu(&)
+        within(:menu, work_package_context_menu_label, &)
+      end
+
+      def work_package_context_menu_label
+        I18n.t("js.label_work_package_context_menu")
       end
     end
   end

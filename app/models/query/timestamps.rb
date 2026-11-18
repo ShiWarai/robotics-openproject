@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,7 +32,7 @@ module Query::Timestamps
   extend ActiveSupport::Concern
 
   included do
-    serialize :timestamps, Array
+    serialize :timestamps, type: Array
 
     # Returns the timestamps the query should be evaluated at.
     #
@@ -42,8 +44,6 @@ module Query::Timestamps
     # call `timestamp.to_time`.
     #
     def timestamps
-      return [Timestamp.now] unless OpenProject::FeatureDecisions.show_changes_active?
-
       timestamps = super.collect do |timestamp_string|
         Timestamp.new(timestamp_string)
       end

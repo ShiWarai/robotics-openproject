@@ -1,21 +1,48 @@
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
+
+import { isEqual } from 'lodash-es';
 import { QueryResource } from 'core-app/features/hal/resources/query-resource';
-import { IsolatedQuerySpace } from 'core-app/features/work-packages/directives/query-space/isolated-query-space';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { States } from 'core-app/core/states/states.service';
 import { BannersService } from 'core-app/core/enterprise/banners.service';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
 import { WorkPackageCollectionResource } from 'core-app/features/hal/resources/wp-collection-resource';
 import { QuerySchemaResource } from 'core-app/features/hal/resources/query-schema-resource';
-import { WorkPackageViewHighlight } from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-table-highlight';
+import {
+  WorkPackageViewHighlight,
+} from 'core-app/features/work-packages/routing/wp-view-base/view-services/wp-table-highlight';
 import { WorkPackageQueryStateService } from './wp-view-base.service';
 
 @Injectable()
 export class WorkPackageViewHighlightingService extends WorkPackageQueryStateService<WorkPackageViewHighlight> {
-  public constructor(readonly states:States,
-    readonly Banners:BannersService,
-    readonly querySpace:IsolatedQuerySpace) {
-    super(querySpace);
-  }
+  readonly states = inject(States);
+  readonly Banners = inject(BannersService);
 
   initialize(query:QueryResource, results:WorkPackageCollectionResource, schema?:QuerySchemaResource) {
     super.initialize(query, results, schema);
@@ -28,7 +55,7 @@ export class WorkPackageViewHighlightingService extends WorkPackageQueryStateSer
    */
   public shouldHighlightInline(name:string):boolean {
     // 1. Are we in inline mode or unable to render?
-    if (!this.isInline || this.Banners.eeShowBanners) {
+    if (!this.isInline) {
       return false;
     }
 
@@ -38,11 +65,11 @@ export class WorkPackageViewHighlightingService extends WorkPackageQueryStateSer
     }
 
     // 3. Is name in selected attributes ?
-    return !!_.find(this.current.selectedAttributes, (attr:HalResource) => attr.id === name);
+    return this.current.selectedAttributes?.some((attr:HalResource) => attr.id === name) ?? false;
   }
 
   public get current():WorkPackageViewHighlight {
-    const value = this.lastUpdatedState.getValueOr({ mode: 'inline' } as WorkPackageViewHighlight);
+    const value = this.lastUpdatedState.getValueOr({ mode: 'inline' } as WorkPackageViewHighlight); // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
     return this.filteredValue(value);
   }
 
@@ -65,7 +92,7 @@ export class WorkPackageViewHighlightingService extends WorkPackageQueryStateSer
 
   public hasChanged(query:QueryResource) {
     return query.highlightingMode !== this.current.mode
-      || !_.isEqual(query.highlightedAttributes, this.current.selectedAttributes);
+      || !isEqual(query.highlightedAttributes, this.current.selectedAttributes);
   }
 
   public applyToQuery(query:QueryResource):boolean {
@@ -78,14 +105,9 @@ export class WorkPackageViewHighlightingService extends WorkPackageQueryStateSer
   }
 
   private filteredValue(value:WorkPackageViewHighlight):WorkPackageViewHighlight {
-    if (_.isEmpty(value.selectedAttributes)) {
+    if (!value.selectedAttributes?.length) {
       value.selectedAttributes = undefined;
     }
-
-    this.Banners.conditional(() => {
-      value.mode = 'none';
-      value.selectedAttributes = undefined;
-    });
 
     return value;
   }

@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,40 +21,38 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
 import { StateService } from '@uirouter/core';
 import { HalResourceService } from 'core-app/features/hal/services/hal-resource.service';
-import { Injectable, Injector } from '@angular/core';
+import { Injectable, Injector, inject } from '@angular/core';
 import { LoadingIndicatorService } from 'core-app/core/loading-indicator/loading-indicator.service';
 import { ToastService } from 'core-app/shared/components/toaster/toast.service';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
 import { SchemaCacheService } from 'core-app/core/schemas/schema-cache.service';
 import { ErrorResource } from 'core-app/features/hal/resources/error-resource';
 import { HalError } from 'core-app/features/hal/services/hal-error';
 
 @Injectable()
 export class HalResourceNotificationService {
-  @InjectField() protected I18n:I18nService;
+  injector = inject(Injector);
 
-  @InjectField() protected $state:StateService;
+  protected readonly I18n = inject(I18nService);
 
-  @InjectField() protected halResourceService:HalResourceService;
+  protected readonly $state = inject(StateService);
 
-  @InjectField() protected ToastService:ToastService;
+  protected readonly halResourceService = inject(HalResourceService);
 
-  @InjectField() protected loadingIndicator:LoadingIndicatorService;
+  protected readonly ToastService = inject(ToastService);
 
-  @InjectField() protected schemaCache:SchemaCacheService;
+  protected readonly loadingIndicator = inject(LoadingIndicatorService);
 
-  constructor(public injector:Injector) {
-  }
+  protected readonly schemaCache = inject(SchemaCacheService);
 
   public showSave(resource:HalResource, isCreate = false) {
     const message:any = {
@@ -131,11 +129,11 @@ export class HalResourceNotificationService {
     }
 
     // Some older response may have a data attribute
-    if (_.get(response, 'data._type') === 'Error') {
+    if ((response as { data?:{ _type?:string } } | null)?.data?._type === 'Error') {
       errorBody = (response as any).data;
     }
 
-    if (errorBody && errorBody._type === 'Error') {
+    if (errorBody?._type === 'Error') {
       return this.halResourceService.createHalResourceOfClass(ErrorResource, errorBody);
     }
 
@@ -165,7 +163,7 @@ export class HalResourceNotificationService {
   public showGeneralError(message?:unknown) {
     let error = this.I18n.t('js.error.internal');
 
-    if (typeof (message) === 'string' || _.has(message, 'toString')) {
+    if (typeof (message) === 'string' || (message != null && Object.hasOwn(message, 'toString'))) {
       error += ` ${(message as any).toString()}`;
     }
 
@@ -186,7 +184,7 @@ export class HalResourceNotificationService {
       const attributeType = schema.type.toLowerCase();
       const i18nString = `js.hal.error.format.${attributeType}`;
 
-      if (this.I18n.lookup(i18nString) === undefined) {
+      if (this.I18n.t(i18nString, { default: '[not found]' }) === '[not found]') {
         return false;
       }
 

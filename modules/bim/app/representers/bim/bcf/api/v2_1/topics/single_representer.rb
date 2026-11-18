@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -59,7 +59,7 @@ module Bim::Bcf::API::V2_1
 
     property :reference_links,
              getter: ->(decorator:, **) {
-               [decorator.api_v3_paths.work_package(work_package.id)]
+               [decorator.api_v3_paths.work_package(work_package.display_id)]
              }
 
     property :title,

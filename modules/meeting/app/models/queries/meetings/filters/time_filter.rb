@@ -1,6 +1,7 @@
+# frozen_string_literal: true
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,42 +28,35 @@
 #++
 
 class Queries::Meetings::Filters::TimeFilter < Queries::Meetings::Filters::MeetingFilter
-  PAST_VALUE = 'past'.freeze
-  FUTURE_VALUE = 'future'.freeze
+  def available_operators
+    [Queries::Operators::Upcoming, Queries::Operators::Past]
+  end
 
-  validate :validate_only_single_value
+  def default_operator
+    Queries::Operators::Upcoming
+  end
 
-  def allowed_values
-    [
-      [PAST_VALUE],
-      [FUTURE_VALUE]
-    ]
+  def past?
+    operator.to_sym == Queries::Operators::Past.to_sym
   end
 
   def where
-    case values.first
-    when PAST_VALUE
-      '"meetings"."start_time" < NOW()'
-    when FUTURE_VALUE
-      '"meetings"."start_time" + "meetings"."duration" * interval \'1 hour\' > NOW()'
+    if past?
+      ['"meetings"."start_time" < ?', Time.current]
+    else
+      ['"meetings"."start_time" + "meetings"."duration" * interval \'1 hour\' >= ?', Time.current]
     end
   end
 
+  def human_name
+    Meeting.human_attribute_name(:start_time)
+  end
+
   def type
-    :list
+    :date
   end
 
   def self.key
     :time
-  end
-
-  def available_operators
-    [::Queries::Operators::Equals]
-  end
-
-  private
-
-  def validate_only_single_value
-    errors.add(:values, :invalid) if values.length != 1
   end
 end

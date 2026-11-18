@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,43 +29,50 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
+require_relative "../support/pages/meetings/index"
 
-RSpec.describe 'Meetings global menu item',
-               :with_cuprite,
-               with_flag: { more_global_index_pages: true } do
-  let(:user_without_permissions) { create(:user) }
-  let(:admin) { create(:admin) }
+RSpec.describe "Meetings global menu item",
+               :js do
+  shared_let(:user_without_permissions) { create(:user) }
+  shared_let(:admin) { create(:admin) }
+  shared_let(:project) { create(:project) }
+  shared_let(:meetings_label) { I18n.t(:label_meeting_plural) }
 
-  let(:meetings_label) { I18n.t(:label_meeting_plural) }
+  let(:meetings_page) { Pages::Meetings::Index.new(project: nil) }
 
   before do
     login_as current_user
-    visit root_path
   end
 
-  context 'as a user with permissions' do
+  context "as a user with permissions" do
     let(:current_user) { admin }
 
-    it 'navigates to the global meetings index page' do
-      within '#main-menu' do
-        click_link meetings_label
-      end
+    before do
+      meetings_page.navigate_by_global_menu
+    end
 
-      expect(page).to have_current_path('/meetings')
+    it "navigates to the global meetings index page" do
+      expect(page).to have_current_path("/meetings")
+    end
 
-      within '#main-menu' do
-        expect(page).to have_selector('.selected', text: meetings_label)
+    specify '"My meetings" is the default filter set' do
+      within "#main-menu" do
+        expect(page).to have_css(".selected", text: "My meetings")
       end
     end
   end
 
-  context 'as a user without permissions' do
+  context "as a user without permissions" do
     let(:current_user) { user_without_permissions }
 
-    it 'does not render' do
-      within '#main-menu' do
-        expect(page).not_to have_link(meetings_label)
+    before do
+      visit root_path
+    end
+
+    it "does not render" do
+      within "#main-menu" do
+        expect(page).to have_no_link(meetings_label)
       end
     end
   end

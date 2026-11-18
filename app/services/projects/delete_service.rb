@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +30,7 @@
 
 module Projects
   class DeleteService < ::BaseServices::Delete
-    include Projects::Concerns::UpdateDemoData
+    prepend Projects::Concerns::UpdateDemoData
 
     ##
     # Reference to the dependent projects that we're deleting
@@ -49,10 +51,11 @@ module Projects
     private
 
     def before_perform(*)
-      OpenProject::Notifications.send('project_deletion_imminent', project: @project_to_destroy)
+      OpenProject::Notifications.send(:project_deletion_imminent, project: @project_to_destroy)
 
       delete_all_members
       destroy_all_work_packages
+      destroy_all_storages
 
       super
     end
@@ -73,6 +76,12 @@ module Projects
         wp.destroy
       rescue ActiveRecord::RecordNotFound
         # Everything fine, we wanted to delete it anyway
+      end
+    end
+
+    def destroy_all_storages
+      model.project_storages.map do |project_storage|
+        Storages::ProjectStorages::DeleteService.new(user:, model: project_storage).call
       end
     end
 

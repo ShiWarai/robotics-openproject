@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,35 +21,24 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-  EventEmitter,
-  Injector,
-  Input,
-  Output,
-  ViewChild,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Injector, Input, Output, ViewChild, inject } from '@angular/core';
 import { NgSelectComponent } from '@ng-select/ng-select';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
-import { OpInviteUserModalService } from 'core-app/features/invite-user-modal/invite-user-modal.service';
 import { CurrentProjectService } from 'core-app/core/current-project/current-project.service';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
-import { AddTagFn } from '@ng-select/ng-select/lib/ng-select.component';
 import { UntilDestroyedMixin } from 'core-app/shared/helpers/angular/until-destroyed.mixin';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
 import { Subject } from 'rxjs';
-import { typeFromHref } from 'core-app/shared/components/principal/principal-helper';
 import { compareByHref } from 'core-app/shared/helpers/angular/tracking-functions';
-import { filter } from 'rxjs/operators';
 import { repositionDropdownBugfix } from 'core-app/shared/components/autocompleter/op-autocompleter/autocompleter.helper';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents
+type AddTagFn = (term:string) => any | Promise<any>;
 
 export interface CreateAutocompleterValueOption {
   name:string;
@@ -59,9 +48,13 @@ export interface CreateAutocompleterValueOption {
 @Component({
   templateUrl: './create-autocompleter.component.html',
   selector: 'create-autocompleter',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./create-autocompleter.component.sass'],
+  standalone: false,
 })
 export class CreateAutocompleterComponent extends UntilDestroyedMixin implements AfterViewInit {
+  readonly injector = inject(Injector);
+
   @Input() public availableValues:CreateAutocompleterValueOption[];
 
   @Input() public appendTo:string;
@@ -86,7 +79,7 @@ export class CreateAutocompleterComponent extends UntilDestroyedMixin implements
 
   @Output() public onChange = new EventEmitter<HalResource>();
 
-  @Output() public onKeydown = new EventEmitter<JQuery.TriggeredEvent>();
+  @Output() public onKeydown = new EventEmitter<KeyboardEvent>();
 
   @Output() public onOpen = new EventEmitter<void>();
 
@@ -98,23 +91,25 @@ export class CreateAutocompleterComponent extends UntilDestroyedMixin implements
 
   @ViewChild(NgSelectComponent) public ngSelectComponent:NgSelectComponent;
 
-  @InjectField() readonly I18n:I18nService;
+  readonly I18n = inject(I18nService);
 
-  @InjectField() readonly cdRef:ChangeDetectorRef;
+  readonly cdRef = inject(ChangeDetectorRef);
 
-  @InjectField() readonly currentProject:CurrentProjectService;
+  readonly currentProject = inject(CurrentProjectService);
 
-  @InjectField() readonly pathHelper:PathHelperService;
+  readonly pathHelper = inject(PathHelperService);
 
   public compareByHref = compareByHref;
 
-  public text:{ [key:string]:string } = {};
+  public groupByFn = (_item:HalResource):string | null => null;
+
+  public text:Record<string, string> = {};
 
   public createAllowed:boolean|AddTagFn = false;
 
   private _openDirectly = false;
 
-  constructor(readonly injector:Injector) {
+  constructor() {
     super();
 
     this.text.add_new_action = this.I18n.t('js.label_create');
@@ -154,7 +149,7 @@ export class CreateAutocompleterComponent extends UntilDestroyedMixin implements
     this.onClose.emit();
   }
 
-  public keyPressed(event:JQuery.TriggeredEvent) {
+  public keyPressed(event:KeyboardEvent) {
     this.onKeydown.emit(event);
   }
 

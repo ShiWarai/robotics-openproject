@@ -1,21 +1,29 @@
 module LdapGroups
   class SynchronizedFiltersController < ::ApplicationController
+    include OpTurbo::ComponentStream
+
     before_action :require_admin
-    before_action :check_ee
+
+    guard_enterprise_feature(:ldap_groups, except: %i[show destroy]) do
+      redirect_to ldap_groups_synchronized_groups_path, status: :see_other
+    end
+
     before_action :find_filter, except: %i[new create]
 
-    layout 'admin'
+    layout "admin"
     menu_item :plugin_ldap_groups
+
+    def show; end
 
     def new
       @filter = SynchronizedFilter.new
     end
 
-    def show; end
-
     def end; end
 
-    def destroy_info; end
+    def destroy_info
+      respond_with_dialog LdapGroups::SynchronizedFilters::DestroyDialogComponent.new(filter: @filter)
+    end
 
     def create
       @filter = SynchronizedFilter.new permitted_params
@@ -24,7 +32,7 @@ module LdapGroups
         flash[:notice] = I18n.t(:notice_successful_create)
         redirect_to ldap_groups_synchronized_groups_path
       else
-        render action: :new
+        render action: :new, status: :unprocessable_entity
       end
     rescue ActionController::ParameterMissing
       render_400
@@ -35,7 +43,7 @@ module LdapGroups
         flash[:notice] = I18n.t(:notice_successful_update)
         redirect_to action: :show
       else
-        render action: :edit
+        render action: :edit, status: :unprocessable_entity
       end
     rescue ActionController::ParameterMissing
       render_400
@@ -48,7 +56,7 @@ module LdapGroups
         flash[:error] = I18n.t(:error_can_not_delete_entry)
       end
 
-      redirect_to ldap_groups_synchronized_groups_path
+      redirect_to ldap_groups_synchronized_groups_path, status: :see_other
     end
 
     def synchronize
@@ -59,7 +67,7 @@ module LdapGroups
       call.on_success do
         count = call.result
         symbol = count > 0 ? :notice : :info
-        flash[symbol] = I18n.t('ldap_groups.synchronized_filters.label_n_groups_found', count:)
+        flash[symbol] = I18n.t("ldap_groups.synchronized_filters.label_n_groups_found", count:)
       end
 
       call.on_failure do
@@ -72,30 +80,17 @@ module LdapGroups
     private
 
     def find_filter
-      @filter = SynchronizedFilter.find(params[:ldap_filter_id])
-    rescue ActiveRecord::RecordNotFound
-      render_404
-    end
-
-    def check_ee
-      unless EnterpriseToken.allows_to?(:ldap_groups)
-        render template: 'ldap_groups/synchronized_groups/upsale'
-        false
-      end
+      @filter = SynchronizedFilter.find(params.expect(:ldap_filter_id))
     end
 
     def permitted_params
-      params
-        .require(:synchronized_filter)
-        .permit(:filter_string, :name, :auth_source_id, :group_name_attribute, :sync_users, :base_dn)
-    end
-
-    def default_breadcrumb
-      ActionController::Base.helpers.link_to(t('ldap_groups.synchronized_groups.plural'), ldap_groups_synchronized_groups_path)
-    end
-
-    def show_local_breadcrumb
-      true
+      params.expect(synchronized_filter: %i[filter_string
+                                            name
+                                            ldap_auth_source_id
+                                            group_name_attribute
+                                            sync_users
+                                            base_dn
+                                            member_lookup_attribute])
     end
   end
 end

@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,14 +30,14 @@
 #
 
 module TeamPlanner
-  class AddButtonComponent < ::ApplicationComponent
-    options :current_project
-
+  class AddButtonComponent < ::AddButtonComponent
     def render?
+      return false unless EnterpriseToken.allows_to?(:team_planner_view)
+
       if current_project
-        User.current.allowed_to?(:manage_team_planner, current_project)
+        User.current.allowed_in_project?(:manage_team_planner, current_project)
       else
-        User.current.allowed_to_globally?(:manage_team_planner)
+        User.current.allowed_in_any_project?(:manage_team_planner)
       end
     end
 
@@ -45,30 +45,20 @@ module TeamPlanner
       polymorphic_path([:new, current_project, :team_planners])
     end
 
-    def title
-      I18n.t('team_planner.label_create_new_team_planner')
+    def id
+      "add-team-planner-button"
     end
 
-    def aria_label
-      I18n.t('team_planner.label_create_new_team_planner')
+    def test_selector
+      "add-team-planner-button"
     end
 
-    def li_css_class
-      'toolbar-item'
+    def accessibility_label_text
+      I18n.t("team_planner.label_create_new_team_planner")
     end
 
-    def link_css_class
-      'button -alt-highlight'
-    end
-
-    def label
-      content_tag(:span,
-                  t(:'team_planner.label_team_planner'),
-                  class: 'button--text')
-    end
-
-    def icon
-      helpers.op_icon('button--icon icon-add')
+    def label_text
+      t(:"team_planner.label_team_planner")
     end
   end
 end

@@ -1,7 +1,0 @@
-#English strings go here
-pt:
-  label_calendar_plural: "Calendários"
-  permission_view_calendar: "Exibir Calendários"
-  permission_manage_calendars: "Gerenciar calendários"
-  permission_share_calendars: "Subscribe to iCalendars"
-  project_module_calendar_view: "Calendários"

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,4 +30,19 @@
 
 # See also: create_service.rb for comments
 class OAuthClients::SetAttributesService < BaseServices::SetAttributes
+  private
+
+  def set_attributes(params)
+    super(replace_client_secret_with_nil(params))
+  end
+
+  def replace_client_secret_with_nil(params)
+    cloned_param = params.clone
+
+    if cloned_param[:client_secret] == ""
+      cloned_param.merge!(client_secret: nil)
+    end
+
+    cloned_param
+  end
 end

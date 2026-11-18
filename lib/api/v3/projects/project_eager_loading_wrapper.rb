@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -36,28 +36,54 @@ module API
         delegate :is_a?, to: :__getobj__
 
         class << self
-          def wrap(projects)
-            custom_fields = projects.first.available_custom_fields if projects.present?
-            ancestors = ancestor_projects(projects) if projects.present?
+          def wrap(projects, eager_loaded: %i[custom_fields ancestors])
+            super(projects).tap do |wrapped_projects|
+              eager_load_custom_fields(wrapped_projects) if eager_loaded.include?(:custom_fields)
+              eager_load_ancestors(wrapped_projects) if eager_loaded.include?(:ancestors)
+            end
+          end
 
-            super
-              .each do |project|
-              project.available_custom_fields = custom_fields
+          private
+
+          def eager_load_custom_fields(projects)
+            custom_fields_by_project_id = custom_fields_from_projects(projects)
+
+            projects.each do |project|
+              project.available_custom_fields = custom_fields_by_project_id[project.id]
+            end
+          end
+
+          def eager_load_ancestors(projects)
+            return if projects.empty?
+
+            ancestors = ancestor_projects(projects)
+
+            projects.each do |project|
               project.ancestors_from_root = ancestors.select { |a| a.is_ancestor_of?(project) }.sort_by(&:lft)
             end
           end
 
           def ancestor_projects(projects)
-            ancestor_selector = projects[1..].inject(ancestor_project_select(projects[0])) do |select, project|
-              select.or(ancestor_project_select(project))
-            end
-            Project.where(ancestor_selector).to_a
+            projects[1..].inject(ancestor_projects_of(projects[0])) do |select, project|
+              select.or(ancestor_projects_of(project))
+            end.to_a
           end
 
-          def ancestor_project_select(project)
+          def ancestor_projects_of(project)
             projects_table = Project.arel_table
 
-            projects_table[:lft].lt(project.lft).and(projects_table[:rgt].gt(project.rgt))
+            Project.where(projects_table[:lft].lt(project.lft).and(projects_table[:rgt].gt(project.rgt)))
+          end
+
+          def custom_fields_from_projects(projects)
+            ProjectCustomFieldProjectMapping
+              .eager_load(:project_custom_field)
+              .merge(ProjectCustomField.visible)
+              .where(project_id: projects.map(&:id))
+              .where(project_id: Project.allowed_to(User.current, :view_project_attributes))
+              .each_with_object(Hash.new { |h, k| h[k] = [] }) do |mapping, acc|
+                acc[mapping.project_id] << mapping.project_custom_field
+              end
           end
         end
       end

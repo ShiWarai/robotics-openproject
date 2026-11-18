@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,14 +28,34 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require_relative 'configuration/helpers'
-require_relative 'configuration/asset_host'
+require_relative "configuration/helpers"
+require_relative "configuration/asset_host"
+require "active_support/message_pack"
 
 module OpenProject
   module Configuration
     extend Helpers
 
-    TRUE_VALUES = ['true', true, '1'].freeze
+    TRUE_VALUES = ["true", true, "1"].freeze
+
+    # Reject cache payloads that do not use MessagePack's own framing.
+    # This prevents SerializerWithFallback from invoking Marshal on attacker-controlled bytes.
+    module StrictMessagePackCoder
+      extend self
+
+      BASE = ActiveSupport::Cache::SerializerWithFallback::MessagePackWithFallback
+
+      def dump(entry) = BASE.dump(entry)
+      def dump_compressed(entry, threshold) = BASE.dump_compressed(entry, threshold)
+
+      def load(dumped)
+        return nil unless dumped.is_a?(String) && BASE.dumped?(dumped)
+        
+        # Avoid using BASE#load as that goes through all the fallbacks again
+        # https://github.com/rails/rails/blob/v8.1.3/activesupport/lib/active_support/cache/serializer_with_fallback.rb#L17
+        BASE._load(dumped)
+      end
+    end
 
     class << self
       # Returns a configuration setting
@@ -49,29 +71,40 @@ module OpenProject
       def cache_store_configuration
         # rails defaults to :file_store, use :mem_cache_store when :memcache is configured in configuration.yml
         # Also use :mem_cache_store for when :dalli_store is configured
-        cache_store = self['rails_cache_store'].try(:to_sym)
+        cache_store = self["rails_cache_store"].try(:to_sym)
 
-        case cache_store
-        when :memcache, :dalli_store
-          cache_config = [:mem_cache_store]
-          cache_config << self['cache_memcache_server'] if self['cache_memcache_server']
-          # default to :file_store
-        when NilClass, :file_store
-          cache_config = [:file_store, Rails.root.join('tmp/cache')]
-        else
-          cache_config = [cache_store]
-        end
+        cache_config =
+          case cache_store
+          when :redis
+            redis_cache_configuration
+          when :memcache, :dalli_store
+            memcache_configuration
+            # default to :file_store
+          when NilClass, :file_store
+            [:file_store, Rails.root.join("tmp/cache")]
+          else
+            [cache_store]
+          end
 
         parameters = cache_store_parameters
-        cache_config << parameters unless parameters.empty?
+        if %i[memcache dalli_store redis].include?(cache_store)
+          parameters[:serializer] ||= StrictMessagePackCoder
+        end
+        unless parameters.empty?
+          if cache_config.last.is_a?(Hash)
+            cache_config[-1] = cache_config.last.merge(parameters)
+          else
+            cache_config << parameters
+          end
+        end
 
         cache_config
       end
 
       def cache_store_parameters
         mapping = {
-          'cache_expires_in_seconds' => %i[expires_in to_i],
-          'cache_namespace' => %i[namespace to_s]
+          "cache_expires_in_seconds" => %i[expires_in to_i],
+          "cache_namespace" => %i[namespace to_s]
         }
         parameters = {}
         mapping.each_pair do |from, to|
@@ -85,22 +118,43 @@ module OpenProject
 
       private
 
-      def method_missing(name, *args, &)
-        setting_name = name.to_s.sub(/\?$/, '')
+      def memcache_configuration
+        cache_config = [:mem_cache_store]
+        cache_config << self["cache_memcache_server"] if self["cache_memcache_server"]
+        cache_config
+      end
+
+      def redis_cache_configuration
+        url = String(self["cache_redis_url"]).split(",").map(&:strip)
+        raise ArgumentError, "CACHE_SERVER is set to redis, but CACHE_REDIS_URL is not set." if url.blank?
+
+        [
+          :redis_cache_store,
+          {
+            url:,
+            error_handler: ->(method:, exception:) {
+              OpenProject.logger.error("Error in redis cache store #{method}: #{exception.message}", exception:)
+            }
+          }
+        ]
+      end
+
+      def method_missing(name, *, &)
+        setting_name = name.to_s.sub(/\?$/, "")
 
         definition = Settings::Definition[setting_name]
 
         if definition
           define_config_methods(definition)
 
-          send(name, *args, &)
+          send(name, *, &)
         else
           super
         end
       end
 
       def respond_to_missing?(name, include_private = false)
-        Settings::Definition.exists?(name.to_s.sub(/\?$/, '')) || super
+        Settings::Definition.exists?(name.to_s.sub(/\?$/, "")) || super
       end
 
       def define_config_methods(definition)
@@ -108,9 +162,10 @@ module OpenProject
           self[definition.name]
         end
 
-        define_singleton_method "#{definition.name}?" do
+        define_singleton_method :"#{definition.name}?" do
           if definition.format != :boolean
-            ActiveSupport::Deprecation.warn "Calling #{self}.#{definition.name}? is deprecated since it is not a boolean", caller
+            ActiveSupport::Deprecation.new.warn "Calling #{self}.#{definition.name}? is deprecated since it is not a boolean",
+                                                caller_locations
           end
           TRUE_VALUES.include? self[definition.name]
         end

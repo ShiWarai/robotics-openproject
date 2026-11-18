@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,13 +26,14 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-class OpenProject::JournalFormatter::TimeEntryNamedAssociation < JournalFormatter::NamedAssociation
+class OpenProject::JournalFormatter::TimeEntryNamedAssociation <
+  OpenProject::JournalFormatter::PublicNamedAssociation
   private
 
-  def format_details(key, values, cache:)
+  def format_details(key, values)
     label = I18n.t("activity.item.time_entry.logged_for")
 
-    old_value, value = *format_values(values, key, cache:)
+    old_value, value = *format_values(values, key)
 
     [label, old_value, value]
   end

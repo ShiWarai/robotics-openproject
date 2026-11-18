@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,35 +21,32 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
 import { Highlighting } from 'core-app/features/work-packages/components/wp-fast-table/builders/highlighting/highlighting.functions';
 import { HighlightableDisplayField } from 'core-app/shared/components/fields/display/field-types/highlightable-display-field.module';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { TimezoneService } from 'core-app/core/datetime/timezone.service';
+import {
+  toDOMString,
+  opAutoDateIconData,
+} from '@openproject/octicons-angular';
 
 export class DateDisplayField extends HighlightableDisplayField {
-  @InjectField() timezoneService:TimezoneService;
+  @LazyInject() timezoneService:TimezoneService;
 
-  @InjectField() apiV3Service:ApiV3Service;
+  @LazyInject() apiV3Service:ApiV3Service;
 
   public render(element:HTMLElement, displayText:string):void {
     super.render(element, displayText);
 
     // Show scheduling mode in front of the start date field
     if (this.showSchedulingMode()) {
-      const schedulingIcon = document.createElement('span');
-      schedulingIcon.classList.add('icon-context');
-
-      if (this.resource.scheduleManually) {
-        schedulingIcon.classList.add('icon-pin');
-      }
-
-      element.prepend(schedulingIcon);
+      element.prepend(this.schedulingIcon());
     }
 
     // Highlight overdue tasks
@@ -70,17 +67,31 @@ export class DateDisplayField extends HighlightableDisplayField {
   }
 
   public get canOverdue():boolean {
-    return ['dueDate', 'date'].indexOf(this.name) !== -1;
+    return ['dueDate', 'date'].includes(this.name);
   }
 
   public get valueString() {
     if (this.value) {
-      return this.timezoneService.formattedDate(this.value);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      return this.timezoneService.formattedDate(this.value, this.context.options.dateFormat);
     }
     return '';
   }
 
+  protected schedulingIcon():HTMLElement {
+    const schedulingIcon = document.createElement('span');
+
+    const autoDateIconString:string = toDOMString(
+      opAutoDateIconData,
+      'xsmall',
+      { 'aria-hidden': 'true', class: 'display-field--scheduling-icon' },
+    );
+
+    schedulingIcon.innerHTML = autoDateIconString;
+    return schedulingIcon;
+  }
+
   private showSchedulingMode():boolean {
-    return this.name === 'startDate' || this.name === 'date';
+    return !this.resource.scheduleManually && (this.name === 'startDate' || this.name === 'date');
   }
 }

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,27 +28,29 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'contracts/shared/model_contract_shared_context'
+require "spec_helper"
+require "contracts/shared/model_contract_shared_context"
 
-RSpec.shared_context 'with queries contract' do
+RSpec.shared_context "with queries contract" do
+  include_context "ModelContract shared context"
+
   let(:project) { build_stubbed(:project) }
-  let(:name) { 'Some query name' }
+  let(:name) { "Some query name" }
   let(:public) { false }
   let(:user) { current_user }
-  let(:permissions) { %i[view_queries save_queries] }
+  let(:permissions) { %i[save_queries] }
   let(:query) do
     build_stubbed(:query, project:, public:, user:, name:)
   end
 
-  let(:current_user) do
-    build_stubbed(:user) do |user|
-      allow(user)
-        .to receive(:allowed_to?) do |permission, permission_project|
-        permissions.include?(permission) && project == permission_project
-      end
+  let(:current_user) { build_stubbed(:user) }
+
+  before do
+    mock_permissions_for(current_user) do |mock|
+      mock.allow_in_project(*permissions, project:) if project
     end
   end
+
   let(:contract) { described_class.new(query, current_user) }
 
   before do
@@ -54,19 +58,21 @@ RSpec.shared_context 'with queries contract' do
     allow(contract).to receive(:project_visible?).and_return true
   end
 
-  describe 'validation' do
-    it_behaves_like 'contract is valid'
+  describe "validation" do
+    it_behaves_like "contract is valid"
 
-    context 'if the name is nil' do
+    context "if the name is nil" do
       let(:name) { nil }
 
-      it_behaves_like 'contract is invalid', name: :blank
+      it_behaves_like "contract is invalid", name: :blank
     end
 
-    context 'if the name is empty' do
-      let(:name) { '' }
+    context "if the name is empty" do
+      let(:name) { "" }
 
-      it_behaves_like 'contract is invalid', name: :blank
+      it_behaves_like "contract is invalid", name: :blank
     end
   end
+
+  include_examples "contract reuses the model errors"
 end

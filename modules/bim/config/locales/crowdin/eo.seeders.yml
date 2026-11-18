@@ -20,7 +20,7 @@ eo:
         item_1:
           name: Farata
         item_2:
-          name: Resolved
+          name: Solvita
         item_3:
           name: Fermita
       time_entry_activities:
@@ -40,9 +40,9 @@ eo:
         item_3:
           name: Issue
         item_4:
-          name: Remark
+          name: Rimarko
         item_5:
-          name: Request
+          name: Peto
         item_6:
           name: Clash
       global_queries:
@@ -55,7 +55,7 @@ eo:
               group_name: Filo
       groups:
         item_0:
-          name: Architects
+          name: Arĥitektoj
         item_1:
           name: BIM Coordinators
         item_2:
@@ -105,9 +105,9 @@ eo:
             item_1:
               name: Milestones
             item_2:
-              name: Tasks
+              name: Taskoj
             item_3:
-              name: Team planner
+              name: Teama planilo
           boards:
             bcf:
               name: Simple drag'n drop workflow
@@ -115,7 +115,7 @@ eo:
             widgets:
               item_0:
                 options:
-                  name: Welcome
+                  name: Bonvenon
               item_1:
                 options:
                   name: Getting started
@@ -167,9 +167,9 @@ eo:
             item_1:
               name: Milestones
             item_2:
-              name: Tasks
+              name: Taskoj
             item_3:
-              name: Team planner
+              name: Teama planilo
           project-overview:
             widgets:
               item_0:
@@ -256,7 +256,7 @@ eo:
 
                     *   Create a useful overview of the results
                     *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
+                    *   Communicate all the relevant results with the customer
                     *   Identify the fundamental boundary conditions of the project
 
                     ## Description
@@ -271,7 +271,7 @@ eo:
 
                     *   Create a useful overview of the results
                     *   Check what has been done and summarize the results
-                    *   Communicate all the relevant results with the customer
+                    *   Communicate all the relevant results with the customer
                     *   Identify the fundamental boundary conditions of the project
 
                     ## Description
@@ -421,9 +421,9 @@ eo:
             item_1:
               name: Milestones
             item_2:
-              name: Tasks
+              name: Taskoj
             item_3:
-              name: Team planner
+              name: Teama planilo
           project-overview:
             widgets:
               item_0:
@@ -603,13 +603,13 @@ eo:
                   description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
             item_6:
               subject: Modelling & coordinating, second cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              description: "## Goal\r\n\r\n*   ...\r\n\r\n## Description\r\n\r\n* \\  ..."
             item_7:
               subject: Modelling & coordinating, ... cycle
               description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
             item_8:
               subject: Modelling & coordinating, (n-th minus 1) cycle
-              description: "## Goal\\r\n\\r\n*   ...\\r\n\\r\n## Description\\r\n\\r\n* \\  ..."
+              description: "## Goal\r\n\r\n*   ...\r\n\r\n## Description\r\n\r\n* \\  ..."
             item_9:
               subject: Modelling & coordinating n-th cycle
               description: This type is hierarchically a parent of the types &quot;Clash&quot; and &quot;Request&quot;, thus represents a general note.
@@ -694,9 +694,9 @@ eo:
             item_5:
               name: Milestones
             item_6:
-              name: Tasks
+              name: Taskoj
             item_7:
-              name: Team planner
+              name: Teama planilo
           boards:
             bcf:
               name: BCF issues

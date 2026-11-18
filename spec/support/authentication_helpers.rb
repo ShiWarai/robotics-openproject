@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,8 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'rack_session_access/capybara'
+require "rack_session_access/capybara"
+require "retriable"
 
 module AuthenticationHelpers
   def self.included(base)
@@ -41,25 +44,32 @@ module AuthenticationHelpers
       # as they will login AnonymousUser
       if using_cuprite? && js_enabled?
         page.driver.set_cookie(
-          OpenProject::Configuration['session_cookie_name'],
+          OpenProject::Configuration["session_cookie_name"],
           session_value_for(user).to_s
         )
       else
-        page.set_rack_session(session_value_for(user))
+        set_rack_session_with_retry(session_value_for(user))
       end
     end
 
-    allow(User).to receive(:current).and_return(user)
+    allow(RequestStore).to receive(:[]).and_call_original
+    allow(RequestStore).to receive(:[]).with(:current_user).and_return(user)
   end
 
   def login_with(login, password, autologin: false, visit_signin_path: true)
     visit signin_path if visit_signin_path
 
-    within('.user-login--form') do
-      fill_in 'username', with: login
-      fill_in 'password', with: password
-      check I18n.t(:label_stay_logged_in) if autologin
-      click_button I18n.t(:button_login)
+    within_test_selector("user-login--form") do
+      fill_in "username", with: login
+      fill_in "password", with: password
+      if autologin
+        autologin_label = I18n.t("users.autologins.prompt",
+                                 num_days: I18n.t("datetime.distance_in_words.x_days", count: Setting.autologin))
+        check autologin_label
+      end
+
+      click_button I18n.t(:button_login), type: "submit"
+      wait_for_network_idle
     end
   end
 
@@ -69,18 +79,42 @@ module AuthenticationHelpers
     if !using_cuprite? || RSpec.current_example.metadata[:signout_via_visit]
       visit signout_path
     else
-      page.driver.cookies.clear
+      page.driver.clear_cookies
     end
+
+    # The login_as method call short circuits the login by mocking the current user.
+    # Thus logging out should also reset the login mock in order to make the logout complete.
+    allow(RequestStore).to receive(:[]).and_call_original
   end
+
+  # Chrome reports a node that went stale mid-command as an unhandled
+  # inspector error, which selenium-webdriver surfaces as UnknownError
+  # rather than StaleElementReferenceError, so Capybara's synchronize
+  # does not retry it.
+  STALE_PAGE_ERRORS = {
+    Selenium::WebDriver::Error::StaleElementReferenceError => nil,
+    Selenium::WebDriver::Error::UnknownError => /Node with given id does not belong to the document/
+  }.freeze
+  private_constant :STALE_PAGE_ERRORS
 
   private
 
-  def js_enabled?
-    RSpec.current_example.metadata[:js]
+  # set_rack_session drives a real form on /rack_session: it submits the
+  # form and immediately reads the page text to confirm the update. Under
+  # Selenium that read can resolve the body node just before the submit's
+  # navigation lands and then read it just after, hitting a stale node.
+  # Writing the session data again is idempotent, so the whole call is
+  # retried a bounded number of times. Retriable is called directly rather
+  # than through retry_block because the latter no-ops under
+  # RSPEC_RETRY_RETRY_COUNT=0, which is where this race bites most.
+  def set_rack_session_with_retry(session_value)
+    Retriable.retriable(tries: 3, on: STALE_PAGE_ERRORS) do
+      page.set_rack_session(session_value)
+    end
   end
 
-  def using_cuprite?
-    RSpec.current_example.metadata[:with_cuprite]
+  def js_enabled?
+    RSpec.current_example.metadata[:js]
   end
 
   def session_value_for(user)

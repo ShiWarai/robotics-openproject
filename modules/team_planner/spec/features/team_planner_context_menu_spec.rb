@@ -1,9 +1,13 @@
-require 'spec_helper'
-require_relative 'shared_context'
-require 'features/work_packages/table/context_menu/context_menu_shared_examples'
+require "spec_helper"
+require_relative "shared_context"
+require "features/work_packages/table/context_menu/context_menu_shared_examples"
 
-RSpec.describe 'Work package table context menu', js: true, with_ee: %i[team_planner_view] do
-  include_context 'with team planner full access'
+RSpec.describe "Work package table context menu",
+               :js,
+               :selenium,
+               with_ee: %i[team_planner_view],
+               with_settings: { start_of_week: 1 } do
+  include_context "with team planner full access"
 
   let!(:work_package) do
     create(:work_package,
@@ -16,13 +20,12 @@ RSpec.describe 'Work package table context menu', js: true, with_ee: %i[team_pla
 
   shared_let(:user) do
     create(:admin,
-           member_in_project: project,
-           member_with_permissions: %w[
+           member_with_permissions: { project => %w[
              view_work_packages edit_work_packages add_work_packages
              view_team_planner manage_team_planner
              save_queries manage_public_queries
              work_package_assigned
-           ])
+           ] })
   end
 
   before do
@@ -35,15 +38,13 @@ RSpec.describe 'Work package table context menu', js: true, with_ee: %i[team_pla
     end
   end
 
-  it_behaves_like 'provides a single WP context menu' do
+  it_behaves_like "provides a single WP context menu" do
     let(:open_context_menu) do
       -> {
         team_planner.visit!
         loading_indicator_saveguard
 
-        retry_block do
-          team_planner.add_assignee user
-        end
+        team_planner.add_assignee user
 
         team_planner.within_lane(user) do
           team_planner.expect_event work_package

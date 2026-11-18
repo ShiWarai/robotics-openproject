@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,22 +28,25 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Expire old user sessions' do
+RSpec.describe "Expire old user sessions" do
   shared_let(:admin) { create(:admin) }
-  let(:admin_password) { 'adminADMIN!' }
+  let(:admin_password) { "adminADMIN!" }
 
   before do
+    # Delete all previous sesssions
+    Sessions::UserSession.delete_all
+
     login_with(admin.login, admin_password)
 
     # Create a dangling session
     Capybara.current_session.driver.browser.clear_cookies
   end
 
-  describe 'logging in again' do
-    context 'with drop_old_sessions enabled', with_config: { drop_old_sessions_on_login: true } do
-      it 'destroys the old session' do
+  describe "logging in again" do
+    context "with drop_old_sessions enabled", with_config: { drop_old_sessions_on_login: true } do
+      it "destroys the old session" do
         expect(Sessions::UserSession.count).to eq(1)
 
         first_session = Sessions::UserSession.first
@@ -58,8 +63,8 @@ RSpec.describe 'Expire old user sessions' do
       end
     end
 
-    context 'with drop_old_sessions disabled', with_config: { drop_old_sessions_on_login: false } do
-      it 'keeps the old session' do
+    context "with drop_old_sessions disabled", with_config: { drop_old_sessions_on_login: false } do
+      it "keeps the old session" do
         # Actually login now
         login_with(admin.login, admin_password)
 
@@ -68,25 +73,25 @@ RSpec.describe 'Expire old user sessions' do
     end
   end
 
-  describe 'logging out on another session', with_config: { drop_old_sessions_on_login: false } do
+  describe "logging out on another session", with_config: { drop_old_sessions_on_login: false } do
     before do
       # Actually login now
       login_with(admin.login, admin_password)
       expect(Sessions::UserSession.for_user(admin).count).to eq(2)
-      visit '/logout'
+      visit "/logout"
     end
 
-    context 'with drop_old_sessions enabled', with_config: { drop_old_sessions_on_logout: true } do
-      it 'destroys the old session' do
+    context "with drop_old_sessions enabled", with_config: { drop_old_sessions_on_logout: true } do
+      it "destroys the old session" do
         # A fresh session is opened due to reset_session
         expect(Sessions::UserSession.for_user(admin).count).to eq(0)
         expect(Sessions::UserSession.non_user.count).to eq(1)
       end
     end
 
-    context 'with drop_old_sessions disabled',
+    context "with drop_old_sessions disabled",
             with_config: { drop_old_sessions_on_logout: false } do
-      it 'keeps the old session' do
+      it "keeps the old session" do
         expect(Sessions::UserSession.count).to eq(2)
         expect(Sessions::UserSession.for_user(admin).count).to eq(1)
       end

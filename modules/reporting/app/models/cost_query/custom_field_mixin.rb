@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -32,13 +32,13 @@ module CostQuery::CustomFieldMixin
   attr_reader :custom_field
 
   SQL_TYPES = {
-    'string' => 'varchar',
-    'list' => 'varchar',
-    'text' => 'text',
-    'bool' => 'boolean',
-    'date' => 'date',
-    'int' => 'decimal(60,3)',
-    'float' => 'decimal(60,3)'
+    "string" => "varchar",
+    "list" => "varchar",
+    "text" => "text",
+    "bool" => "boolean",
+    "date" => "date",
+    "int" => "decimal(60,3)",
+    "float" => "decimal(60,3)"
   }.freeze
 
   def self.extended(base)
@@ -68,7 +68,7 @@ module CostQuery::CustomFieldMixin
 
   def remove_subclasses
     module_parent.constants.each do |constant|
-      if constant.to_s.match /^CustomField\d+/
+      if constant.to_s.match? /^CustomField\d+/
         module_parent.send(:remove_const, constant)
       end
     end
@@ -113,7 +113,7 @@ module CostQuery::CustomFieldMixin
     custom_options_table = CustomOption.table_name
 
     <<-SQL
-    -- BEGIN Custom Field Join: #{db_field}
+    -- BEGIN Custom Field Join: cf_#{field.id}
     LEFT OUTER JOIN (
     SELECT
       co.id AS #{db_field},
@@ -128,17 +128,17 @@ module CostQuery::CustomFieldMixin
     ON #{db_field}.customized_type = 'WorkPackage'
 
     AND #{db_field}.custom_field_id = #{field.id}
-    AND #{db_field}.customized_id = entries.work_package_id
-    -- END Custom Field Join: #{db_field}
+    AND #{db_field}.customized_id = entries.entity_id
+    -- END Custom Field Join: cf_#{field.id}
     SQL
   end
 
   def default_join_table(field)
-    <<-SQL % [CustomValue.table_name, table_name, field.id, field.name, SQL_TYPES[field.field_format]]
-    -- BEGIN Custom Field Join: "%4$s"
+    <<-SQL % [CustomValue.table_name, table_name, field.id, SQL_TYPES[field.field_format]]
+    -- BEGIN Custom Field Join: cf_%3$d
     LEFT OUTER JOIN (
     \tSELECT
-    \t\tCAST(value AS %5$s) AS %2$s,
+    \t\tCAST(value AS %4$s) AS %2$s,
     \t\tcustomized_type,
     \t\tcustom_field_id,
     \t\tcustomized_id
@@ -147,8 +147,8 @@ module CostQuery::CustomFieldMixin
     AS %2$s
     ON %2$s.customized_type = 'WorkPackage'
     AND %2$s.custom_field_id = %3$d
-    AND %2$s.customized_id = entries.work_package_id
-    -- END Custom Field Join: "%4$s"
+    AND %2$s.customized_id = entries.entity_id
+    -- END Custom Field Join: cf_%3$d
     SQL
   end
 

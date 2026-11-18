@@ -1,12 +1,14 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
 #
 # OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
-# Copyright (C) 2006-2017 Jean-Philippe Lang
+# Copyright (C) 2006-2013 Jean-Philippe Lang
 # Copyright (C) 2010-2013 the ChiliProject Team
 #
 # This program is free software; you can redistribute it and/or
@@ -35,31 +37,31 @@ class UserFilterComponent < IndividualPrincipalBaseFilterComponent
     # or the default status to be filtered by (all)
     # if no status is given.
     def status_param(params)
-      params[:status].presence || 'all'
+      params[:status].presence || "all"
     end
 
     def filter_status(query, status)
-      return unless status && status != 'all'
+      return unless status && status != "all"
 
       case status
-      when 'blocked'
-        query.where(:blocked, '=', :blocked)
-      when 'active'
-        query.where(:status, '=', status.to_sym)
-        query.where(:blocked, '!', :blocked)
+      when "blocked"
+        query.where(:blocked, "=", :blocked)
+      when "active"
+        query.where(:status, "=", status.to_sym)
+        query.where(:blocked, "!", :blocked)
       else
-        query.where(:status, '=', status.to_sym)
+        query.where(:status, "=", status.to_sym)
       end
     end
 
     def base_query
-      Queries::Users::UserQuery
+      UserQuery
     end
 
     protected
 
     def apply_filters(params, query)
-      super(params, query)
+      super
       filter_status query, status_param(params)
 
       query

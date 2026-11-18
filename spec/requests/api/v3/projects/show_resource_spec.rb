@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +28,10 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'rack/test'
+require "spec_helper"
+require "rack/test"
 
-RSpec.describe 'API v3 Project resource show', content_type: :json do
+RSpec.describe "API v3 Project resource show", content_type: :json do
   include Rack::Test::Methods
   include API::V3::Utilities::PathHelper
 
@@ -44,13 +46,22 @@ RSpec.describe 'API v3 Project resource show', content_type: :json do
   let(:other_project) do
     create(:project, public: false)
   end
-  let(:role) { create(:role) }
+  let(:permissions) { %i(view_project_attributes) }
+  let(:role) { create(:project_role, permissions:) }
   let(:custom_field) do
     create(:text_project_custom_field)
   end
   let(:custom_value) do
     CustomValue.create(custom_field:,
-                       value: '1234',
+                       value: "1234",
+                       customized: project)
+  end
+  let(:invisible_custom_field) do
+    create(:text_project_custom_field, admin_only: true)
+  end
+  let(:invisible_custom_value) do
+    CustomValue.create(custom_field: invisible_custom_field,
+                       value: "1234",
                        customized: project)
   end
 
@@ -65,10 +76,10 @@ RSpec.describe 'API v3 Project resource show', content_type: :json do
     create(:member,
            user: current_user,
            project: parent_project,
-           roles: [create(:role, permissions: [])])
+           roles: [create(:project_role, permissions: [])])
   end
 
-  current_user { create(:user, member_in_project: project, member_through_role: role) }
+  current_user { create(:user, member_with_roles: { project => role }) }
 
   subject(:response) do
     get get_path
@@ -76,35 +87,82 @@ RSpec.describe 'API v3 Project resource show', content_type: :json do
     last_response
   end
 
-  context 'for a logged in user' do
-    it 'responds with 200 OK' do
+  context "for a logged in user" do
+    it "responds with 200 OK" do
       expect(subject.status).to eq(200)
     end
 
-    it 'responds with the correct project' do
-      expect(subject.body).to include_json('Project'.to_json).at_path('_type')
-      expect(subject.body).to be_json_eql(project.identifier.to_json).at_path('identifier')
+    it "responds with the correct project" do
+      expect(subject.body).to include_json("Project".to_json).at_path("_type")
+      expect(subject.body).to be_json_eql(project.identifier.to_json).at_path("identifier")
     end
 
-    it 'links to the parent/ancestor project' do
+    it "links to the parent/ancestor project" do
       expect(subject.body)
         .to be_json_eql(api_v3_paths.project(parent_project.id).to_json)
-              .at_path('_links/parent/href')
+              .at_path("_links/parent/href")
 
       expect(subject.body)
         .to be_json_eql(api_v3_paths.project(parent_project.id).to_json)
-              .at_path('_links/ancestors/0/href')
+              .at_path("_links/ancestors/0/href")
     end
 
-    it 'includes custom fields' do
+    it "includes only visible custom fields" do
       custom_value
+      invisible_custom_value
 
       expect(subject.body)
         .to be_json_eql(custom_value.value.to_json)
               .at_path("customField#{custom_field.id}/raw")
+
+      expect(subject.body)
+        .not_to have_json_path("customField#{invisible_custom_field.id}/raw")
     end
 
-    it 'includes the project status' do
+    describe "permissions" do
+      context "with admin permissions" do
+        current_user { admin }
+
+        it "includes invisible custom fields" do
+          custom_value
+          invisible_custom_value
+
+          expect(subject.body)
+            .to be_json_eql(custom_value.value.to_json)
+                  .at_path("customField#{custom_field.id}/raw")
+
+          expect(subject.body)
+            .to be_json_eql(invisible_custom_value.value.to_json)
+                  .at_path("customField#{invisible_custom_field.id}/raw")
+        end
+      end
+
+      context "without view_project_attributes permission" do
+        let(:permissions) { [] }
+
+        it "does not include custom fields" do
+          custom_value
+          invisible_custom_value
+
+          expect(subject.body)
+            .not_to have_json_path("customField#{custom_field.id}/raw")
+          expect(subject.body)
+            .not_to have_json_path("customField#{invisible_custom_field.id}/raw")
+        end
+      end
+
+      context "when requesting project without sufficient permissions" do
+        let(:get_path) { api_v3_paths.project other_project.id }
+
+        before do
+          response
+        end
+
+        it_behaves_like "not found"
+      end
+    end
+
+    it "includes the project status" do
       expect(subject.body)
         .to be_json_eql(project.status_explanation.to_json)
               .at_path("statusExplanation/raw")
@@ -114,69 +172,76 @@ RSpec.describe 'API v3 Project resource show', content_type: :json do
               .at_path("_links/status/href")
     end
 
-    context 'when requesting nonexistent project' do
-      let(:get_path) { api_v3_paths.project 9999 }
+    context "when requesting nonexistent project" do
+      let(:get_path) { api_v3_paths.project(not_existing_id(Project)) }
 
       before do
         response
       end
 
-      it_behaves_like 'not found'
+      it_behaves_like "not found"
     end
 
-    context 'when requesting project without sufficient permissions' do
-      let(:get_path) { api_v3_paths.project other_project.id }
+    context "when requesting a portfolio" do
+      let(:project) { create(:portfolio, public: true) }
 
       before do
         response
       end
 
-      it_behaves_like 'not found'
+      it "responds with 200 OK" do
+        expect(subject.status).to eq(200)
+      end
+
+      it "responds with the correct project" do
+        expect(subject.body).to include_json("Portfolio".to_json).at_path("_type")
+        expect(subject.body).to be_json_eql(project.identifier.to_json).at_path("identifier")
+      end
     end
 
-    context 'when not being allowed to see the parent project' do
+    context "when not being allowed to see the parent project" do
       let!(:parent_memberships) do
         # no parent memberships
       end
 
-      it 'shows the `undisclosed` uri' do
+      it "shows the `undisclosed` uri" do
         expect(subject.body)
           .to be_json_eql(API::V3::URN_UNDISCLOSED.to_json)
-                .at_path('_links/parent/href')
+                .at_path("_links/parent/href")
       end
     end
 
-    context 'with the project being archived/inactive' do
+    context "with the project being archived/inactive" do
       let(:project_active) { false }
 
-      context 'with the user being admin' do
+      context "with the user being admin" do
         current_user { admin }
 
-        it 'responds with 200 OK' do
+        it "responds with 200 OK" do
           expect(subject.status).to eq(200)
         end
 
-        it 'responds with the correct project' do
-          expect(subject.body).to include_json('Project'.to_json).at_path('_type')
-          expect(subject.body).to be_json_eql(project.identifier.to_json).at_path('identifier')
+        it "responds with the correct project" do
+          expect(subject.body).to include_json("Project".to_json).at_path("_type")
+          expect(subject.body).to be_json_eql(project.identifier.to_json).at_path("identifier")
         end
       end
 
-      context 'with the user being no admin' do
-        it 'responds with 404' do
+      context "with the user being no admin" do
+        it "responds with 404" do
           expect(subject.status).to eq(404)
         end
       end
     end
   end
 
-  context 'for a not logged in user' do
+  context "for a not logged in user" do
     current_user { create(:anonymous) }
 
     before do
       get get_path
     end
 
-    it_behaves_like 'not found'
+    it_behaves_like "not found response based on login_required"
   end
 end

@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -39,10 +39,27 @@ module BasicData
 
     def seed_data!
       model_class.transaction do
+        prepare!
         models_data.each do |model_data|
-          model = model_class.create!(model_attributes(model_data))
-          seed_data.store_reference(model_data['reference'], model)
+          create_model!(model_data)
         end
+      end
+    end
+
+    def prepare!; end
+
+    def create_model!(model_data)
+      model_class
+        .create!(model_attributes(model_data))
+        .tap { |model| seed_data.store_reference(model_data["reference"], model) }
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error { "Failed to create #{model_class} seed_data: %e" }
+      raise e
+    end
+
+    def mapped_models_data
+      models_data.each_with_object({}) do |model_data, models|
+        models[model_data["reference"]] = model_attributes(model_data)
       end
     end
 
@@ -51,11 +68,15 @@ module BasicData
     end
 
     def model_attributes(model_data)
-      raise NotImplementedError
+      raise SubclassResponsibilityError
     end
 
     def applicable?
-      model_class.none?
+      model_class.none? && seed_data.all_references_exist?(all_required_references)
+    end
+
+    def all_required_references
+      get_required_references(models_data)
     end
 
     def lookup_existing_references
@@ -64,8 +85,10 @@ module BasicData
       models_data.each do |model_data|
         lookup_attributes = model_attributes(model_data).slice(*attribute_names_for_lookups)
         if model = model_class.find_by(lookup_attributes)
-          seed_data.store_reference(model_data['reference'], model)
+          seed_data.store_reference(model_data["reference"], model)
         end
+      rescue ArgumentError
+        # ignore when lookups can not be done because of missing references
       end
     end
 

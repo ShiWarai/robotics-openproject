@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -39,7 +41,7 @@ class AttributeHelpText::Project < AttributeHelpText
       attributes[field.attribute_name] = field.name
     end
 
-    attributes['members'] = I18n.t(:label_member_plural)
+    attributes["members"] = I18n.t(:label_member_plural)
 
     attributes
   end
@@ -47,7 +49,7 @@ class AttributeHelpText::Project < AttributeHelpText
   validates :attribute_name, inclusion: { in: ->(*) { available_attributes.keys } }
 
   def type_caption
-    Project.model_name.human
+    ::Project.model_name.human
   end
 
   def self.visible_condition(_user)

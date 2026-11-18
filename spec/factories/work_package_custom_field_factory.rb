@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,21 +29,31 @@
 #++
 
 FactoryBot.define do
-  factory :work_package_custom_field do
+  # Prefer `:wp_custom_field` / `:string_wp_custom_field` etc. This factory remains for the many
+  # call sites that still name `:work_package_custom_field`.
+  factory :work_package_custom_field, class: "WorkPackageCustomField" do
+    activatable_on_types
+
     transient do
       default_locales { nil }
+      projects { [] }
     end
 
     sequence(:name) { |n| "Custom Field Nr. #{n}" }
-    regexp { '' }
+    regexp { "" }
     is_required { false }
     min_length { false }
-    default_value { '' }
+    default_value { "" }
     max_length { false }
     editable { true }
-    possible_values { '' }
-    visible { true }
-    field_format { 'bool' }
-    type { 'WorkPackageCustomField' }
+    possible_values { "" }
+    admin_only { false }
+    field_format { "bool" }
+
+    after(:create) do |custom_field, evaluator|
+      evaluator.projects.each do |project|
+        project.work_package_custom_fields << custom_field
+      end
+    end
   end
 end

@@ -1,18 +1,51 @@
+//-- copyright
+// OpenProject is an open source project management software.
+// Copyright (C) the OpenProject GmbH
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License version 3.
+//
+// OpenProject is a fork of ChiliProject, which is a fork of Redmine. The copyright follows:
+// Copyright (C) 2006-2013 Jean-Philippe Lang
+// Copyright (C) 2010-2013 the ChiliProject Team
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+//
+// See COPYRIGHT and LICENSE files for more details.
+//++
+
 import { Injector } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
 import { HalResourceEditingService } from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
 import { HighlightingRenderPass } from 'core-app/features/work-packages/components/wp-fast-table/builders/highlighting/row-highlight-render-pass';
 import { DragDropHandleRenderPass } from 'core-app/features/work-packages/components/wp-fast-table/builders/drag-and-drop/drag-drop-handle-render-pass';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { States } from 'core-app/core/states/states.service';
 import { timeOutput } from 'core-app/shared/helpers/debug_output';
 import { TimelineRenderPass } from './timeline/timeline-render-pass';
 import { SingleRowBuilder } from './rows/single-row-builder';
 import { RelationRenderInfo, RelationsRenderPass } from './relations/relations-render-pass';
 import { WorkPackageTable } from '../wp-fast-table';
+import {
+  ChildRelationsRenderPass,
+} from 'core-app/features/work-packages/components/wp-fast-table/builders/relations/child-relations-render-pass';
+import { getNodeIndex } from 'core-app/shared/helpers/dom-helpers';
+import invariant from 'tiny-invariant';
 
-export type RenderedRowType = 'primary'|'relations';
+export type RenderedRowType = 'primary'|'relations'|'child_relations';
 
 export interface RowRenderInfo {
   // The rendered row
@@ -31,15 +64,16 @@ export interface RowRenderInfo {
   // Marks if the row is currently hidden to the user
   hidden:boolean;
   // Additional data by the render passes
+  /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
   data?:any;
 }
 
 export abstract class PrimaryRenderPass {
-  @InjectField() halEditing:HalResourceEditingService;
+  @LazyInject() halEditing:HalResourceEditingService;
 
-  @InjectField() states:States;
+  @LazyInject() states:States;
 
-  @InjectField() I18n!:I18nService;
+  @LazyInject() I18n!:I18nService;
 
   /** The rendered order of rows of work package IDs or <null>, if not a work package row */
   public renderedOrder:RowRenderInfo[];
@@ -53,15 +87,20 @@ export abstract class PrimaryRenderPass {
   /** Additional render pass that handles table relation rendering */
   public relations:RelationsRenderPass;
 
+  /** Additional render pass that handles table child relation rendering */
+  public childRelations:ChildRelationsRenderPass;
+
   /** Additional render pass that handles drag'n'drop handle rendering */
   public dragDropHandle:DragDropHandleRenderPass;
 
   /** Additional render pass that handles highlighting of rows */
   public highlighting:HighlightingRenderPass;
 
-  constructor(public readonly injector:Injector,
+  constructor(
+public readonly injector:Injector,
     public workPackageTable:WorkPackageTable,
-    public rowBuilder:SingleRowBuilder) {
+    public rowBuilder:SingleRowBuilder,
+) {
   }
 
   /**
@@ -87,6 +126,7 @@ export abstract class PrimaryRenderPass {
 
     timeOutput('Relations render pass', () => {
       this.relations.render();
+      this.childRelations.render();
     });
 
     timeOutput('Drag handle render pass', () => {
@@ -106,18 +146,22 @@ export abstract class PrimaryRenderPass {
    * @param row
    */
   public refresh(row:RowRenderInfo, workPackage:WorkPackageResource, body:HTMLElement) {
-    const oldRow = jQuery(body).find(`.${row.classIdentifier}`);
-    let replacement:JQuery|null = null;
+    const oldRow = body.querySelector<HTMLTableRowElement>(`.${row.classIdentifier}`)!;
+    let replacement:HTMLElement|null = null;
 
     switch (row.renderType) {
-      case 'primary':
-        replacement = this.rowBuilder.refreshRow(workPackage, oldRow);
-        break;
       case 'relations':
         replacement = this.relations.refreshRelationRow(row as RelationRenderInfo, workPackage, oldRow);
+        break;
+      case 'child_relations':
+        replacement = this.childRelations.refreshRelationRow(row as RelationRenderInfo, workPackage, oldRow);
+        break;
+      default:
+        replacement = this.rowBuilder.refreshRow(workPackage, oldRow);
+        break;
     }
 
-    if (replacement !== null && oldRow.length) {
+    if (replacement !== null && oldRow) {
       oldRow.replaceWith(replacement);
     }
   }
@@ -136,23 +180,26 @@ export abstract class PrimaryRenderPass {
    * 1. Insert into the document fragment after the last match of the selector
    * 2. Splice into the renderedOrder array.
    */
-  public spliceRow(row:HTMLElement, selector:string, renderedInfo:RowRenderInfo) {
+  public spliceRow(row:HTMLTableRowElement, selector:string, renderedInfo:RowRenderInfo) {
     // Insert into table using the selector
-    // If it matches multiple, select the last element
-    const target = jQuery(this.tableBody)
-      .find(selector)
-      .last();
+    const matches = this.tableBody.querySelectorAll(selector);
+    invariant(matches.length, `No matches found for selector: ${selector}`);
 
-    target.after(row);
+    // If it matches multiple, select the last element
+    const target = matches[matches.length - 1];
+
+    // Insert the new row AFTER the target
+    target.parentNode!.insertBefore(row, target.nextSibling);
 
     // Splice the renderedOrder at this exact location
-    const index = target.index();
+    const index = getNodeIndex(target);
     this.renderedOrder.splice(index + 1, 0, renderedInfo);
   }
 
   protected prepare() {
     this.timeline = new TimelineRenderPass(this.injector, this.workPackageTable, this);
     this.relations = new RelationsRenderPass(this.injector, this.workPackageTable, this);
+    this.childRelations = new ChildRelationsRenderPass(this.injector, this.workPackageTable, this);
     this.dragDropHandle = new DragDropHandleRenderPass(this.injector, this.workPackageTable, this);
     this.highlighting = new HighlightingRenderPass(this.injector, this.workPackageTable, this);
     this.tableBody = document.createDocumentFragment();
@@ -180,10 +227,12 @@ export abstract class PrimaryRenderPass {
    * @param rowClasses Additional classes to apply to the timeline row for mirroring purposes
    * @param hidden whether the row was rendered hidden
    */
-  protected appendRow(workPackage:WorkPackageResource,
+  protected appendRow(
+workPackage:WorkPackageResource,
     row:HTMLTableRowElement,
     additionalClasses:string[] = [],
-    hidden = false) {
+    hidden = false,
+) {
     this.tableBody.appendChild(row);
 
     this.renderedOrder.push({
@@ -202,10 +251,12 @@ export abstract class PrimaryRenderPass {
    * @param classIdentifer a unique identifier for the two rows (one each in table/timeline).
    * @param hidden whether the row was rendered hidden
    */
-  protected appendNonWorkPackageRow(row:HTMLTableRowElement,
+  protected appendNonWorkPackageRow(
+row:HTMLTableRowElement,
     classIdentifer:string,
     additionalClasses:string[] = [],
-    hidden = false) {
+    hidden = false,
+) {
     row.classList.add(classIdentifer);
     this.tableBody.appendChild(row);
 

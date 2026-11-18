@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -35,9 +35,28 @@
 #
 # Use this as a temporary patch
 
-require 'ferrum/errors'
+require "ferrum/errors"
 
 def ignore_ferrum_javascript_error
   yield
 rescue Ferrum::JavaScriptError
+end
+
+# Override Ferrum::Network#pending_connections to only consider connections for current
+# page. Any pending connection from previous loaded pages will be ignored as
+# they have most likely be aborted anyway.
+
+module Ferrum
+  class Network
+    def pending_connections
+      main_frame_id = @traffic.first&.request&.frame_id
+      current_navigation = @traffic.reverse.find { |conn| conn.navigation_request?(main_frame_id) }
+      current_traffic = @traffic.filter do |exchange|
+        next unless exchange.request && current_navigation
+
+        exchange.request.loader_id == current_navigation.request.loader_id
+      end
+      current_traffic.count(&:pending?)
+    end
+  end
 end

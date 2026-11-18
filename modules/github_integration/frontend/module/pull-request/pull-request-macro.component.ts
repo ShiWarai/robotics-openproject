@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,54 +21,47 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
-// ++    Ng1FieldControlsWrapper,
+//++
 
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, Input, OnInit, inject } from '@angular/core';
 import {
-  ChangeDetectionStrategy,
-  Component,
-  ElementRef,
-  Injector,
-  Input,
-  OnInit,
-} from '@angular/core';
-import { HalResourceEditingService } from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
+  HalResourceEditingService
+} from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
 import { populateInputsFromDataset } from 'core-app/shared/components/dataset-inputs';
-import { IGithubPullRequest } from '../state/github-pull-request.model';
+import { IGithubPullRequest, IGithubUserResource } from '../state/github-pull-request.model';
 import { GithubPullRequestResourceService } from '../state/github-pull-request.service';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { PullRequestState } from './pull-request-state.component';
 
-export const githubPullRequestMacroSelector = 'macro.github_pull_request';
-
 @Component({
-  selector: githubPullRequestMacroSelector,
   templateUrl: './pull-request-macro.component.html',
   styleUrls: ['./pull-request-macro.component.sass'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     HalResourceEditingService,
   ],
+  standalone: false,
 })
 export class PullRequestMacroComponent implements OnInit {
+  readonly elementRef = inject(ElementRef);
+  readonly injector = inject(Injector);
+  readonly pullRequests = inject(GithubPullRequestResourceService);
+  readonly I18n = inject(I18nService);
+
   @Input() pullRequestId:string;
 
   @Input() pullRequestState:PullRequestState;
 
   pullRequest$:Observable<IGithubPullRequest>;
 
-  displayText$:Observable<string>;
+  displayText$:Observable<string|null>;
 
-  constructor(
-    readonly elementRef:ElementRef,
-    readonly injector:Injector,
-    readonly pullRequests:GithubPullRequestResourceService,
-    readonly I18n:I18nService,
-  ) {
+  constructor() {
     populateInputsFromDataset(this);
   }
 
@@ -84,12 +77,18 @@ export class PullRequestMacroComponent implements OnInit {
       );
   }
 
-  private buildText(pr:IGithubPullRequest):string {
-    const githubUserLink = this.htmlLink(pr._embedded.githubUser.htmlUrl, pr._embedded.githubUser.login);
+  private buildText(pr:IGithubPullRequest):string|null {
+    const actor = this.deriveActor(pr) as IGithubUserResource;
+    if (!actor) {
+      return null;
+    }
+
+
+    const actorLink = this.htmlLink(actor.htmlUrl, actor.login);
     const repositoryLink = this.htmlLink(pr.repositoryHtmlUrl, pr.repository);
     const prLink = this.htmlLink(pr.htmlUrl, pr.title);
 
-    const message = this.pullRequestState === 'referenced' ? 'referenced_message' : 'message';
+    const message = this.deriveMessage();
     return this.I18n.t(
       `js.github_integration.pull_requests.${message}`,
       {
@@ -100,9 +99,28 @@ export class PullRequestMacroComponent implements OnInit {
           `js.github_integration.pull_requests.states.${this.pullRequestState}`,
           { defaultValue: this.pullRequestState || '(unknown state)' },
         ),
-        github_user_link: githubUserLink,
+        github_user_link: actorLink,
       },
     );
+  }
+
+
+  private deriveActor(pr:IGithubPullRequest) {
+    if (this.pullRequestState === 'merged') {
+      return pr._embedded.mergedBy;
+    } else {
+      return pr._embedded.githubUser;
+    }
+  }
+
+  private deriveMessage() {
+    if (this.pullRequestState === 'referenced') {
+      return 'referenced_message';
+    } else if (this.pullRequestState === 'merged') {
+      return 'merged_message';
+    }
+
+    return 'message';
   }
 
   private htmlLink(href:string, title:string):string {

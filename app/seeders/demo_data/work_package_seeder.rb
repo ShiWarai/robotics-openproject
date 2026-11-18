@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -35,6 +37,10 @@ module DemoData
       BasicData::PrioritySeeder,
       AdminUserSeeder
     ]
+    # :parent is not strictly a required reference: they are most often created
+    # while seeding work packages so it would not make sense to not seed if they
+    # are not referenced yet.
+    self.attribute_names_for_required_references = %w[status type]
 
     attr_reader :project, :statuses, :repository, :types
     alias_method :project_data, :seed_data
@@ -45,25 +51,29 @@ module DemoData
       @project_data = project_data
       @statuses = Status.all
       @repository = Repository.first
-      @types = project.types.all.reject(&:is_milestone?)
+      @types = project.enabled_types.reject(&:is_milestone?)
       @relations_to_create = []
     end
 
     def seed_data!
-      print_status '    ↳ Creating work_packages' do
+      print_status "    ↳ Creating work_packages" do
         seed_demo_work_packages
         set_work_package_relations
       end
     end
 
-    private
+    def all_required_references
+      collect_required_references(project_data.lookup("work_packages"))
+    end
 
     RelationData = Data.define(:from, :to_reference, :type)
+
+    private
 
     attr_reader :relations_to_create
 
     def seed_demo_work_packages
-      project_data.each('work_packages') do |attributes|
+      project_data.each("work_packages") do |attributes|
         create_or_update_work_package(attributes)
       end
     end
@@ -78,7 +88,7 @@ module DemoData
     def create_work_package(attributes)
       wp_attr = base_work_package_attributes attributes
 
-      set_version! wp_attr, attributes
+      set_target_versions! wp_attr, attributes
       set_time_tracking_attributes! wp_attr, attributes
       set_backlogs_attributes! wp_attr, attributes
 
@@ -97,18 +107,18 @@ module DemoData
       {
         project:,
         author: admin_user,
-        assigned_to: find_principal(attributes['assigned_to']),
-        subject: attributes['subject'],
-        description: attributes['description'],
+        assigned_to: find_principal(attributes["assigned_to"]),
+        subject: attributes["subject"],
+        description: attributes["description"],
         status: find_status(attributes),
         type: find_type(attributes),
         priority: IssuePriority.default,
-        parent: find_work_package(attributes['parent'])
+        parent: find_work_package(attributes["parent"])
       }
     end
 
     def create_children!(work_package, attributes)
-      Array(attributes['children']).each do |child_attributes|
+      Array(attributes["children"]).each do |child_attributes|
         child = create_work_package child_attributes
 
         child.parent = work_package
@@ -125,37 +135,49 @@ module DemoData
     end
 
     def add_relations_to_create(work_package, attributes)
-      Array(attributes['relations']).each do |relation|
-        relation_data = RelationData.new(from: work_package, to_reference: relation['to'], type: relation['type'])
+      Array(attributes["relations"]).each do |relation|
+        relation_data = RelationData.new(from: work_package, to_reference: relation["to"], type: relation["type"])
         relations_to_create.push(relation_data)
       end
     end
 
     def memorize_work_package(work_package, attributes)
-      project_data.store_reference(attributes['reference'], work_package)
+      project_data.store_reference(attributes["reference"], work_package)
     end
 
     def find_work_package(reference)
       seed_data.find_reference(reference)
     end
 
+    # The referenced principals are seeded with the development data, so they are absent on
+    # production instances and the work packages fall back to the admin.
     def find_principal(reference)
-      seed_data.find_reference(reference) || admin_user
+      seed_data.find_reference(reference, default: nil) || admin_user
     end
 
     def find_status(attributes)
-      seed_data.find_reference(attributes['status'].to_sym)
+      seed_data.find_reference(attributes["status"].to_sym)
     end
 
     def find_type(attributes)
-      seed_data.find_reference(attributes['type'].to_sym)
+      seed_data.find_reference(attributes["type"].to_sym)
     end
 
-    def set_version!(wp_attr, attributes)
-      version = seed_data.find_reference(attributes['version'])
-      if version
-        wp_attr[:version] = version
+    def collect_required_references(work_packages_data)
+      Array.wrap(work_packages_data).each_with_object(Set.new) do |work_package_data, acc|
+        acc.merge(get_required_references(work_package_data))
+        if work_package_data["children"]
+          acc.merge(collect_required_references(work_package_data["children"]))
+        end
       end
+    end
+
+    def set_target_versions!(wp_attr, attributes)
+      version_ids = Array(attributes["target_versions"]).filter_map do |reference|
+        seed_data.find_reference(reference)&.id
+      end
+
+      wp_attr[:target_version_ids_replacements] = version_ids if version_ids.any?
     end
 
     def set_time_tracking_attributes!(wp_attr, attributes)
@@ -167,8 +189,8 @@ module DemoData
     end
 
     def set_backlogs_attributes!(wp_attr, attributes)
-      wp_attr[:position] = attributes['position'].presence&.to_i
-      wp_attr[:story_points] = attributes['story_points'].presence&.to_i
+      wp_attr[:position] = attributes["position"].presence&.to_i
+      wp_attr[:story_points] = attributes["story_points"].presence&.to_i
     end
 
     def set_work_package_relations
@@ -199,7 +221,10 @@ module DemoData
           due_date:,
           duration:,
           ignore_non_working_days:,
-          estimated_hours:
+          schedule_manually:,
+          estimated_hours:,
+          remaining_hours:,
+          done_ratio:
         }
       end
 
@@ -212,12 +237,12 @@ module DemoData
       end
 
       def start_date
-        days_ahead = attributes['start'] || 0
-        Time.zone.today.monday + days_ahead.days
+        days_ahead = attributes["start"] || 0
+        Date.current.monday + days_ahead.days
       end
 
       def due_date
-        all_days.due_date(start_date, attributes['duration'])
+        all_days.due_date(start_date, attributes["duration"])
       end
 
       def duration
@@ -230,8 +255,24 @@ module DemoData
           .any? { |date| working_days.non_working?(date) }
       end
 
+      def schedule_manually
+        if attributes["schedule_manually"].nil?
+          WorkPackage.column_defaults["schedule_manually"]
+        else
+          ActiveModel::Type::Boolean.new.cast(attributes["schedule_manually"])
+        end
+      end
+
       def estimated_hours
-        attributes['estimated_hours']&.to_i
+        attributes["estimated_hours"]&.to_i
+      end
+
+      def remaining_hours
+        attributes["remaining_hours"]&.to_i
+      end
+
+      def done_ratio
+        attributes["done_ratio"]&.to_i
       end
 
       def all_days

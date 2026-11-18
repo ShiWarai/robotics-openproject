@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -36,12 +38,13 @@ module Activities
     end
 
     def initialize(user, options = {})
-      options.assert_valid_keys(:project, :with_subprojects, :author, :scope)
+      options.assert_valid_keys(:project, :with_subprojects, :author, :scope, :meeting)
       @user = user
       @project = options[:project]
+      @meeting = options[:meeting]
       @options = options
 
-      self.scope = options[:scope] || :all
+      @scope = parse_scope(options[:scope] || :all)
     end
 
     # Returns an array of available event types
@@ -49,10 +52,10 @@ module Activities
       @event_types ||=
         if @project
           OpenProject::Activity.available_event_types.select do |o|
-            permissions = constantized_providers(o).map do |activity_provider|
+            permissions = constantized_providers(o).filter_map do |activity_provider|
               activity_provider.activity_provider_options[:permission]
-            end.compact
-            permissions.all? { |p| @user.allowed_to?(p, @project) }
+            end
+            permissions.all? { |p| @user.allowed_in_project?(p, @project) }
           end
         else
           OpenProject::Activity.available_event_types.to_a
@@ -63,30 +66,22 @@ module Activities
     # sorted in reverse chronological order
     def events(from: nil, to: nil, limit: nil)
       events = events_from_providers(from, to, limit)
-
       eager_load_associations(events)
-
       sort_by_most_recent_first(events)
     end
 
     protected
 
-    # Sets the scope
     # Argument can be :all, :default or an array of event types
-    def scope=(scope)
+    def parse_scope(scope)
       case scope
       when :all
-        @scope = event_types
+        event_types
       when :default
-        default_scope!
+        OpenProject::Activity.default_event_types.to_a
       else
-        @scope = scope & event_types
+        Array(scope) & event_types
       end
-    end
-
-    # Resets the scope to the default scope
-    def default_scope!
-      @scope = OpenProject::Activity.default_event_types.to_a
     end
 
     def events_from_providers(from, to, limit)
@@ -129,14 +124,15 @@ module Activities
       journal_ids = events.map(&:event_id)
 
       Journal
-        .includes(:data, :customizable_journals, :attachable_journals, :bcf_comment)
+        .includes(:data, :customizable_journals, :attachable_journals, :target_version_journals,
+                  :observed_in_version_journals, :bcf_comment)
         .find(journal_ids)
         .then { |journals| ::API::V3::Activities::ActivityEagerLoadingWrapper.wrap(journals) }
         .index_by(&:id)
     end
 
     def sort_by_most_recent_first(events)
-      events.sort { |a, b| b.event_datetime <=> a.event_datetime }
+      events.sort_by { -it.event_datetime.to_f }
     end
 
     def constantized_providers(event_type)

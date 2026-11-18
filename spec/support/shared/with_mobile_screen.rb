@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 #  OpenProject is an open source project management software.
-#  Copyright (C) 2010-2022 the OpenProject GmbH
+#  Copyright (C) the OpenProject GmbH
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License version 3.
@@ -24,7 +26,7 @@
 #
 #  See COPYRIGHT and LICENSE files for more details.
 
-RSpec.shared_context 'with mobile screen size' do |width, height|
+RSpec.shared_context "with mobile screen size" do |width, height|
   let!(:height_before) do
     if using_cuprite?
       page.current_window.size.second

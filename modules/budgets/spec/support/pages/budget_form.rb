@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,27 +26,30 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'support/pages/page'
+require "support/pages/page"
 
 module Pages
   ##
   # Offers common steps for Budget Page instances.
   module BudgetForm
+    include ::Components::Autocompleter::NgSelectAutocompleteHelpers
+
     ##
     # Adds planned unit costs with the default cost type.
-    def add_unit_costs!(num_units, comment: nil)
-      edit_unit_costs! unit_rows, units: num_units, comment:, type: 'new'
+    def add_unit_costs!(num_units, comment: nil, expected_costs: nil)
+      edit_unit_costs! unit_rows, units: num_units, comment:, expected_costs:, type: "new"
       add_unit_costs_row!
     end
 
     ##
     # Adds planned labor costs with the default cost type.
-    def add_labor_costs!(num_hours, user_name:, comment: nil)
+    def add_labor_costs!(num_hours, user_name:, comment: nil, expected_costs: nil)
       edit_labor_costs!(labor_rows,
                         hours: num_hours,
                         user_name:,
                         comment:,
-                        type: 'new')
+                        expected_costs:,
+                        type: "new")
       add_labor_costs_row!
     end
 
@@ -54,18 +57,25 @@ module Pages
     # Adds planned unit costs with the default cost type.
     #
     # @param type [String] Either 'existing' (default) or 'new'
-    def edit_unit_costs!(id, units: nil, comment: nil, type: :existing)
+    def edit_unit_costs!(id, units: nil, comment: nil, expected_costs: nil, type: :existing)
       prefix = "#{unit_cost_attr_id(type)}_#{id}"
+      options = { fill_options: { clear: :backspace } }
 
-      fill_in "#{prefix}_units", with: units if units.present?
-      fill_in "#{prefix}_comments", with: comment if comment.present?
+      retry_block do
+        fill_in("#{prefix}_units", with: units, **options) if units.present?
+        fill_in("#{prefix}_comments", with: comment, **options) if comment.present?
+
+        if expected_costs.present?
+          expect(page).to have_css("##{prefix}_costs", text: expected_costs)
+        end
+      end
     end
 
     def open_edit_planned_costs!(id, type:)
       row_id = "#budget_existing_#{type}_budget_item_attributes_#{id}"
 
       page.within row_id do
-        find('.costs--edit-planned-costs-btn').click
+        find(".costs--edit-planned-costs-btn").click
       end
     end
 
@@ -84,29 +94,44 @@ module Pages
 
     # Submit the costs form
     def submit_form!
-      find_by_id('budget-table--submit-button').click
+      find_by_id("budget-table--submit-button").click
     end
 
     ##
     # Adds planned labor costs with the default cost type.
     #
     # @param type [String] Either 'existing' (default) or 'new'
-    def edit_labor_costs!(id, hours: nil, user_name: nil, comment: nil, type: 'existing')
+    def edit_labor_costs!(id, hours: nil, user_name: nil, comment: nil, expected_costs: nil, type: "existing")
       prefix = "#{labor_cost_attr_id(type)}_#{id}"
+      options = { fill_options: { clear: :backspace } }
 
-      fill_in "#{prefix}_hours", with: hours if hours.present?
-      select user_name, from: "#{prefix}_user_id" if user_name.present?
-      fill_in "#{prefix}_comments", with: comment if comment.present?
+      retry_block do
+        fill_in("#{prefix}_hours", with: hours, **options) if hours.present?
+        select_labor_costs_user!(prefix, user_name) if user_name.present?
+        fill_in("#{prefix}_comments", with: comment, **options) if comment.present?
+
+        if expected_costs.present?
+          expect(page).to have_css("##{prefix}_costs", text: expected_costs)
+        end
+      end
+    end
+
+    def select_labor_costs_user!(row_id, user_name)
+      select_autocomplete page.find("##{row_id} opce-user-autocompleter"),
+                          query: user_name,
+                          results_selector: "body"
     end
 
     def add_unit_costs_row!
-      find('#material_budget_items_fieldset .wp-inline-create--add-link').click
+      find(:region, Budget.human_attribute_name(:material_budget))
+        .click_on accessible_name: I18n.t(:button_add_budget_item)
 
       @unit_rows = unit_rows + 1
     end
 
     def add_labor_costs_row!
-      find('#labor_budget_items_fieldset .wp-inline-create--add-link').click
+      find(:region, Budget.human_attribute_name(:labor_budget))
+        .click_on accessible_name: I18n.t(:button_add_budget_item)
 
       @labor_rows = labor_rows + 1
     end
@@ -114,10 +139,10 @@ module Pages
     def expect_planned_costs!(type:, row:, expected:)
       raise "Unknown type: #{type}, allowed: labor, material" unless %i[labor material].include? type.to_sym
 
-      retry_block do
-        container = page.all("##{type}_budget_items_fieldset td.currency.budget-table--fields")[row - 1]
-        actual = container.text
-        raise "Expected planned costs #{expected}, got #{actual}" unless expected == actual
+      within(:region, Budget.human_attribute_name(:"#{type}_budget")) do
+        container = find("tbody tr:nth-of-type(#{row}) td.currency.budget-table--fields")
+        expect(container).to have_text(expected, exact: true),
+                             "Expected planned costs to be #{expected.inspect}, was #{container.text.inspect}"
       end
     end
 
@@ -127,19 +152,19 @@ module Pages
     end
 
     def unit_costs_at(num_row)
-      unit_costs_container.all('tbody td.currency')[num_row - 1]
+      unit_costs_container.all("tbody td.currency")[num_row - 1]
     end
 
     def overall_unit_costs
-      unit_costs_container.first('tfoot td.currency')
+      unit_costs_container.first("tfoot td.currency")
     end
 
     def labor_costs_at(num_row)
-      labor_costs_container.all('tbody td.currency')[num_row - 1]
+      labor_costs_container.all("tbody td.currency")[num_row - 1]
     end
 
     def overall_labor_costs
-      labor_costs_container.first('tfoot td.currency')
+      labor_costs_container.first("tfoot td.currency")
     end
 
     def unit_costs_container
@@ -151,15 +176,7 @@ module Pages
     end
 
     def find_container(title)
-      find('h4', text: title).find(:xpath, '..')
-    end
-
-    def toggle_unit_costs!
-      find('fieldset', text: 'UNITS').click
-    end
-
-    def toggle_labor_costs!
-      find('fieldset', text: 'LABOR').click
+      find("h4", text: title).find(:xpath, "..")
     end
 
     ##
@@ -180,10 +197,6 @@ module Pages
 
     def labor_rows
       @labor_rows ||= 0
-    end
-
-    def toast_type
-      :rails
     end
   end
 end

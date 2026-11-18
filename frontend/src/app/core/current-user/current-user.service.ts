@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,38 +21,29 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
-import {
-  CurrentUser,
-  CurrentUserStore,
-} from './current-user.store';
-import { CurrentUserQuery } from './current-user.query';
-import { CapabilitiesResourceService } from 'core-app/core/state/capabilities/capabilities.service';
-import { Observable } from 'rxjs';
-import {
-  distinctUntilChanged,
-  filter,
-  map,
-  switchMap,
-  take,
-} from 'rxjs/operators';
 import { ApiV3ListFilter } from 'core-app/core/apiv3/paths/apiv3-list-resource.interface';
+import { CapabilitiesResourceService } from 'core-app/core/state/capabilities/capabilities.service';
 import { ICapability } from 'core-app/core/state/capabilities/capability.model';
+import { Observable, combineLatest } from 'rxjs';
+import { distinctUntilChanged, map, switchMap, take } from 'rxjs/operators';
+import { CurrentUserQuery } from './current-user.query';
+import { CurrentUser, CurrentUserStore } from './current-user.store';
 
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
-  constructor(
-    private apiV3Service:ApiV3Service,
-    private currentUserStore:CurrentUserStore,
-    private currentUserQuery:CurrentUserQuery,
-    private capabilitiesService:CapabilitiesResourceService,
-  ) {
+  private apiV3Service = inject(ApiV3Service);
+  private currentUserStore = inject(CurrentUserStore);
+  private currentUserQuery = inject(CurrentUserQuery);
+  private capabilitiesService = inject(CapabilitiesResourceService);
+
+  constructor() {
     this.setupLegacyDataListeners();
   }
 
@@ -72,6 +63,15 @@ export class CurrentUserService {
     }));
   }
 
+  public isLoggedInAndHasCapabalities$(action:string|string[], projectContext:string|null):Observable<boolean> {
+    return combineLatest([
+      this.isLoggedIn$,
+      this.hasCapabilities$(action, projectContext),
+    ]).pipe(
+      map(([isLoggedIn, hasCapabilities]) => isLoggedIn && hasCapabilities),
+    );
+  }
+
   /**
    * Returns the set of capabilities for the given context and/or actions
    */
@@ -80,10 +80,10 @@ export class CurrentUserService {
       .principalFilter$()
       .pipe(
         map((userFilter) => {
-          const filters:ApiV3ListFilter[] = [userFilter];
+          const filters:ApiV3ListFilter[] = [userFilter].filter((x):x is NonNullable<typeof x> => Boolean(x));
 
           if (projectContext) {
-            filters.push(['context', '=', [projectContext === 'global' || projectContext === 'projects' ? 'g' : `p${projectContext}`]]);
+            filters.push(['context', '=', [projectContext === 'global' || projectContext === 'projects' ? 'g' : `w${projectContext}`]]);
           }
 
           if (actions.length > 0) {
@@ -101,7 +101,7 @@ export class CurrentUserService {
    * in the provided context.
    */
   public hasCapabilities$(action:string|string[], projectContext:string|null):Observable<boolean> {
-    const actions = _.castArray(action);
+    const actions = Array.isArray(action) ? action : [action];
     return this
       .capabilities$(actions, projectContext)
       .pipe(
@@ -118,7 +118,7 @@ export class CurrentUserService {
    * has any of the required capabilities in the provided context.
    */
   public hasAnyCapabilityOf$(actions:string|string[], projectContext:string|null):Observable<boolean> {
-    const actionsToFilter = _.castArray(actions);
+    const actionsToFilter = Array.isArray(actions) ? actions : [actions];
     return this
       .capabilities$(actionsToFilter, projectContext)
       .pipe(
@@ -133,13 +133,18 @@ export class CurrentUserService {
   /**
    * Returns a principal filter for the current user.
    */
-  private principalFilter$():Observable<ApiV3ListFilter> {
+  private principalFilter$():Observable<ApiV3ListFilter|null> {
     return this
       .user$
       .pipe(
-        filter((user) => !!user.id),
         take(1),
-        map((user) => ['principal', '=', [user.id as string]]),
+        map((user) => {
+          if (user.id === null) {
+            return null;
+          }
+
+          return ['principal', '=', [user.id]];
+        }),
       );
   }
 
@@ -160,7 +165,7 @@ export class CurrentUserService {
   private _user:CurrentUser = {
     id: null,
     name: null,
-    mail: null,
+    loggedIn: false,
   };
 
   /** @deprecated Use the store mechanism `currentUserQuery.user$` */
@@ -171,11 +176,6 @@ export class CurrentUserService {
   /** @deprecated Use the store mechanism `currentUserQuery.user$` */
   public get name():string {
     return this._user.name || '';
-  }
-
-  /** @deprecated Use the store mechanism `currentUserQuery.user$` */
-  public get mail():string {
-    return this._user.mail || '';
   }
 
   /** @deprecated Use the store mechanism `currentUserQuery.user$` */

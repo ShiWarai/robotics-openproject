@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -31,14 +31,14 @@
 module LdapGroups
   module SynchronizedGroups
     class TableComponent < ::TableComponent
-      columns :dn, :auth_source, :group, :users, :sync_users
+      columns :dn, :ldap_auth_source, :group, :users, :sync_users
 
       def initial_sort
         %i[id asc]
       end
 
       def target_controller
-        'ldap_groups/synchronized_groups'
+        "ldap_groups/synchronized_groups"
       end
 
       def sortable?
@@ -50,24 +50,26 @@ module LdapGroups
       end
 
       def inline_create_link
+        return unless EnterpriseToken.allows_to?(:ldap_groups)
+
         link_to({ controller: target_controller, action: :new },
-                class: 'budget-add-row wp-inline-create--add-link',
-                title: I18n.t('ldap_groups.synchronized_groups.add_new')) do
-          helpers.op_icon('icon icon-add')
+                class: "budget-add-row wp-inline-create--add-link",
+                title: I18n.t("ldap_groups.synchronized_groups.add_new")) do
+          helpers.op_icon("icon icon-add")
         end
       end
 
       def empty_row_message
-        I18n.t 'ldap_groups.synchronized_groups.no_results'
+        I18n.t "ldap_groups.synchronized_groups.no_results"
       end
 
       def headers
         [
-          ['dn', { caption: ::LdapGroups::SynchronizedGroup.human_attribute_name('dn') }],
-          ['auth_source', { caption: ::LdapGroups::SynchronizedGroup.human_attribute_name('auth_source') }],
-          ['group', { caption: I18n.t(:label_group) }],
-          ['users', { caption: I18n.t(:label_user_plural) }],
-          ['sync_users', { caption: ::LdapGroups::SynchronizedFilter.human_attribute_name('sync_users') }]
+          ["dn", { caption: ::LdapGroups::SynchronizedGroup.human_attribute_name("dn") }],
+          ["ldap_auth_source", { caption: ::LdapGroups::SynchronizedGroup.human_attribute_name("ldap_auth_source") }],
+          ["group", { caption: I18n.t(:label_group) }],
+          ["users", { caption: I18n.t(:label_user_plural) }],
+          ["sync_users", { caption: ::LdapGroups::SynchronizedFilter.human_attribute_name("sync_users") }]
         ]
       end
     end

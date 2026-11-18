@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,8 +28,8 @@
 
 class OpenProject::JournalFormatter::TimeEntryHours < JournalFormatter::Base
   def render(_key, values, options = { html: true })
-    label_text = 'Spent time'
-    label_text << ':' if !values.first
+    label_text = I18n.t(:label_spent_time)
+    label_text << ":" if !values.first
     label_text = content_tag(:strong, label_text) if options[:html]
 
     value = value(options[:html], values.first, values.last)
@@ -44,13 +44,13 @@ class OpenProject::JournalFormatter::TimeEntryHours < JournalFormatter::Base
   end
 
   def value(html, old_value, value)
-    html = html ? '_html' : ''
+    html = html ? "_html" : ""
 
     old_value = format_float(old_value) if old_value
     value = format_float(value)
 
     if old_value
-      I18n.t(:'activity.item.time_entry.updated',
+      I18n.t(:"activity.item.time_entry.updated",
              old_value: I18n.t(:"activity.item.time_entry.hour#{html}", count: old_value),
              value: I18n.t(:"activity.item.time_entry.hour#{html}", count: value))
     else

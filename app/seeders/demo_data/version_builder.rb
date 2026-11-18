@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -55,14 +57,14 @@ module DemoData
 
     def version
       version = Version.create!(
-        name: config['name'],
-        status: config['status'],
-        sharing: config['sharing'],
+        name: config["name"],
+        status: config["status"],
+        sharing: config["sharing"],
         project:
       )
-      seed_data.store_reference(config['reference'], version)
+      seed_data.store_reference(config["reference"], version)
 
-      set_wiki! version, config['wiki']
+      set_wiki! version, config["wiki"]
 
       version
     end
@@ -70,13 +72,17 @@ module DemoData
     def set_wiki!(version, config)
       return unless config
 
-      version.wiki_page_title = config['title']
+      unless Wiki.exists?(project: version.project)
+        version.project.create_wiki(start_page: "Wiki")
+      end
+
+      version.wiki_page_title = config["title"]
 
       Journal::NotificationConfiguration.with false do
         WikiPage.create! wiki: version.project.wiki,
                          title: version.wiki_page_title,
                          author: User.admin.first,
-                         text: with_references(config['content'])
+                         text: with_references(config["content"])
       end
 
       version.save!

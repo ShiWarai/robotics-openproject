@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,42 +29,42 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Queries::Projects::Filters::MemberOfFilter do
-  it_behaves_like 'boolean query filter', scope: false do
+  it_behaves_like "boolean query filter", scope: false do
     let(:model) { Project }
     let(:attribute) { :member_of }
 
-    describe '#scope' do
-      let(:operator) { '=' }
+    describe "#apply_to" do
+      let(:operator) { "=" }
 
       context 'for "t"' do
         let(:values) { [OpenProject::Database::DB_VALUE_TRUE] }
 
-        it 'queries for projects where current user is a member' do
-          expected = expected_base_scope.visible.with_member
+        it "queries for projects where current user is a member" do
+          expected = expected_base_scope.with_member
 
-          expect(instance.scope.to_sql).to eql expected.to_sql
+          expect(instance.apply_to(model).to_sql).to eql expected.to_sql
         end
       end
 
       context 'for "f"' do
         let(:values) { [OpenProject::Database::DB_VALUE_FALSE] }
 
-        it 'queries for projects where current user is not a member' do
-          expected = expected_base_scope.visible.without_member
+        it "queries for projects where current user is not a member" do
+          expected = expected_base_scope.without_member
 
-          expect(instance.scope.to_sql).to eql expected.to_sql
+          expect(instance.apply_to(model).to_sql).to eql expected.to_sql
         end
       end
     end
 
-    describe 'invalid operators' do
+    describe "invalid operators" do
       context 'when using "!"' do
-        let(:operator) { '!' }
+        let(:operator) { "!" }
 
-        it 'is invalid' do
+        it "is invalid" do
           expect(instance).to be_invalid
         end
       end

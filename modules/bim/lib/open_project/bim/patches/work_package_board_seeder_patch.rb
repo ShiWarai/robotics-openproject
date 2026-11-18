@@ -4,17 +4,33 @@ module OpenProject::Bim::Patches::WorkPackageBoardSeederPatch
   end
 
   module InstanceMethods
+    BCF_BOARD_STATUS_REFERENCES = %i[
+      default_status_new
+      default_status_in_progress
+      default_status_resolved
+      default_status_closed
+    ].freeze
+
     def seed_data!
       super
 
       return unless OpenProject::Configuration.bim?
 
-      if board_data = project_data.lookup('boards.bcf')
-        print_status '    ↳ Creating demo BCF board' do
+      if board_data = project_data.lookup("boards.bcf")
+        print_status "    ↳ Creating demo BCF board" do
           seed_bcf_board(board_data)
-          Setting.boards_demo_data_available = 'true'
+          Setting.boards_demo_data_available = "true"
         end
       end
+    end
+
+    def all_required_references
+      required_refs = super
+      if OpenProject::Configuration.bim? && project_data.lookup("boards.bcf")
+        required_refs += BCF_BOARD_STATUS_REFERENCES
+        required_refs.uniq!
+      end
+      required_refs
     end
 
     def seed_bcf_board(board_data)
@@ -22,8 +38,8 @@ module OpenProject::Bim::Patches::WorkPackageBoardSeederPatch
       board =
         ::Boards::Grid.new(
           project:,
-          name: board_data.lookup('name'),
-          options: { 'type' => 'action', 'attribute' => 'status', 'highlightingMode' => 'type' },
+          name: board_data.lookup("name"),
+          options: { "type" => "action", "attribute" => "status", "highlightingMode" => "type" },
           widgets:,
           column_count: widgets.count,
           row_count: 1
@@ -36,28 +52,23 @@ module OpenProject::Bim::Patches::WorkPackageBoardSeederPatch
         Grids::Widget.new start_row: 1, end_row: 2,
                           start_column: i + 1, end_column: i + 2,
                           options: { query_id: query.id,
-                                     filters: [{ status: { operator: '=', values: query.filters[0].values } }] },
-                          identifier: 'work_package_query'
+                                     filters: [{ status: { operator: "=", values: query.filters[0].values } }] },
+                          identifier: "work_package_query"
       end
     end
 
     def seed_bcf_board_queries
-      statuses(
-        :default_status_new,
-        :default_status_in_progress,
-        :default_status_resolved,
-        :default_status_closed
-      ).map do |status|
+      seed_data.find_references(BCF_BOARD_STATUS_REFERENCES).map do |status|
         Query.new_default(project:, user: admin_user).tap do |query|
           # Make it public so that new members can see it too
           query.public = true
 
           query.name = status.name
           # Set filter by this status
-          query.add_filter('status_id', '=', [status.id])
+          query.add_filter("status_id", "=", [status.id])
 
           # Set manual sort filter
-          query.sort_criteria = [[:manual_sorting, 'asc']]
+          query.sort_criteria = [[:manual_sorting, "asc"]]
 
           query.save!
         end

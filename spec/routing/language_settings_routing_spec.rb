@@ -2,7 +2,7 @@
 
 # -- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,18 +29,18 @@
 # ++
 #
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Language Settings routes' do
+RSpec.describe "Language Settings routes" do
   it do
-    expect(get('/admin/settings/languages'))
-      .to route_to(controller: 'admin/settings/languages_settings',
-                   action: 'show')
+    expect(get("/admin/settings/languages"))
+      .to route_to(controller: "admin/settings/languages_settings",
+                   action: "show")
   end
 
   it do
-    expect(patch('/admin/settings/languages'))
-      .to route_to(controller: 'admin/settings/languages_settings',
-                   action: 'update')
+    expect(patch("/admin/settings/languages"))
+      .to route_to(controller: "admin/settings/languages_settings",
+                   action: "update")
   end
 end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,10 +28,10 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Queries::WorkPackages::Filter::CustomFieldFilter,
-               'with contains filter (Regression test #28348)' do
+               "with contains filter (Regression test #28348)" do
   let(:cf_accessor) { custom_field.column_name }
   let(:query) { build_stubbed(:query, project:) }
   let(:instance) do
@@ -42,28 +44,28 @@ RSpec.describe Queries::WorkPackages::Filter::CustomFieldFilter,
            work_package_custom_fields: [custom_field])
   end
   let(:custom_field) do
-    create(:text_issue_custom_field, name: 'LongText')
+    create(:issue_custom_field, :text, name: "LongText")
   end
-  let(:type) { create(:type_standard, custom_fields: [custom_field]) }
+  let(:type) { create(:type_task, custom_fields: [custom_field]) }
 
   let!(:wp_contains) do
     create(:work_package,
            type:,
            project:,
-           custom_values: { custom_field.id => 'foo' })
+           custom_values: { custom_field.id => "foo" })
   end
   let!(:wp_not_contains) do
     create(:work_package,
            type:,
            project:,
-           custom_values: { custom_field.id => 'bar' })
+           custom_values: { custom_field.id => "bar" })
   end
 
   let!(:wp_empty) do
     create(:work_package,
            type:,
            project:,
-           custom_values: { custom_field.id => '' })
+           custom_values: { custom_field.id => "" })
   end
 
   let!(:wp_nil) do
@@ -75,21 +77,21 @@ RSpec.describe Queries::WorkPackages::Filter::CustomFieldFilter,
 
   subject { WorkPackage.where(instance.where) }
 
-  describe 'contains' do
-    let(:operator) { '~' }
+  describe "contains" do
+    let(:operator) { "~" }
 
-    it 'returns the one matching work package' do
+    it "returns the one matching work package" do
       expect(subject)
-        .to match_array [wp_contains]
+        .to contain_exactly(wp_contains)
     end
   end
 
-  describe 'not contains' do
-    let(:operator) { '!~' }
+  describe "not contains" do
+    let(:operator) { "!~" }
 
-    it 'returns the three non-matching work package' do
+    it "returns the three non-matching work package" do
       expect(subject)
-        .to match_array [wp_not_contains, wp_empty, wp_nil]
+        .to contain_exactly(wp_not_contains, wp_empty, wp_nil)
     end
   end
 end

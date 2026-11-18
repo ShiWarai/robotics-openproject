@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,36 +28,29 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'users/index' do
+RSpec.describe "users/index" do
+  include EnterpriseTokenFactory
+
   shared_let(:admin) { create(:admin) }
   let!(:user) { create(:user, firstname: "Scarlet", lastname: "Scallywag") }
 
   before do
     User.system # create system user which is active but should not count towards limit
 
-    assign(:users, User.where(id: [admin.id, user.id]))
-    assign(:status, "all")
-    assign(:groups, Group.all)
+    assign(:query, UserQueries::Static.query(nil))
 
-    allow(view).to receive(:current_user).and_return(admin)
-    allow(view).to receive(:controller_name).and_return("users")
-    allow(view).to receive(:action_name).and_return("index")
+    without_partial_double_verification do
+      allow(view).to receive_messages(current_user: admin, controller_name: "users", action_name: "index")
+    end
   end
 
   subject { rendered.squish }
 
-  it 'renders the user table' do
-    render
-
-    expect(subject).to have_text("#{admin.firstname}   #{admin.lastname}")
-    expect(subject).to have_text("Scarlet   Scallywag")
-  end
-
   context "with an Enterprise token" do
     before do
-      allow(OpenProject::Enterprise).to receive(:token).and_return(Struct.new(:restrictions).new({ active_user_count: 5 }))
+      create_enterprise_token("token_5_users", restrictions: { active_user_count: 5 })
     end
 
     it "shows the current number of active and allowed users" do
@@ -70,7 +65,7 @@ RSpec.describe 'users/index' do
     it "does not show the current number of active and allowed users" do
       render
 
-      expect(subject).not_to have_text("booked active users")
+      expect(subject).to have_no_text("booked active users")
     end
   end
 end

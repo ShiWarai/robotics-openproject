@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,33 +21,45 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  Directive, EventEmitter, Output,
-} from '@angular/core';
+import { Directive, EventEmitter, Output, inject } from '@angular/core';
 import { OpModalService } from 'core-app/shared/components/modal/modal.service';
 import { ComponentType } from '@angular/cdk/portal';
-import { WidgetAbstractMenuComponent } from 'core-app/shared/components/grids/widgets/menu/widget-abstract-menu.component';
-import { WpGraphConfigurationModalComponent } from 'core-app/shared/components/work-package-graphs/configuration-modal/wp-graph-configuration.modal';
-import { WpTableConfigurationModalComponent } from 'core-app/features/work-packages/components/wp-table/configuration-modal/wp-table-configuration.modal';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import {
+  WidgetAbstractMenuComponent,
+} from 'core-app/shared/components/grids/widgets/menu/widget-abstract-menu.component';
+import {
+  WpGraphConfigurationModalComponent,
+} from 'core-app/shared/components/work-package-graphs/configuration-modal/wp-graph-configuration.modal';
+import {
+  WpTableConfigurationModalComponent,
+} from 'core-app/features/work-packages/components/wp-table/configuration-modal/wp-table-configuration.modal';
+import { OpContextMenuItem } from 'core-app/shared/components/op-context-menu/op-context-menu.types';
 
 @Directive()
 export abstract class WidgetWpSetMenuComponent extends WidgetAbstractMenuComponent {
   protected configurationComponent:ComponentType<WpGraphConfigurationModalComponent | WpTableConfigurationModalComponent>;
 
-  @InjectField() opModalService:OpModalService;
+  readonly opModalService = inject(OpModalService);
 
-  @Output() onConfigured:EventEmitter<any> = new EventEmitter();
+  // eslint-disable-next-line @angular-eslint/no-output-on-prefix
+  @Output() onConfigured = new EventEmitter<unknown>();
 
-  protected menuItemList = [
-    this.removeItem,
-    this.configureItem,
-  ];
+  protected async buildItems():Promise<OpContextMenuItem[]> {
+    const items = [
+      this.removeItem,
+    ];
+
+    if (await this.configurationAllowed()) {
+      items.push(this.configureItem);
+    }
+
+    return items;
+  }
 
   protected get configureItem() {
     return {
@@ -63,6 +75,10 @@ export abstract class WidgetWpSetMenuComponent extends WidgetAbstractMenuCompone
         return true;
       },
     };
+  }
+
+  protected configurationAllowed():Promise<boolean> {
+    return Promise.resolve(true);
   }
 
   protected get locals() {

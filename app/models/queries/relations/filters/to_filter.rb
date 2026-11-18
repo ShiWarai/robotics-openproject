@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -40,14 +42,12 @@ module Queries
           :to_id
         end
 
-        def visibility_checked?
-          true
-        end
-
         private
 
         def visibility_checked_sql(operator, values, visible_sql)
-          ["to_id #{operator} (?) AND from_id IN (#{visible_sql})", values]
+          sql = "to_id #{operator} (?) AND from_id IN (#{visible_sql}) AND to_id IN (#{visible_sql})"
+
+          [sql, values]
         end
       end
     end

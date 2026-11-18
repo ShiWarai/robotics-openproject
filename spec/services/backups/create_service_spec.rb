@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,15 +28,15 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
-require 'services/base_services/behaves_like_create_service'
+require "spec_helper"
+require "services/base_services/behaves_like_create_service"
 
 RSpec.describe Backups::CreateService, type: :model do
   let(:user) { create(:admin) }
   let(:service) { described_class.new user:, backup_token: backup_token.plain_value }
   let(:backup_token) { create(:backup_token, user:) }
 
-  it_behaves_like 'BaseServices create service' do
+  it_behaves_like "BaseServices create service" do
     let(:instance) { service }
     let(:backup_token) { build_stubbed(:backup_token, user:) }
     let(:contract_options) { { backup_token: backup_token.plain_value } }

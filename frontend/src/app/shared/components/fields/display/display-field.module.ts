@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,7 +21,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
@@ -31,18 +31,20 @@ import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { DisplayFieldContext } from 'core-app/shared/components/fields/display/display-field.service';
 import { ResourceChangeset } from 'core-app/shared/components/fields/changeset/resource-changeset';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 
 export const cssClassCustomOption = 'custom-option';
 
 export class DisplayField<T extends HalResource = HalResource> extends Field {
   public static type:string;
 
+  public resource:T;
+
   public mode:string | null = null;
 
   public activeChange:ResourceChangeset<T>|null = null;
 
-  @InjectField() I18n!:I18nService;
+  @LazyInject() I18n!:I18nService;
 
   constructor(public name:string, public context:DisplayFieldContext) {
     super();
@@ -100,7 +102,12 @@ export class DisplayField<T extends HalResource = HalResource> extends Field {
   }
 
   public get placeholder():string {
-    return '-';
+    // Use the placeholder from the schema if available (set by the backend)
+    if (this.schema.placeholder) {
+      return this.schema.placeholder;
+    } else {
+      return '-';
+    }
   }
 
   public get label() {

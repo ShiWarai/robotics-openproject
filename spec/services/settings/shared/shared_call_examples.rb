@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 #  OpenProject is an open source project management software.
-#  Copyright (C) 2010-2022 the OpenProject GmbH
+#  Copyright (C) the OpenProject GmbH
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License version 3.
@@ -24,15 +26,15 @@
 #
 #  See COPYRIGHT and LICENSE files for more details.
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.shared_examples 'successful call' do
-  it 'is successful' do
+RSpec.shared_examples "successful call" do
+  it "is successful" do
     expect(subject)
       .to be_success
   end
 
-  it 'sets the setting value' do
+  it "sets the setting value" do
     subject
 
     expect(Setting)
@@ -41,13 +43,13 @@ RSpec.shared_examples 'successful call' do
   end
 end
 
-RSpec.shared_examples 'unsuccessful call' do
-  it 'is not successful' do
+RSpec.shared_examples "unsuccessful call" do
+  it "is not successful" do
     expect(subject)
       .not_to be_success
   end
 
-  it 'does not set the setting value' do
+  it "does not set the setting value" do
     subject
 
     expect(Setting)

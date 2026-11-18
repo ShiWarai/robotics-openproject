@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,7 +31,7 @@
 module Projects::Copy
   class CategoriesDependentService < Dependency
     def self.human_name
-      I18n.t(:'projects.copy.work_package_categories')
+      I18n.t(:"projects.copy.work_package_categories")
     end
 
     def source_count
@@ -38,16 +40,8 @@ module Projects::Copy
 
     protected
 
-    def copy_dependency(params:)
-      category_id_map = {}
-
-      source.categories.find_each do |category|
-        new_category = target.categories.create category.attributes.dup.except('id', 'project_id')
-
-        category_id_map[category.id] = new_category.id
-      end
-
-      state.category_id_lookup = category_id_map
+    def copy_dependency(*)
+      state.category_id_lookup = copy_collection_with_id_map(:categories)
     end
   end
 end

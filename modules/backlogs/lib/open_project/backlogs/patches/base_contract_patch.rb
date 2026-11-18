@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,18 +32,58 @@ module OpenProject::Backlogs::Patches::BaseContractPatch
   extend ActiveSupport::Concern
 
   included do
-    attribute :remaining_hours
-    attribute :story_points
+    attribute :story_points,
+              writable: -> { model.backlogs_enabled? }
+    attribute :backlog_bucket,
+              permission: :manage_sprint_items
+    attribute :sprint,
+              # This also covers the check for backlogs being active
+              permission: :manage_sprint_items
 
-    validate :validate_has_parents_version
+    validate :backlog_bucket_xor_sprint
+    validate :backlog_bucket_exists
+    validate :backlog_bucket_belongs_to_project
+    validate :validate_sprint_is_assignable
+
+    def assignable_sprints
+      if model.project
+        Sprint.assignable(project: model.project, user:)
+      else
+        Sprint.none
+      end
+    end
 
     private
 
-    def validate_has_parents_version
-      if model.is_task? &&
-         model.parent && model.parent.in_backlogs_type? &&
-         model.version_id != model.parent.version_id
-        errors.add :version_id, :task_version_must_be_the_same_as_story_version
+    def backlog_bucket_xor_sprint
+      return unless model.backlog_bucket && model.sprint
+
+      errors.add :base, :backlog_bucket_xor_sprint
+    end
+
+    # Sprints get an equivalent check from +validate_sprint_is_assignable+.
+    # Without it, a bucket id pointing to no record would only fail on the
+    # foreign key constraint when saving.
+    def backlog_bucket_exists
+      if model.backlog_bucket_id &&
+         model.backlog_bucket_id_changed? &&
+         model.backlog_bucket.nil?
+        errors.add :backlog_bucket, :does_not_exist
+      end
+    end
+
+    def backlog_bucket_belongs_to_project
+      return unless model.backlog_bucket
+      return if model.backlog_bucket.project == model.project
+
+      errors.add :backlog_bucket, :backlog_bucket_from_another_project
+    end
+
+    def validate_sprint_is_assignable
+      if model.sprint_id &&
+         model.sprint_id_changed? &&
+         !assignable_sprints.exists?(id: model.sprint_id)
+        errors.add :sprint, :not_assignable
       end
     end
   end

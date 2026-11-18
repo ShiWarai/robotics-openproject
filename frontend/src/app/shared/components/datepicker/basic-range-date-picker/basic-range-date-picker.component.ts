@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2022 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,27 +21,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  AfterViewInit,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ElementRef,
-  EventEmitter,
-  forwardRef,
-  HostBinding,
-  Injector,
-  Input,
-  OnInit,
-  Output,
-  ViewChild,
-  ViewEncapsulation,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, forwardRef, HostBinding, Injector, Input, OnInit, Output, ViewChild, ViewEncapsulation, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import {
   ControlValueAccessor,
@@ -56,7 +41,7 @@ import { DatePicker } from '../datepicker';
 import flatpickr from 'flatpickr';
 import { DayElement } from 'flatpickr/dist/types/instance';
 import { populateInputsFromDataset } from '../../dataset-inputs';
-import { debounce } from 'lodash';
+import { debounce } from 'lodash-es';
 import { DeviceService } from 'core-app/core/browser/device.service';
 
 export const rangeSeparator = '-';
@@ -67,7 +52,6 @@ export const opBasicRangeDatePickerSelector = 'op-basic-range-date-picker';
   selector: opBasicRangeDatePickerSelector,
   templateUrl: './basic-range-date-picker.component.html',
   styleUrls: [
-    '../styles/datepicker.modal.sass',
     './basic-range-date-picker.component.sass',
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -79,19 +63,39 @@ export const opBasicRangeDatePickerSelector = 'op-basic-range-date-picker';
       multi: true,
     },
   ],
+  standalone: false,
 })
 export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAccessor, AfterViewInit {
+  readonly I18n = inject(I18nService);
+  readonly timezoneService = inject(TimezoneService);
+  readonly injector = inject(Injector);
+  readonly cdRef = inject(ChangeDetectorRef);
+  readonly elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
+  readonly deviceService = inject(DeviceService);
+
   @HostBinding('class.op-basic-range-datepicker') className = true;
 
   @HostBinding('class.op-basic-range-datepicker_mobile') mobile = false;
+
+  // Only laid out for the clear button when one is actually rendered, so that
+  // the usages without it keep their previous layout. On mobile the native date
+  // inputs clear themselves, so no button is rendered there.
+  @HostBinding('class.op-basic-range-datepicker_clearable') get clearable():boolean {
+    return this.showClearButton && !this.mobile;
+  }
 
   @Output() valueChange = new EventEmitter();
 
   private _value:string[] = [];
 
-  @Input() set value(newValue:string[]) {
-    this._value = newValue;
-    this.stringValue = this.resolveDateArrayToString(newValue);
+  @Input() set value(newValue:string|string[]) {
+    if (typeof newValue === 'string') {
+      this._value = newValue.split(/\s-\s/);
+    } else {
+      this._value = newValue;
+    }
+
+    this.stringValue = this.resolveDateArrayToString(this._value);
   }
 
   get value() {
@@ -106,11 +110,26 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
 
   @Input() disabled = false;
 
+  @Input() showClearButton = false;
+
+  @Input() placeholder = '';
+
   @Input() minimalDate:Date|null = null;
 
   @Input() inputClassNames = '';
 
-  @ViewChild('input') input:ElementRef;
+  @Input() inDialog:string;
+
+  @Input() dataAction = '';
+
+  @Input() set inputAttrs(attrs:Record<string, string> | null) {
+    this._inputAttrs = attrs ?? {};
+    this.applyInputAttrs();
+  }
+
+  private _inputAttrs:Record<string, string> = {};
+
+  @ViewChild('input') input:ElementRef<HTMLInputElement>;
 
   stringValue = '';
 
@@ -120,16 +139,10 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
     date: this.I18n.t('js.work_packages.properties.date'),
     placeholder: this.I18n.t('js.placeholders.default'),
     spacer: this.I18n.t('js.filter.value_spacer'),
+    clear: this.I18n.t('js.button_clear'),
   };
 
-  constructor(
-    readonly I18n:I18nService,
-    readonly timezoneService:TimezoneService,
-    readonly injector:Injector,
-    readonly cdRef:ChangeDetectorRef,
-    readonly elementRef:ElementRef,
-    readonly deviceService:DeviceService,
-  ) {
+  constructor() {
     populateInputsFromDataset(this);
   }
 
@@ -140,6 +153,15 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
   ngAfterViewInit():void {
     if (!this.mobile) {
       this.initializeDatePicker();
+    }
+    this.applyInputAttrs();
+  }
+
+  private applyInputAttrs():void {
+    const el = this.input?.nativeElement
+      ?? this.elementRef.nativeElement.querySelector<HTMLInputElement>(`input[id="${this.id}"]`);
+    if (el) {
+      Object.entries(this._inputAttrs).forEach(([key, val]) => el.setAttribute(key, val));
     }
   }
 
@@ -161,7 +183,17 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
   }
 
   showDatePicker():void {
-    this.datePickerInstance?.show();
+    if (!this.datePickerInstance?.isOpen) {
+      this.datePickerInstance?.show();
+      this.sentCalendarToTopLayer();
+    }
+  }
+
+  // Flatpickr keeps its own selection, so it has to be reset alongside the value
+  // or it would restore the cleared dates the next time the calendar is opened.
+  clearValue():void {
+    this.datePickerInstance?.clear();
+    this.changeValueFromInput([]);
   }
 
   private initializeDatePicker() {
@@ -186,6 +218,10 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
 
           this.cdRef.detectChanges();
         },
+        onOpen: () => {
+          this.sentCalendarToTopLayer();
+        },
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
         onDayCreate: async (dObj:Date[], dStr:string, fp:flatpickr.Instance, dayElem:DayElement) => {
           onDayCreate(
             dayElem,
@@ -194,8 +230,10 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
             !!this.minimalDate && dayElem.dateObj <= this.minimalDate,
           );
         },
+        static: false,
+        appendTo: this.appendToBodyOrDialog(),
       },
-      this.input.nativeElement as HTMLInputElement,
+      this.input.nativeElement,
     );
   }
 
@@ -203,8 +241,11 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
     this.value = value;
   }
 
+  // No-ops until the ControlValueAccessor registers the real callbacks below.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   onChange = (_:string[]):void => {};
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   onTouched = (_:string[]):void => {};
 
   registerOnChange(fn:(_:string[]) => void):void {
@@ -215,13 +256,38 @@ export class OpBasicRangeDatePickerComponent implements OnInit, ControlValueAcce
     this.onTouched = fn;
   }
 
-  // eslint-disable-next-line class-methods-use-this
   private resolveDateStringToArray(dates:string):string[] {
     return dates.split(` ${rangeSeparator} `).map((date) => date.trim());
   }
 
-  // eslint-disable-next-line class-methods-use-this
   private resolveDateArrayToString(dates:string[]):string {
     return dates.join(` ${rangeSeparator} `);
+  }
+
+  // In case the date picker is opened in a dialog, it needs to be in the top layer
+  // since the dialog is also there. This method is called in two cases:
+  // 1. When the date picker is opened
+  // 2. When the date picker is already opened and the user clicks on the input
+  // The later is necessary as otherwise the date picker would be removed from the top layer
+  // when the user clicks on the input. That is because the input is not part of the date picker
+  // so clicking on it would be considered a click on the backdrop which removes an item from
+  // the top layer again.
+  public sentCalendarToTopLayer() {
+    if (!this.datePickerInstance.isOpen || !this.inDialog) {
+      return;
+    }
+
+    const calendarContainer = this.datePickerInstance.datepickerInstance.calendarContainer;
+    calendarContainer.setAttribute('popover', '');
+    calendarContainer.showPopover();
+    calendarContainer.style.marginTop = '0';
+  }
+
+  private appendToBodyOrDialog():HTMLElement|undefined {
+    if (this.inDialog) {
+      return document.querySelector<HTMLElement>(`#${this.inDialog}`)!;
+    }
+
+    return undefined;
   }
 }

@@ -1,14 +1,16 @@
-require 'spec_helper'
+# frozen_string_literal: true
 
-RSpec.describe 'Switching types in work package table', js: true do
+require "spec_helper"
+
+RSpec.describe "Switching types in work package table", :js do
   let(:user) { create(:admin) }
 
-  describe 'switching to required CF' do
+  describe "switching to required CF" do
     let(:cf_req_text) do
       create(
         :work_package_custom_field,
-        field_format: 'string',
-        name: 'Required CF',
+        field_format: "string",
+        name: "Required CF",
         is_required: true,
         is_for_all: false
       )
@@ -16,7 +18,7 @@ RSpec.describe 'Switching types in work package table', js: true do
     let(:cf_text) do
       create(
         :work_package_custom_field,
-        field_format: 'string',
+        field_format: "string",
         is_required: false,
         is_for_all: false
       )
@@ -34,7 +36,7 @@ RSpec.describe 'Switching types in work package table', js: true do
     end
     let(:work_package) do
       create(:work_package,
-             subject: 'Foobar',
+             subject: "Foobar",
              type: type_task,
              project:)
     end
@@ -42,7 +44,7 @@ RSpec.describe 'Switching types in work package table', js: true do
 
     let(:query) do
       query = build(:query, user:, project:)
-      query.column_names = ['id', 'subject', 'type', cf_text.column_name]
+      query.column_names = ["id", "subject", "type", cf_text.column_name]
 
       query.save!
       query
@@ -71,50 +73,34 @@ RSpec.describe 'Switching types in work package table', js: true do
       wp_table.expect_work_package_listed(work_package)
     end
 
-    it 'switches the types correctly' do
+    it "switches the types correctly" do
       expect(text_field).to be_editable
 
       # Set non-required CF
       text_field.activate!
-      text_field.set_value 'Foobar'
+      text_field.set_value "Foobar"
       text_field.save!
 
-      wp_table.expect_toast(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
+      wp_table.expect_and_dismiss_toaster(
+        message: "Successful update."
       )
 
       # Switch type
       type_field.activate!
       type_field.set_value type_bug.name
 
-      wp_table.expect_toast(
-        type: :error,
-        message: "#{cf_req_text.name} can't be blank."
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
+      wp_table.expect_and_dismiss_toaster(
         type: :error,
         message: "#{cf_req_text.name} can't be blank."
       )
 
-      # Required CF requires activation
-      req_text_field.activate!
-      req_text_field.set_value 'Required'
+      # After a failed type switch, the required CF field is auto-opened in edit mode
+      req_text_field.expect_active!
+      req_text_field.set_value "Required"
       req_text_field.save!
 
-      wp_table.expect_toast(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
+      wp_table.expect_and_dismiss_toaster(
+        message: "Successful update."
       )
 
       expect { text_field.display_element }.to raise_error(Capybara::ElementNotFound)
@@ -122,73 +108,55 @@ RSpec.describe 'Switching types in work package table', js: true do
       type_field.activate!
       type_field.set_value type_task.name
 
-      wp_table.expect_toast(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
+      wp_table.expect_and_dismiss_toaster(
+        message: "Successful update."
       )
 
-      expect(page).not_to have_selector "#{req_text_field.selector} #{req_text_field.display_selector}"
+      expect(page).to have_no_css "#{req_text_field.selector} #{req_text_field.display_selector}"
       expect { req_text_field.display_element }.to raise_error(Capybara::ElementNotFound)
     end
 
-    it 'can switch back from an open required CF (Regression test #28099)' do
+    it "can switch back from an open required CF (Regression test #28099)" do
+      # The required field is not a column, so opening it makes the table load its query form and
+      # add the required field. we need to make sure the type is editable before we try it to prevent a race condition
+      expect(type_field).to be_editable
+      wait_for_network_idle
+
       # Switch type
       type_field.activate!
-      type_field.set_value type_bug.name
+      type_field.set_select_field_value type_bug.name
 
-      wp_table.expect_toast(
-        type: :error,
-        message: "#{cf_req_text.name} can't be blank."
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
+      wp_table.expect_and_dismiss_toaster(
         type: :error,
         message: "#{cf_req_text.name} can't be blank."
       )
 
-      # Required CF requires activation
+      # After a failed type switch, the required CF field is auto-opened in edit mode
       req_text_field.expect_active!
 
       # Now switch back to a type without the required CF
       type_field.activate!
-      type_field.openSelectField
-      type_field.set_value type_task.name
+      type_field.set_select_field_value type_task.name
 
-      wp_table.expect_toast(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
-      )
-      # safegurards
-      wp_table.dismiss_toaster!
-      wp_table.expect_no_toaster(
-        message: 'Successful update. Click here to open this work package in fullscreen view.'
+      wp_table.expect_and_dismiss_toaster(
+        message: "Successful update."
       )
     end
 
-    context 'switching to single view' do
+    context "switching to single view" do
       let(:wp_split) { wp_table.open_split_view(work_package) }
       let(:type_field) { wp_split.edit_field(:type) }
       let(:text_field) { wp_split.edit_field(cf_text.attribute_name(:camel_case)) }
       let(:req_text_field) { wp_split.edit_field(cf_req_text.attribute_name(:camel_case)) }
 
-      it 'allows editing and cancelling the new required fields' do
+      it "allows editing and cancelling the new required fields" do
         wp_split
 
         # Switch type
         type_field.activate!
         type_field.set_value type_bug.name
 
-        wp_table.expect_toast(
-          type: :error,
-          message: "#{cf_req_text.name} can't be blank."
-        )
-        # safegurards
-        wp_table.dismiss_toaster!
-        wp_table.expect_no_toaster(
+        wp_table.expect_and_dismiss_toaster(
           type: :error,
           message: "#{cf_req_text.name} can't be blank."
         )
@@ -199,30 +167,25 @@ RSpec.describe 'Switching types in work package table', js: true do
         # Cancel edition now
         SeleniumHubWaiter.wait
         req_text_field.cancel_by_escape
-        req_text_field.expect_state_text '-'
+        req_text_field.expect_state_text "-"
 
         # Set the value now
-        req_text_field.update 'foobar'
+        req_text_field.update "foobar"
 
-        wp_table.expect_toast(
-          message: 'Successful update. Click here to open this work package in fullscreen view.'
-        )
-        # safegurards
-        wp_table.dismiss_toaster!
-        wp_table.expect_no_toaster(
-          message: 'Successful update. Click here to open this work package in fullscreen view.'
+        wp_table.expect_and_dismiss_toaster(
+          message: "Successful update."
         )
 
-        req_text_field.expect_state_text 'foobar'
+        req_text_field.expect_state_text "foobar"
       end
     end
   end
 
-  describe 'switching to required bool CF with default value' do
+  describe "switching to required bool CF with default value" do
     let(:cf_req_bool) do
       create(
         :work_package_custom_field,
-        field_format: 'bool',
+        field_format: "bool",
         is_required: true,
         default_value: false
       )
@@ -240,7 +203,7 @@ RSpec.describe 'Switching types in work package table', js: true do
     end
     let(:work_package) do
       create(:work_package,
-             subject: 'Foobar',
+             subject: "Foobar",
              type: type_task,
              project:)
     end
@@ -253,14 +216,11 @@ RSpec.describe 'Switching types in work package table', js: true do
       wp_page.ensure_page_loaded
     end
 
-    it 'can switch to the bug type without errors' do
+    it "can switch to the bug type without errors" do
       type_field.expect_state_text type_task.name.upcase
       type_field.update type_bug.name
 
-      # safegurards
-      wp_page.expect_toast message: 'Successful update.'
-      wp_page.dismiss_toaster!
-      wp_page.expect_no_toaster message: 'Successful update.'
+      wp_page.expect_and_dismiss_toaster message: "Successful update."
 
       type_field.expect_state_text type_bug.name.upcase
 
@@ -270,16 +230,15 @@ RSpec.describe 'Switching types in work package table', js: true do
     end
   end
 
-  describe 'switching to list CF' do
+  describe "switching to list CF" do
     let!(:wp_page) { Pages::FullWorkPackageCreate.new }
     let!(:type_with_cf) { create(:type_task, custom_fields: [custom_field]) }
     let!(:type) { create(:type_bug) }
     let(:permissions) { %i(view_work_packages add_work_packages) }
-    let(:role) { create(:role, permissions:) }
+    let(:role) { create(:project_role, permissions:) }
     let(:user) do
       create(:user,
-             member_in_project: project,
-             member_through_role: role)
+             member_with_roles: { project => role })
     end
 
     let(:custom_field) do
@@ -311,7 +270,7 @@ RSpec.describe 'Switching types in work package table', js: true do
 
     let(:cf_edit_field) do
       field = wp_page.edit_field custom_field.attribute_name(:camel_case)
-      field.field_type = 'create-autocompleter'
+      field.field_type = "create-autocompleter"
       field
     end
 
@@ -324,10 +283,10 @@ RSpec.describe 'Switching types in work package table', js: true do
       SeleniumHubWaiter.wait
     end
 
-    it 'can switch to the type with CF list' do
+    it "can switch to the type with CF list" do
       # Set subject
       subject = wp_page.edit_field :subject
-      subject.set_value 'My subject'
+      subject.set_value "My subject"
 
       # Switch type
       type_field = wp_page.edit_field :type
@@ -344,13 +303,13 @@ RSpec.describe 'Switching types in work package table', js: true do
       wp_page.save!
 
       wp_page.expect_toast(
-        message: 'Successful creation.'
+        message: "Successful creation."
       )
 
       new_wp = WorkPackage.last
-      expect(new_wp.subject).to eq('My subject')
+      expect(new_wp.subject).to eq("My subject")
       expect(new_wp.type_id).to eq(type_with_cf.id)
-      expect(new_wp.custom_value_for(custom_field.id).map(&:typed_value)).to match_array(%w(pineapple mushrooms))
+      expect(new_wp.custom_value_for(custom_field).map(&:typed_value)).to match_array(%w(pineapple mushrooms))
     end
   end
 end

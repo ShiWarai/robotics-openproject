@@ -1,5 +1,7 @@
+# frozen_string_literal: true
+
 #  OpenProject is an open source project management software.
-#  Copyright (C) 2010-2022 the OpenProject GmbH
+#  Copyright (C) the OpenProject GmbH
 #
 #  This program is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU General Public License version 3.
@@ -24,9 +26,9 @@
 #
 #  See COPYRIGHT and LICENSE files for more details.
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe API::V3::Groups::GroupSqlRepresenter, 'rendering' do
+RSpec.describe API::V3::Groups::GroupSqlRepresenter, "rendering" do
   include API::V3::Utilities::PathHelper
 
   subject(:json) do
@@ -45,18 +47,19 @@ RSpec.describe API::V3::Groups::GroupSqlRepresenter, 'rendering' do
 
   let(:group) { create(:group) }
 
-  let(:select) { { '*' => {} } }
+  let(:select) { { "*" => {} } }
 
   current_user do
     create(:user)
   end
 
-  context 'when rendering all supported properties' do
+  context "when rendering all supported properties" do
     let(:expected) do
       {
         _type: "Group",
         id: group.id,
         name: group.name,
+        email: "",
         _links: {
           self: {
             href: api_v3_paths.group(group.id),
@@ -66,7 +69,7 @@ RSpec.describe API::V3::Groups::GroupSqlRepresenter, 'rendering' do
       }
     end
 
-    it 'renders as expected' do
+    it "renders as expected" do
       expect(json)
         .to be_json_eql(expected.to_json)
     end

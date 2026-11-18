@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,19 +28,20 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
-RSpec.describe 'Reset form configuration', js: true do
+RSpec.describe "Reset form configuration",
+               :js,
+               :selenium do
   shared_let(:admin) { create(:admin) }
   let(:type) { create(:type) }
 
   let(:project) { create(:project, types: [type]) }
   let(:form) { Components::Admin::TypeConfigurationForm.new }
-  let(:dialog) { Components::ConfirmationDialog.new }
 
   describe "with EE token and CFs", with_ee: %i[edit_attribute_groups] do
     let(:custom_fields) { [custom_field] }
-    let(:custom_field) { create(:integer_issue_custom_field, is_required: true, name: 'MyNumber') }
+    let(:custom_field) { create(:issue_custom_field, :integer, is_required: true, name: "MyNumber") }
     let(:cf_identifier) { custom_field.attribute_name }
     let(:cf_identifier_api) { cf_identifier.camelcase(:lower) }
 
@@ -47,40 +50,55 @@ RSpec.describe 'Reset form configuration', js: true do
       custom_field
 
       login_as(admin)
-      visit edit_type_tab_path(id: type.id, tab: "form_configuration")
+      visit edit_type_form_configuration_path(type)
     end
 
-    it 'resets the form properly after changes with CFs (Regression test #27487)' do
+    it "resets the form properly after changes with CFs (Regression test #27487)" do
       # Should be initially disabled
       form.expect_inactive(cf_identifier)
 
       # Add into new group
-      form.add_attribute_group('New Group')
-      form.move_to(cf_identifier, 'New Group')
+      form.add_attribute_group("New Group")
+      form.move_to(cf_identifier, "New Group")
       form.expect_attribute(key: cf_identifier)
-
-      form.save_changes
-      expect(page).to have_selector('.flash.notice', text: 'Successful update.', wait: 10)
 
       SeleniumHubWaiter.wait
       form.reset_button.click
-      dialog.expect_open
-      dialog.confirm
+      expect(page).to have_test_selector("type-form-configuration-reset-dialog")
+      page.within_test_selector "type-form-configuration-reset-dialog" do
+        click_button I18n.t("button_reset")
+      end
 
-      # Wait for page reload
-      SeleniumHubWaiter.wait
+      wait_for do
+        type.reload.default_variant.attribute_groups.reject { |group| group.key == :__empty }.map(&:translated_key)
+      end.to eq([
+                  "People",
+                  "Estimates and progress",
+                  "Details",
+                  "Other",
+                  "Costs"
+                ])
 
-      expect(page).not_to have_selector('.group-head', text: 'NEW GROUP')
-      expect(page).not_to have_selector('.group-head', text: 'OTHER')
-      type.reload
+      visit edit_type_form_configuration_path(type)
 
-      expect(type.custom_field_ids).to be_empty
+      expect(form.group_order).to eq(
+        [
+          "People",
+          "Estimates and progress",
+          "Details",
+          "Other",
+          "Costs"
+        ]
+      )
 
-      new_group = type.attribute_groups.detect { |g| g.key == 'New Group' }
+      expect(type.default_variant.custom_field_ids).to be_empty
+
+      new_group = type.default_variant.attribute_groups.detect { |g| g.key == "New Group" }
       expect(new_group).not_to be_present
 
-      other_group = type.attribute_groups.detect { |g| g.key == :other }
-      expect(other_group).not_to be_present
+      other_group = type.default_variant.attribute_groups.detect { |g| g.key == :other }
+      expect(other_group).to be_present
+      expect(other_group.attributes).to eq(%w[position])
     end
   end
 end

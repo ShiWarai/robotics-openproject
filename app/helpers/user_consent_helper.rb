@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,7 +30,8 @@
 
 module ::UserConsentHelper
   def consent_param?
-    params[:consent_check].present?
+    raw = params[:consent_check] || params.dig(:user, :consent_check)
+    ActiveModel::Type::Boolean.new.cast(raw)
   end
 
   def user_consent_required?
@@ -37,26 +40,26 @@ module ::UserConsentHelper
   end
 
   ##
-  # Gets consent instructions for the given user.
+  # Gets consent instructions.
   #
-  # @param user [User] The user to get instructions for.
   # @param locale [String] ISO-639-1 code for the desired locale (e.g. de, en, fr).
   #                        `I18n.locale` is set for each request individually depending
   #                        among other things on the user's Accept-Language headers.
   # @return [String] Instructions in the respective language.
-  def user_consent_instructions(_user, locale: I18n.locale)
+  def user_consent_instructions(locale)
     all = Setting.consent_info
-
     all.fetch(locale.to_s) { all.values.first }
   end
 
   def consent_checkbox_label(locale: I18n.locale)
-    I18n.t('consent.checkbox_label', locale:)
+    I18n.t("consent.checkbox_label", locale:)
   end
+
+  private
 
   def consent_configured?
     if Setting.consent_info.count == 0
-      Rails.logger.error 'Instance is configured to require consent, but no consent_info has been set.'
+      Rails.logger.error "Instance is configured to require consent, but no consent_info has been set."
 
       false
     else

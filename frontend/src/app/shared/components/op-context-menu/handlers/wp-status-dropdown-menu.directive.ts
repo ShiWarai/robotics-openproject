@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,45 +21,51 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
 import { StateService } from '@uirouter/core';
-import { OPContextMenuService } from 'core-app/shared/components/op-context-menu/op-context-menu.service';
-import { Directive, ElementRef, Input } from '@angular/core';
-import { OpContextMenuTrigger } from 'core-app/shared/components/op-context-menu/handlers/op-context-menu-trigger.directive';
+import { Directive, Input, inject } from '@angular/core';
+import {
+  OpContextMenuTrigger
+} from 'core-app/shared/components/op-context-menu/handlers/op-context-menu-trigger.directive';
 
-import { HalResourceEditingService } from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
+import {
+  HalResourceEditingService
+} from 'core-app/shared/components/fields/edit/services/hal-resource-editing.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
 import { CollectionResource } from 'core-app/features/hal/resources/collection-resource';
-import { Highlighting } from 'core-app/features/work-packages/components/wp-fast-table/builders/highlighting/highlighting.functions';
+import {
+  Highlighting
+} from 'core-app/features/work-packages/components/wp-fast-table/builders/highlighting/highlighting.functions';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { ToastService } from 'core-app/shared/components/toaster/toast.service';
 import { HalEventsService } from 'core-app/features/hal/services/hal-events.service';
-import { WorkPackageNotificationService } from 'core-app/features/work-packages/services/notifications/work-package-notification.service';
+import {
+  WorkPackageNotificationService
+} from 'core-app/features/work-packages/services/notifications/work-package-notification.service';
 import isNewResource from 'core-app/features/hal/helpers/is-new-resource';
+import { HalError } from 'core-app/features/hal/services/hal-error';
 
 @Directive({
   selector: '[wpStatusDropdown]',
+  standalone: false,
 })
 export class WorkPackageStatusDropdownDirective extends OpContextMenuTrigger {
+  readonly $state = inject(StateService);
+  protected workPackageNotificationService = inject(WorkPackageNotificationService);
+  protected halEditing = inject(HalResourceEditingService);
+  protected toastService = inject(ToastService);
+  protected I18n = inject(I18nService);
+  protected halEvents = inject(HalEventsService);
+
+  // eslint-disable-next-line @angular-eslint/no-input-rename
   @Input('wpStatusDropdown-workPackage') public workPackage:WorkPackageResource;
 
-  constructor(readonly elementRef:ElementRef,
-    readonly opContextMenu:OPContextMenuService,
-    readonly $state:StateService,
-    protected workPackageNotificationService:WorkPackageNotificationService,
-    protected halEditing:HalResourceEditingService,
-    protected toastService:ToastService,
-    protected I18n:I18nService,
-    protected halEvents:HalEventsService) {
-    super(elementRef, opContextMenu);
-  }
-
-  protected open(evt:JQuery.TriggeredEvent) {
+  protected open(evt:Event) {
     const change = this.halEditing.changeFor(this.workPackage);
 
     change.getForm().then((form:any) => {
@@ -91,6 +97,9 @@ export class WorkPackageStatusDropdownDirective extends OpContextMenuTrigger {
         .save(change)
         .then(() => {
           this.workPackageNotificationService.showSave(this.workPackage);
+        })
+        .catch((e:unknown) => {
+          this.workPackageNotificationService.showError((e as HalError).resource, change.projectedResource);
         });
     }
   }

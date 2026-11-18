@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,19 +21,18 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
 import { DisplayField } from 'core-app/shared/components/fields/display/display-field.module';
 import { ApplicationRef } from '@angular/core';
-import { DynamicBootstrapper } from 'core-app/core/setup/globals/dynamic-bootstrapper';
-import { InjectField } from 'core-app/shared/helpers/angular/inject-field.decorator';
+import { LazyInject } from 'core-app/shared/helpers/angular/lazy-inject.decorator';
 import { ExpressionService } from 'core-app/core/expression/expression.service';
 
 export class FormattableDisplayField extends DisplayField {
-  @InjectField() readonly appRef:ApplicationRef;
+  @LazyInject() readonly appRef:ApplicationRef;
 
   public render(element:HTMLElement, displayText:string, options:any = {}):void {
     const div = document.createElement('div');
@@ -53,9 +52,6 @@ export class FormattableDisplayField extends DisplayField {
 
     element.innerHTML = '';
     element.appendChild(div);
-
-    // Allow embeddable rendered content
-    DynamicBootstrapper.bootstrapOptionalEmbeddable(this.appRef, div);
   }
 
   get placeholder():string {
@@ -75,7 +71,7 @@ export class FormattableDisplayField extends DisplayField {
       return null;
     }
     const element = this.resource[this.name];
-    if (!(element && element.html)) {
+    if (!(element?.html)) {
       return '';
     }
 

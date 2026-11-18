@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -29,6 +31,30 @@
 class WorkPackages::Exports::ScheduleService
   attr_accessor :user
 
+  # Allowed option keys for the export pipeline from user input
+  PERMITTED_EXPORT_OPTIONS = %i[
+    filter_empty
+    footer_text
+    footer_text_center
+    format
+    gantt_mode
+    gantt_width
+    header_text_right
+    hyphenation
+    hyphenation_language
+    language
+    long_text_fields
+    no_columns
+    page
+    page_orientation
+    paper_size
+    pdf_export_type
+    save_export_settings
+    show_descriptions
+    show_images
+    show_relations
+  ].freeze
+
   def initialize(user:)
     self.user = user
   end
@@ -48,7 +74,11 @@ class WorkPackages::Exports::ScheduleService
                                           mime_type:,
                                           query: serialize_query(query),
                                           query_attributes: serialize_query_props(query),
-                                          **params)
+                                          options: export_options(params))
+  end
+
+  def export_options(params)
+    params.permit(*PERMITTED_EXPORT_OPTIONS, columns: []).to_h
   end
 
   ##
@@ -61,7 +91,7 @@ class WorkPackages::Exports::ScheduleService
 
   def serialize_query_props(query)
     query.attributes.tap do |attributes|
-      attributes['filters'] = Queries::WorkPackages::FilterSerializer.dump(query.attributes['filters'])
+      attributes["filters"] = Queries::WorkPackages::FilterSerializer.dump(query.attributes["filters"])
     end
   end
 end

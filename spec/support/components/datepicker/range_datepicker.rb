@@ -1,4 +1,6 @@
-require_relative './basic_datepicker'
+# frozen_string_literal: true
+
+require_relative "basic_datepicker"
 
 module Components
   class RangeDatepicker < BasicDatepicker

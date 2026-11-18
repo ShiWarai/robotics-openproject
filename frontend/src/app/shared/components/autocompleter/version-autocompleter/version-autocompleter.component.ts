@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,24 +21,18 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  AfterViewInit,
-  ChangeDetectorRef,
-  Component,
-  EventEmitter,
-  Injector,
-  Output,
-} from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, EventEmitter, Output, inject } from '@angular/core';
 import { CurrentProjectService } from 'core-app/core/current-project/current-project.service';
 import { CreateAutocompleterComponent } from 'core-app/shared/components/autocompleter/create-autocompleter/create-autocompleter.component';
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { VersionResource } from 'core-app/features/hal/resources/version-resource';
 import { HalResourceNotificationService } from 'core-app/features/hal/services/hal-resource-notification.service';
+import { HalResource } from 'core-app/features/hal/resources/hal-resource';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { firstValueFrom } from 'rxjs';
@@ -46,26 +40,29 @@ import { firstValueFrom } from 'rxjs';
 @Component({
   templateUrl: '../create-autocompleter/create-autocompleter.component.html',
   selector: 'version-autocompleter',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
 export class VersionAutocompleterComponent extends CreateAutocompleterComponent implements AfterViewInit {
+  readonly I18n = inject(I18nService);
+  readonly currentProject = inject(CurrentProjectService);
+  readonly cdRef = inject(ChangeDetectorRef);
+  readonly pathHelper = inject(PathHelperService);
+  readonly apiV3Service = inject(ApiV3Service);
+  readonly halNotification = inject(HalResourceNotificationService);
+
   @Output() public onCreate = new EventEmitter<VersionResource>();
 
-  constructor(
-    readonly injector:Injector,
-    readonly I18n:I18nService,
-    readonly currentProject:CurrentProjectService,
-    readonly cdRef:ChangeDetectorRef,
-    readonly pathHelper:PathHelperService,
-    readonly apiV3Service:ApiV3Service,
-    readonly halNotification:HalResourceNotificationService,
-  ) {
-    super(injector);
-  }
+  groupByFn = (item:HalResource):string|null => {
+    if (!item.id) return null; // Do not group non version options
+    const project = item.definingProject as HalResource | undefined;
+    return project?.name || this.I18n.t('js.project.not_available');
+  };
 
   ngAfterViewInit() {
     super.ngAfterViewInit();
 
-    this.canCreateNewActionElements().then((val) => {
+    void this.canCreateNewActionElements().then((val) => {
       if (val) {
         this.createAllowed = (input:string) => this.createNewVersion(input);
         this.cdRef.detectChanges();

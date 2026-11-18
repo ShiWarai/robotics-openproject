@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,59 +28,75 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-# This class provides definitions for API routes and endpoints for the file_links namespace. It inherits the
-# functionality from the Grape REST API framework. It is mounted in lib/api/v3/work_packages/work_packages_api.rb,
-# which puts the file_links namespace behind the provided namespace of the work packages api
-# -> /api/v3/work_packages/:id/file_links/...
-class API::V3::FileLinks::WorkPackagesFileLinksAPI < API::OpenProjectAPI
-  # The `:resources` keyword defines the API namespace -> /api/v3/work_packages/:id/file_links/...
-  resources :file_links do
-    # Get the list of FileLinks related to a work package, with updated information from Nextcloud.
-    get do
-      # API supports query filters on storages, for example { storage: { operator: '=', values: [storage_id] }
-      query = ParamsToQueryService
-                .new(::Storages::Storage,
-                     current_user,
-                     query_class: ::Queries::Storages::FileLinks::FileLinkQuery)
-                .call(params)
+module API
+  module V3
+    module FileLinks
+      class WorkPackagesFileLinksAPI < API::OpenProjectAPI
+        helpers do
+          def sync_and_convert_relation(file_links)
+            return ::Storages::FileLink.none if file_links.empty?
 
-      unless query.valid?
-        message = I18n.t('api_v3.errors.missing_or_malformed_parameter', parameter: 'filters')
-        raise ::API::Errors::InvalidQuery.new(message)
-      end
+            sync_result = ::Storages::FileLinkSyncService.new(user: current_user).call(file_links).result
+            id_status_map = {}
 
-      result = if current_user.allowed_to?(:view_file_links, @work_package.project)
-                 # Get a (potentially huge...) list of all FileLinks for the work package.
-                 file_links = query.results.where(container_id: @work_package.id,
-                                                  container_type: 'WorkPackage',
-                                                  storage: @work_package.project.storages)
-                 # Synchronize with Nextcloud. StorageAPI has handled OAuth2 for us before.
-                 # We ignore the result, because partial errors (storage network issues) are written to each FileLink
-                 ::Storages::FileLinkSyncService
-                   .new(user: current_user)
-                   .call(file_links)
-                   .result
-               else
-                 []
-               end
-      ::API::V3::FileLinks::FileLinkCollectionRepresenter.new(
-        result,
-        self_link: api_v3_paths.file_links(@work_package.id),
-        current_user:
-      )
-    end
+            sync_result.each do |file_link|
+              id_status_map[file_link.id] = file_link.origin_status.to_s
+            end
 
-    post &::API::V3::FileLinks::WorkPackagesFileLinksCreateEndpoint
-            .new(
-              model: ::Storages::FileLink,
-              parse_service: Storages::Peripherals::ParseCreateParamsService,
-              render_representer: ::API::V3::FileLinks::FileLinkCollectionRepresenter,
-              params_modifier: ->(params) do
-                params[:container_id] = work_package.id
-                params[:container_type] = work_package.class.name
-                params
-              end
+            JoinOriginStatusToFileLinksRelation.create(id_status_map)
+          end
+        end
+
+        resources :file_links do
+          get do
+            query = ParamsToQueryService.new(
+              ::Storages::Storage,
+              current_user,
+              query_class: ::Queries::Storages::FileLinks::FileLinkQuery
+            ).call(params)
+
+            unless query.valid?
+              message = I18n.t("api_v3.errors.missing_or_malformed_parameter", parameter: "filters")
+              raise ::API::Errors::InvalidQuery.new(message)
+            end
+
+            relation = if current_user.allowed_in_project?(:view_file_links, @work_package.project)
+                         file_links = query.results.where(container_id: @work_package.id,
+                                                          container_type: "WorkPackage",
+                                                          storage: @work_package.project.storages)
+
+                         if params[:pageSize] == "0"
+                           file_links
+                         else
+                           sync_and_convert_relation(file_links)
+                         end
+                       else
+                         ::Storages::FileLink.none
+                       end
+
+            FileLinkCollectionRepresenter.new(
+              relation,
+              page: params[:offset],
+              per_page: params[:pageSize],
+              self_link: api_v3_paths.file_links(@work_package.id),
+              current_user:
             )
-            .mount
+          end
+
+          post &WorkPackagesFileLinksCreateEndpoint
+                  .new(
+                    model: ::Storages::FileLink,
+                    parse_service: ::Storages::Peripherals::ParseCreateParamsService,
+                    render_representer: FileLinkCollectionRepresenter,
+                    params_modifier: ->(params) do
+                      params[:container_id] = work_package.id
+                      params[:container_type] = work_package.class.name
+                      params
+                    end
+                  )
+                  .mount
+        end
+      end
+    end
   end
 end

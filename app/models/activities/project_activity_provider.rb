@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -27,14 +29,14 @@
 #++
 
 class Activities::ProjectActivityProvider < Activities::BaseActivityProvider
-  activity_provider_for type: 'project_attributes',
+  activity_provider_for type: "project_details",
                         permission: :view_project
 
   def event_query_projection
     [
-      projection_statement(journals_table, :journable_id, 'project_id'),
-      projection_statement(projects_table, :identifier, 'project_identifier'),
-      projection_statement(projects_table, :name, 'project_name')
+      projection_statement(journals_table, :journable_id, "project_id"),
+      projection_statement(projects_table, :identifier, "project_identifier"),
+      projection_statement(projects_table, :name, "project_name")
     ]
   end
 
@@ -45,18 +47,18 @@ class Activities::ProjectActivityProvider < Activities::BaseActivityProvider
   end
 
   def project_id_reference_field
-    'journable_id'
+    "journable_id"
   end
 
   def event_title(event)
-    I18n.t('events.title.project', name: event['project_name'])
+    I18n.t("events.title.project_html", name: event["project_name"])
   end
 
   def event_path(event)
-    url_helpers.project_path(event['project_identifier'])
+    url_helpers.project_path(event["project_identifier"])
   end
 
   def event_url(event)
-    url_helpers.project_url(event['project_identifier'])
+    url_helpers.project_url(event["project_identifier"])
   end
 end

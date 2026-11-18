@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,7 +30,7 @@
 
 module DemoData::CreateAttachments
   def create_attachments!(container, attributes)
-    Array(attributes['attachments']).each do |file_name|
+    Array(attributes["attachments"]).each do |file_name|
       attachment = container.attachments.build
       attachment.author = admin_user
       attachment.file = File.new(attachment_path(file_name))

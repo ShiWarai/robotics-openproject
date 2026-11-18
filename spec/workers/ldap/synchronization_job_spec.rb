@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Ldap::SynchronizationJob, type: :model do
   let!(:auth_source) { create(:ldap_auth_source) }
@@ -48,7 +50,7 @@ RSpec.describe Ldap::SynchronizationJob, type: :model do
   end
 
   context "with user synchronization disabled", with_config: {
-    'ldap_users_disable_sync_job' => true
+    "ldap_users_disable_sync_job" => true
   } do
     it "does not run the sync" do
       expect(service).not_to have_received(:call)

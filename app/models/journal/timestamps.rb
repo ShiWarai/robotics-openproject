@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -70,9 +72,13 @@ module Journal::Timestamps
       timestamp = timestamp.to_time if timestamp.kind_of? Timestamp
       timestamp = timestamp.in_time_zone if timestamp.kind_of? DateTime
 
-      where(id: where(created_at: (..timestamp)) \
-          .select("distinct on (journable_type, journable_id) id") \
-          .reorder(:journable_type, :journable_id, created_at: :desc))
+      # By default rails will chop off the timezone from a date time parameter and just let
+      # postgresql to use the db session's timezone, which can be different from UTC.
+      # Pass the timestamp as a string including the UTC timezone explicitly, to the query
+      # in order to force postgres to use UTC instead of the session's timezone.
+
+      timestamp = timestamp.utc.to_s
+      where(OpenProject::SqlSanitization.sanitize("validity_period @> timestamp with time zone :timestamp", timestamp:))
     end
   end
 end

@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -40,7 +42,8 @@ module Projects
 
       exists = WorkPackage
                  .where.not(project_id: model.self_and_descendants.select(:id))
-                 .exists?(version_id: version_ids)
+                 .with_target_version(version_ids)
+                 .exists?
 
       errors.add :base, :foreign_wps_reference_version if exists
     end
@@ -51,7 +54,7 @@ module Projects
     end
 
     def validate_can_archive_project
-      return if user.allowed_to?(:archive_project, model)
+      return if user.allowed_in_project?(:archive_project, model)
 
       errors.add :base, :error_unauthorized
     end
@@ -62,7 +65,7 @@ module Projects
 
       active_subprojects = model.active_subprojects
       return if active_subprojects.empty?
-      return if user.allowed_to?(:archive_project, active_subprojects)
+      return if user.allowed_in_project?(:archive_project, active_subprojects)
 
       errors.add :base, :archive_permission_missing_on_subprojects
     end

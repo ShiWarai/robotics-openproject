@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,39 +21,37 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import {
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-  Component,
-  ComponentRef,
-  ElementRef,
-  ViewChild,
-} from '@angular/core';
-import {
-  CdkPortalOutlet,
-  ComponentPortal,
-} from '@angular/cdk/portal';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ComponentRef, ElementRef, ViewChild, inject } from '@angular/core';
+import { CdkPortalOutlet, ComponentPortal } from '@angular/cdk/portal';
 import { combineLatest } from 'rxjs';
-import { distinctUntilChanged } from 'rxjs/operators';
+import { distinctUntilChanged, filter } from 'rxjs/operators';
 
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { OpModalComponent } from 'core-app/shared/components/modal/modal.component';
 import { ModalData, OpModalService } from 'core-app/shared/components/modal/modal.service';
+import { PortalOutletTarget } from 'core-app/shared/components/modal/portal-outlet-target.enum';
+import { UntilDestroyedMixin } from 'core-app/shared/helpers/angular/until-destroyed.mixin';
 
-export const opModalOverlaySelector = 'op-modal-overlay';
 
 @Component({
-  selector: opModalOverlaySelector,
+  selector: 'opce-modal-overlay',
   templateUrl: './modal-overlay.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  standalone: false,
 })
-export class OpModalOverlayComponent {
+export class OpModalOverlayComponent extends UntilDestroyedMixin {
+  readonly modalService = inject(OpModalService);
+  readonly I18n = inject(I18nService);
+  readonly cdRef = inject(ChangeDetectorRef);
+
   public notFullscreen = false;
+
+  mobileTopPosition = false;
 
   public portalOutlet:CdkPortalOutlet;
 
@@ -66,24 +64,19 @@ export class OpModalOverlayComponent {
     }
   }
 
-  @ViewChild('overlay', { static: true }) overlay:ElementRef;
+  @ViewChild('overlay', { static: true }) overlay:ElementRef<HTMLElement>;
 
   activeModalData$ = this.modalService.activeModalData$;
 
   activeModalInstance$ = this.modalService.activeModalInstance$;
 
-  constructor(
-    readonly modalService:OpModalService,
-    readonly I18n:I18nService,
-    readonly cdRef:ChangeDetectorRef,
-  ) {}
-
   setupListener():void {
     combineLatest([
       this.activeModalInstance$,
       // multiple 'closing' events in a row are squashed
-      this.activeModalData$.pipe(distinctUntilChanged()),
+      this.activeModalData$.pipe(distinctUntilChanged(), filter(this.isDefaultTarget.bind(this))),
     ])
+      .pipe(this.untilDestroyed())
       .subscribe(([instance, data]) => {
         if (instance === null && data === null) {
           // do nothing
@@ -99,6 +92,12 @@ export class OpModalOverlayComponent {
           this.createAndAttachPortalInstance(data);
         }
       });
+  }
+
+  protected isDefaultTarget(modalData:ModalData|null):boolean {
+    if (modalData === null) return true;
+
+    return modalData.target === PortalOutletTarget.Default;
   }
 
   public close($event:MouseEvent, includeChildClicks = true):void {
@@ -124,8 +123,9 @@ export class OpModalOverlayComponent {
   }
 
   private createAndAttachPortalInstance(data:ModalData):void {
-    const { modal, injector, notFullscreen } = data;
+    const { modal, injector, notFullscreen, mobileTopPosition } = data;
     this.notFullscreen = notFullscreen;
+    this.mobileTopPosition = mobileTopPosition;
     const portal = new ComponentPortal(modal, null, injector);
     const ref = this.portalOutlet.attach(portal);
     const instance = ref.instance;
@@ -134,7 +134,7 @@ export class OpModalOverlayComponent {
     this.cdRef.detectChanges();
 
     // Focus on wrapper by default
-    (this.overlay.nativeElement as HTMLElement).focus();
+    this.overlay.nativeElement.focus();
 
     // Focus on the first element
     instance && instance.onOpen();

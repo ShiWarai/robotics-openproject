@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,23 +21,18 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
+
 import { State } from '@openproject/reactivestates';
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { StateCacheService } from 'core-app/core/apiv3/cache/state-cache.service';
-import {
-  firstValueFrom,
-  Observable,
-} from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { States } from 'core-app/core/states/states.service';
-import {
-  ISchemaProxy,
-  SchemaProxy,
-} from 'core-app/features/hal/schemas/schema-proxy';
+import { ISchemaProxy, SchemaProxy } from 'core-app/features/hal/schemas/schema-proxy';
 import { HalResourceService } from 'core-app/features/hal/services/hal-resource.service';
 import { WorkPackageSchemaProxy } from 'core-app/features/hal/schemas/work-package-schema-proxy';
 import { HalResource } from 'core-app/features/hal/resources/hal-resource';
@@ -47,13 +42,17 @@ export const fallbackSchemaId = '__fallback';
 
 @Injectable()
 export class SchemaCacheService extends StateCacheService<SchemaResource> {
+  readonly states:States;
+  readonly halResourceService = inject(HalResourceService);
+
   fallbackSchema = this.halResourceService.createHalResourceOfClass<SchemaResource>(SchemaResource, {}, true);
 
-  constructor(
-    readonly states:States,
-    readonly halResourceService:HalResourceService,
-  ) {
+  constructor() {
+    const states = inject(States);
+
     super(states.schemas);
+    this.states = states;
+
     this.putValue(fallbackSchemaId, this.fallbackSchema);
   }
 
@@ -69,8 +68,12 @@ export class SchemaCacheService extends StateCacheService<SchemaResource> {
    * @return The schema for the HalResource
    */
   of(resource:HalResource):ISchemaProxy {
-    const schema = this.state(resource).value as SchemaResource;
+    const schema = this.state(resource).value!;
 
+    return this.proxied(resource, schema);
+  }
+
+  proxied(resource:HalResource, schema:SchemaResource):ISchemaProxy {
     if (resource._type === 'WorkPackage') {
       return WorkPackageSchemaProxy.create(schema, resource);
     }

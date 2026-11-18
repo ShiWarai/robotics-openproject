@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,92 +28,154 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe Query,
-               with_ee: %i[baseline_comparison conditional_highlighting work_package_query_relation_columns] do
+               with_ee: %i[baseline_comparison] do
   let(:query) { build(:query) }
   let(:project) { create(:project) }
+  let(:project_member) { create(:user, member_with_permissions: { project => [:view_project] }) }
+  let(:user_restricted) { create(:user) }
 
-  describe '.new_default' do
-    it 'set the default sortation' do
+  describe ".new_default" do
+    it "set the default sortation" do
       query = described_class.new_default
 
       expect(query.sort_criteria)
-        .to contain_exactly(['id', 'asc'])
+        .to contain_exactly(["id", "asc"])
     end
 
-    it 'does not use the default sortation if an order is provided' do
-      query = described_class.new_default(sort_criteria: [['id', 'asc']])
+    it "does not use the default sortation if an order is provided" do
+      query = described_class.new_default(sort_criteria: [["id", "asc"]])
 
       expect(query.sort_criteria)
-        .to contain_exactly(['id', 'asc'])
+        .to contain_exactly(["id", "asc"])
     end
 
-    context 'with global subprojects include', with_settings: { display_subprojects_work_packages: true } do
-      it 'sets the include subprojects' do
+    context "with global subprojects include", with_settings: { display_subprojects_work_packages: true } do
+      it "sets the include subprojects" do
         expect(query.include_subprojects).to be true
       end
     end
 
-    context 'with global subprojects include', with_settings: { display_subprojects_work_packages: false } do
-      it 'sets the include subprojects' do
+    context "with global subprojects include", with_settings: { display_subprojects_work_packages: false } do
+      it "sets the include subprojects" do
         expect(query.include_subprojects).to be false
       end
     end
   end
 
-  describe 'include_subprojects' do
-    let(:query) { described_class.new name: 'foo' }
+  describe "#find_active_filter" do
+    let(:query) { described_class.new }
 
-    it 'is required' do
-      expect(query).not_to be_valid
+    it "returns the active filter matching the given name" do
+      query.add_filter("status_id", "=", ["1"])
 
-      expect(query.errors[:include_subprojects]).to include 'is not set to one of the allowed values.'
+      expect(query.find_active_filter(:status_id))
+        .to be_a(Queries::WorkPackages::Filter::StatusFilter)
+    end
+
+    it "returns nil when no filter with that name is active" do
+      expect(query.find_active_filter(:status_id)).to be_nil
+    end
+
+    it "matches by symbol, like Queries::BaseQuery#find_active_filter" do
+      query.add_filter("status_id", "=", ["1"])
+
+      expect(query.find_active_filter("status_id")).to be_nil
+      expect(query.find_active_filter(:status_id)).not_to be_nil
     end
   end
 
-  describe 'hidden' do
-    context 'with a view' do
+  describe "#available_advanced_filters" do
+    let(:query) { described_class.new }
+
+    it "excludes the ManualSortFilter so it doesn't appear in the FilterForm picker" do
+      classes = query.available_advanced_filters.map(&:class)
+
+      expect(classes).not_to include(Queries::WorkPackages::Filter::ManualSortFilter)
+    end
+
+    it "excludes the relation-type filters and the generic relatable filter" do
+      classes = query.available_advanced_filters.map(&:class)
+
+      expect(classes).not_to include(Queries::WorkPackages::Filter::BlocksFilter,
+                                     Queries::WorkPackages::Filter::BlockedFilter,
+                                     Queries::WorkPackages::Filter::PrecedesFilter,
+                                     Queries::WorkPackages::Filter::FollowsFilter,
+                                     Queries::WorkPackages::Filter::DuplicatesFilter,
+                                     Queries::WorkPackages::Filter::DuplicatedFilter,
+                                     Queries::WorkPackages::Filter::PartofFilter,
+                                     Queries::WorkPackages::Filter::IncludesFilter,
+                                     Queries::WorkPackages::Filter::RequiresFilter,
+                                     Queries::WorkPackages::Filter::RequiredFilter,
+                                     Queries::WorkPackages::Filter::RelatesFilter,
+                                     Queries::WorkPackages::Filter::RelatableFilter)
+    end
+
+    it "still exposes regular work-package filters" do
+      classes = query.available_advanced_filters.map(&:class)
+
+      # Sanity: a couple of well-known WP filters are still advertised.
+      # Picked ones whose `available?` doesn't depend on DB records (Status
+      # / Priority would require seeding statuses/priorities first).
+      expect(classes).to include(Queries::WorkPackages::Filter::SubjectFilter,
+                                 Queries::WorkPackages::Filter::CreatedAtFilter,
+                                 Queries::WorkPackages::Filter::DueDateFilter)
+    end
+  end
+
+  describe "include_subprojects" do
+    let(:query) { described_class.new name: "foo" }
+
+    it "is required" do
+      expect(query).not_to be_valid
+
+      expect(query.errors[:include_subprojects]).to include "is not set to one of the allowed values."
+    end
+  end
+
+  describe "hidden" do
+    context "with a view" do
       before do
         create(:view_work_packages_table, query:)
       end
 
-      it 'is false' do
+      it "is false" do
         expect(query.hidden).to be(false)
       end
     end
 
-    context 'without a view' do
-      it 'is true' do
+    context "without a view" do
+      it "is true" do
         expect(query.hidden).to be(true)
       end
     end
   end
 
-  describe 'timeline' do
-    it 'has a property for timeline visible' do
+  describe "timeline" do
+    it "has a property for timeline visible" do
       expect(query.timeline_visible).to be_falsey
       query.timeline_visible = true
       expect(query.timeline_visible).to be_truthy
     end
 
-    it 'validates the timeline labels hash keys' do
+    it "validates the timeline labels hash keys" do
       expect(query.timeline_labels).to eq({})
       expect(query).to be_valid
 
-      query.timeline_labels = { 'left' => 'foobar', 'xyz' => 'bar' }
+      query.timeline_labels = { "left" => "foobar", "xyz" => "bar" }
       expect(query).not_to be_valid
 
-      query.timeline_labels = { 'left' => 'foobar', 'right' => 'bar', 'farRight' => 'blub' }
+      query.timeline_labels = { "left" => "foobar", "right" => "bar", "farRight" => "blub" }
       expect(query).to be_valid
     end
   end
 
-  describe 'timestamps', with_flag: { show_changes: true } do
+  describe "timestamps" do
     subject { build(:query, timestamps:) }
 
-    context 'with EE', with_ee: %i[baseline_comparison] do
+    context "with EE", with_ee: %i[baseline_comparison] do
       Timestamp::ALLOWED_DATE_KEYWORDS.each do |timestamp_date_keyword|
         context "when the '#{timestamp_date_keyword}' value is provided" do
           let(:timestamps) { ["#{timestamp_date_keyword}@12:00+00:00"] }
@@ -139,7 +203,7 @@ RSpec.describe Query,
       end
     end
 
-    context 'without EE', with_ee: false do
+    context "without EE", with_ee: false do
       context "when the 'oneDayAgo' value is provided" do
         let(:timestamps) { ["oneDayAgo@12:00+00:00"] }
 
@@ -186,7 +250,7 @@ RSpec.describe Query,
         context "when the '#{timestamp_date_keyword}' value is provided" do
           let(:timestamps) { ["#{timestamp_date_keyword}@12:00+00:00"] }
 
-          it 'is invalid' do
+          it "is invalid" do
             expect(subject).not_to be_valid
             expect(subject.errors.symbols_for(:timestamps)).to eq [:forbidden]
           end
@@ -200,7 +264,7 @@ RSpec.describe Query,
           allow(Day).to receive(:last_working) { Day.new(date: 7.days.ago) }
         end
 
-        it 'is invalid' do
+        it "is invalid" do
           expect(subject).not_to be_valid
           expect(subject.errors.symbols_for(:timestamps)).to eq [:forbidden]
         end
@@ -209,7 +273,7 @@ RSpec.describe Query,
       context "when a duration value older than yesterday is provided" do
         let(:timestamps) { ["P-2D"] }
 
-        it 'is invalid' do
+        it "is invalid" do
           expect(subject).not_to be_valid
           expect(subject.errors.symbols_for(:timestamps)).to eq [:forbidden]
         end
@@ -218,7 +282,7 @@ RSpec.describe Query,
       context "when an iso8601 datetime value older than yesterday is provided" do
         let(:timestamps) { [2.days.ago.end_of_day.iso8601] }
 
-        it 'is invalid' do
+        it "is invalid" do
           expect(subject).not_to be_valid
           expect(subject.errors.symbols_for(:timestamps)).to eq [:forbidden]
         end
@@ -226,87 +290,72 @@ RSpec.describe Query,
     end
   end
 
-  describe 'highlighting' do
-    context 'with EE' do
-      it '#highlighted_attributes accepts valid values' do
-        query.highlighted_attributes = %w(status priority due_date)
-        expect(query).to be_valid
-      end
-
-      it '#highlighted_attributes rejects invalid values' do
-        query.highlighted_attributes = %w(status bogus)
-        expect(query).not_to be_valid
-      end
-
-      it '#hightlighting_mode accepts non-present values' do
-        query.highlighting_mode = nil
-        expect(query).to be_valid
-
-        query.highlighting_mode = ''
-        expect(query).to be_valid
-      end
-
-      it '#hightlighting_mode rejects invalid values' do
-        query.highlighting_mode = 'bogus'
-        expect(query).not_to be_valid
-      end
-
-      it '#available_highlighting_columns returns highlightable columns' do
-        available_columns = {
-          highlightable1: {
-            highlightable: true
-          },
-          highlightable2: {
-            highlightable: true
-          },
-          no_highlight: {}
-        }
-
-        allow(Queries::WorkPackages::Columns::PropertyColumn).to receive(:property_columns)
-                                                                   .and_return(available_columns)
-
-        expect(query.available_highlighting_columns.map(&:name)).to eq(%i{highlightable1 highlightable2})
-      end
-
-      describe '#highlighted_columns returns a valid subset of Columns' do
-        let(:highlighted_attributes) { %i{status priority due_date foo} }
-
-        before do
-          query.highlighted_attributes = highlighted_attributes
-        end
-
-        it 'removes the offending values' do
-          query.valid_subset!
-
-          expect(query.highlighted_columns.map(&:name))
-            .to match_array %i{status priority due_date}
-        end
-      end
+  describe "highlighting" do
+    it "#highlighted_attributes accepts valid values" do
+      query.highlighted_attributes = %w(status priority due_date)
+      expect(query).to be_valid
     end
 
-    context 'without EE', with_ee: false do
-      it 'always returns :none as highlighting_mode' do
-        query.highlighting_mode = 'status'
-        expect(query.highlighting_mode).to eq(:none)
+    it "#highlighted_attributes rejects invalid values" do
+      query.highlighted_attributes = %w(status bogus)
+      expect(query).not_to be_valid
+    end
+
+    it "#hightlighting_mode accepts non-present values" do
+      query.highlighting_mode = nil
+      expect(query).to be_valid
+
+      query.highlighting_mode = ""
+      expect(query).to be_valid
+    end
+
+    it "#hightlighting_mode rejects invalid values" do
+      query.highlighting_mode = "bogus"
+      expect(query).not_to be_valid
+    end
+
+    it "#available_highlighting_columns returns highlightable columns" do
+      available_columns = {
+        highlightable1: {
+          highlightable: true
+        },
+        highlightable2: {
+          highlightable: true
+        },
+        no_highlight: {}
+      }
+
+      allow(Queries::WorkPackages::Selects::PropertySelect).to receive(:property_selects)
+                                                                 .and_return(available_columns)
+
+      expect(query.available_highlighting_columns.map(&:name)).to eq(%i{highlightable1 highlightable2})
+    end
+
+    describe "#highlighted_columns returns a valid subset of Columns" do
+      let(:highlighted_attributes) { %i{status priority due_date foo} }
+
+      before do
+        query.highlighted_attributes = highlighted_attributes
       end
 
-      it 'always returns nil as highlighted_attributes' do
-        query.highlighting_mode = 'inline'
-        query.highlighted_attributes = ['status']
-        expect(query.highlighted_attributes).to be_empty
+      it "removes the offending values" do
+        query.valid_subset!
+
+        expect(query.highlighted_columns.map(&:name))
+          .to match_array %i{status priority due_date}
       end
     end
   end
 
-  describe 'hierarchies' do
-    it 'is enabled in default queries' do
+  describe "hierarchies" do
+    it "is enabled in default queries" do
       query = described_class.new_default
       expect(query.show_hierarchies).to be_truthy
       query.show_hierarchies = false
       expect(query.show_hierarchies).to be_falsey
     end
 
-    it 'is mutually exclusive with group_by' do
+    it "is mutually exclusive with group_by" do
       query = described_class.new_default
       expect(query.show_hierarchies).to be_truthy
       query.group_by = :assignee
@@ -314,85 +363,76 @@ RSpec.describe Query,
       expect(query.save).to be_falsey
       expect(query).not_to be_valid
       expect(query.errors[:show_hierarchies].first)
-        .to include(I18n.t('activerecord.errors.models.query.group_by_hierarchies_exclusive', group_by: 'assignee'))
+        .to include(I18n.t("activerecord.errors.models.query.group_by_hierarchies_exclusive", group_by: "assignee"))
     end
   end
 
-  describe '#available_columns' do
-    context 'with work_package_done_ratio NOT disabled' do
-      it 'includes the done_ratio column' do
-        expect(query.displayable_columns.map(&:name)).to include :done_ratio
-      end
+  describe "#available_columns" do
+    it "includes the done_ratio column" do
+      expect(query.displayable_columns.map(&:name)).to include :done_ratio
     end
 
-    context 'with work_package_done_ratio disabled' do
-      before do
-        allow(WorkPackage).to receive(:done_ratio_disabled?).and_return(true)
-      end
-
-      it 'does not include the done_ratio column' do
-        expect(query.displayable_columns.map(&:name)).not_to include :done_ratio
-      end
-    end
-
-    context 'results caching' do
+    context "with results caching" do
       let(:project2) { create(:project) }
 
-      it 'does not call the db twice' do
+      it "does not call the db twice" do
         query.project = project
 
         query.displayable_columns
 
+        # rubocop:disable RSpec/MessageSpies -- a spy would also record the call above
         expect(project)
           .not_to receive(:all_work_package_custom_fields)
 
         expect(project)
-          .not_to receive(:types)
+          .not_to receive(:enabled_types)
+        # rubocop:enable RSpec/MessageSpies
 
         query.displayable_columns
       end
 
-      it 'does call the db if the project changes' do
+      it "does call the db if the project changes" do
         query.project = project
 
         query.displayable_columns
 
         query.project = project2
 
-        expect(project2)
-          .to receive(:all_work_package_custom_fields)
-          .and_return []
-
-        expect(project2)
-          .to receive(:types)
-          .and_return []
+        allow(project2)
+          .to receive_messages(all_work_package_custom_fields: WorkPackageCustomField.none,
+                               enabled_types: Type.none)
 
         query.displayable_columns
       end
 
-      it 'does call the db if the project changes to nil' do
+      it "does call the db if the project changes to nil" do
         query.project = project
 
         query.displayable_columns
 
         query.project = nil
 
-        expect(WorkPackageCustomField)
+        empty_wp_relation = double(on_visible_type_and_project: [])
+        # We cannot simply return `WorkPackageCustomField.none` here, as that aliases to `all` and would trigger
+        # its own expectation again. Hence, we must set up a double.
+        allow(WorkPackageCustomField)
           .to receive(:all)
-          .and_return []
+                .and_return empty_wp_relation
 
-        expect(Type)
+        allow(Type)
           .to receive(:all)
-          .and_return []
+                .and_return []
 
         query.displayable_columns
+
+        expect(WorkPackageCustomField).to have_received(:all).once
       end
     end
 
-    context 'relation_to_type columns' do
+    context "with relation_to_type columns" do
       let(:type_in_project) do
         type = create(:type)
-        project.types << type
+        project.project_types.create!(type:)
 
         type
       end
@@ -406,249 +446,224 @@ RSpec.describe Query,
         type_not_in_project
       end
 
-      context 'when in project' do
+      context "when in project" do
         before do
           query.project = project
         end
 
-        it 'includes the relation columns for project types' do
+        it "includes the relation columns for project types" do
           expect(query.displayable_columns.map(&:name)).to include :"relations_to_type_#{type_in_project.id}"
         end
 
-        it 'does not include the relation columns for types not in project' do
+        it "does not include the relation columns for types not in project" do
           expect(query.displayable_columns.map(&:name)).not_to include :"relations_to_type_#{type_not_in_project.id}"
-        end
-
-        context 'with the enterprise token disallowing relation columns', with_ee: false do
-          it 'excludes the relation columns' do
-            expect(query.displayable_columns.map(&:name)).not_to include :"relations_to_type_#{type_in_project.id}"
-          end
         end
       end
 
-      context 'when global' do
+      context "when global" do
         before do
           query.project = nil
         end
 
-        it 'includes the relation columns for all types' do
+        it "includes the relation columns for all types" do
           expect(query.displayable_columns.map(&:name)).to include(:"relations_to_type_#{type_in_project.id}",
                                                                    :"relations_to_type_#{type_not_in_project.id}")
-        end
-
-        context 'with the enterprise token disallowing relation columns', with_ee: false do
-          it 'excludes the relation columns' do
-            expect(query.displayable_columns.map(&:name)).not_to include(:"relations_to_type_#{type_in_project.id}",
-                                                                         :"relations_to_type_#{type_not_in_project.id}")
-          end
         end
       end
     end
 
-    context 'with relation_of_type columns' do
+    context "with relation_of_type columns" do
       before do
-        stub_const('Relation::TYPES',
+        stub_const("Relation::TYPES",
                    relation1: { name: :label_relates_to, sym_name: :label_relates_to, order: 1, sym: :relation1 },
                    relation2: { name: :label_duplicates, sym_name: :label_duplicated_by, order: 2, sym: :relation2 })
       end
 
-      it 'includes the relation columns for every relation type' do
+      it "includes the relation columns for every relation type" do
         expect(query.displayable_columns.map(&:name)).to include(:relations_of_type_relation1,
                                                                  :relations_of_type_relation2)
-      end
-
-      context 'with the enterprise token disallowing relation columns', with_ee: false do
-        it 'excludes the relation columns' do
-          expect(query.displayable_columns.map(&:name)).not_to include(:relations_of_type_relation1,
-                                                                       :relations_of_type_relation2)
-        end
       end
     end
   end
 
-  describe '.displayable_columns' do
-    it 'includes the id column' do
+  describe ".displayable_columns" do
+    it "includes the id column" do
       expect(query.displayable_columns.detect { |c| c.name == :id })
         .not_to be_nil
     end
 
-    it 'excludes the manual sorting column' do
+    it "excludes the manual sorting column" do
       expect(query.displayable_columns.detect { |c| c.name == :manual_sorting })
         .to be_nil
     end
 
-    it 'excludes the typeahead column' do
+    it "excludes the typeahead column" do
       expect(query.displayable_columns.detect { |c| c.name == :typeahead })
         .to be_nil
     end
   end
 
-  describe '.available_columns' do
-    let(:custom_field) { create(:list_wp_custom_field) }
+  describe ".available_columns", with_settings: { work_package_multiple_versions: false } do
     let(:type) { create(:type) }
+    let(:custom_field) { create(:list_wp_custom_field, types: [type], projects: [project]) }
 
     before do
-      stub_const('Relation::TYPES',
+      custom_field
+      project.project_types.create!(type:)
+
+      stub_const("Relation::TYPES",
                  relation1: { name: :label_relates_to, sym_name: :label_relates_to, order: 1, sym: :relation1 },
                  relation2: { name: :label_duplicates, sym_name: :label_duplicated_by, order: 2, sym: :relation2 })
     end
 
-    context 'with the enterprise token allowing relation columns' do
-      it 'has all static columns, cf columns and relation columns' do
-        expected_columns = %i(id project assigned_to author
-                              category created_at due_date estimated_hours
-                              parent done_ratio priority responsible
-                              spent_hours start_date status subject type
-                              updated_at version) +
-                           [custom_field.column_name.to_sym] +
-                           [:"relations_to_type_#{type.id}"] +
-                           %i(relations_of_type_relation1 relations_of_type_relation2)
+    current_user { project_member }
 
-        expect(described_class.available_columns.map(&:name)).to include *expected_columns
-      end
+    it "has all static columns, cf columns and relation columns" do
+      expected_columns = %i(id project assigned_to author
+                            category created_at due_date estimated_hours
+                            parent done_ratio priority responsible
+                            spent_hours start_date status subject type
+                            updated_at version) +
+                         [custom_field.column_name.to_sym] +
+                         [:"relations_to_type_#{type.id}"] +
+                         %i(relations_of_type_relation1 relations_of_type_relation2)
+
+      expect(described_class.available_columns.map(&:name)).to include *expected_columns
     end
 
-    context 'with the enterprise token disallowing relation columns', with_ee: false do
-      it 'has all static columns, cf columns but no relation columns' do
-        expected_columns = %i(id project assigned_to author
-                              category created_at due_date estimated_hours
-                              parent done_ratio priority responsible
-                              spent_hours start_date status subject type
-                              updated_at version) +
-                           [custom_field.column_name.to_sym]
+    context "when the user cannot see the project" do
+      current_user { user_restricted }
 
-        unexpected_columns = [:"relations_to_type_#{type.id}"] +
-                             %i(relations_of_type_relation1 relations_of_type_relation2)
+      it "does not list custom field columns" do
+        columns = described_class.available_columns.map(&:name)
 
-        expect(described_class.available_columns.map(&:name)).to include *expected_columns
-        expect(described_class.available_columns.map(&:name)).not_to include *unexpected_columns
+        # We do not really care about column details here, but let's see if we have some amount of them:
+        expect(columns.count).to be > 5
+
+        # This is the important assertion:
+        expect(columns).not_to include custom_field.column_name.to_sym
       end
     end
   end
 
-  describe '#valid?' do
-    context 'with a missing value and an operator that requires values' do
+  describe "#valid?" do
+    context "with a missing value and an operator that requires values" do
       before do
-        query.add_filter('due_date', 't-', [''])
+        query.add_filter("due_date", "t-", [""])
       end
 
-      it 'is not valid and creates an error' do
+      it "is not valid and creates an error" do
         expect(query).not_to be_valid
-        expect(query.errors[:base].first).to include(I18n.t('activerecord.errors.messages.blank'))
+        expect(query.errors[:base].first).to include(I18n.t("activerecord.errors.messages.blank"))
       end
     end
 
-    context 'when filters are blank' do
+    context "when filters are blank" do
       let(:status) { create(:status) }
       let(:query) { build(:query).tap { |q| q.filters = [] } }
 
-      it 'is valid' do
+      it "is valid" do
         expect(query)
           .to be_valid
       end
     end
 
-    context 'with a missing value for a custom field' do
+    context "with a missing value for a custom field" do
       let(:custom_field) do
-        create(:text_issue_custom_field, is_filter: true, is_for_all: true)
+        create(:issue_custom_field, :text, is_filter: true, is_for_all: true)
       end
 
       before do
-        query.add_filter(custom_field.column_name, '=', [''])
+        query.add_filter(custom_field.column_name, "=", [""])
       end
 
-      it 'has the name of the custom field in the error message' do
+      it "has the name of the custom field in the error message" do
         expect(query).not_to be_valid
         expect(query.errors.messages[:base].to_s).to include(custom_field.name)
       end
     end
 
-    context 'with a filter for a non existing custom field' do
+    context "with a filter for a non existing custom field" do
       before do
-        query.add_filter('cf_0', '=', ['1'])
+        query.add_filter("cf_0", "=", ["1"])
       end
 
-      it 'is not valid' do
+      it "is not valid" do
         expect(query).not_to be_valid
       end
     end
   end
 
-  describe '#valid_subset!' do
+  describe "#valid_subset!" do
     let(:valid_status) { build_stubbed(:status) }
 
-    context 'with filters' do
+    context "with filters" do
       before do
         allow(Status)
-          .to receive(:all)
-          .and_return([valid_status])
-
-        allow(Status)
-          .to receive(:exists?)
-          .and_return(true)
+          .to receive_messages(all: [valid_status], exists?: true)
 
         query.filters.clear
-        query.add_filter('status_id', '=', values)
+        query.add_filter("status_id", "=", values)
 
         query.valid_subset!
       end
 
-      context 'for a status filter having valid and invalid values' do
-        let(:values) { [valid_status.id.to_s, '99999'] }
+      context "for a status filter having valid and invalid values" do
+        let(:values) { [valid_status.id.to_s, "99999"] }
 
-        it 'leaves the filter' do
+        it "leaves the filter" do
           expect(query.filters.length).to eq 1
         end
 
-        it 'leaves only the valid value' do
+        it "leaves only the valid value" do
           expect(query.filters[0].values)
             .to contain_exactly(valid_status.id.to_s)
         end
       end
 
-      context 'for a status filter having only invalid values' do
-        let(:values) { ['99999'] }
+      context "for a status filter having only invalid values" do
+        let(:values) { ["99999"] }
 
-        it 'removes the filter' do
+        it "removes the filter" do
           expect(query.filters.length).to eq 0
         end
       end
 
-      context 'for an unavailable filter' do
+      context "for an unavailable filter" do
         let(:values) { [valid_status.id.to_s] }
 
         before do
-          query.add_filter('cf_0815', '=', ['1'])
+          query.add_filter("cf_0815", "=", ["1"])
 
           query.valid_subset!
         end
 
-        it 'removes the invalid filter' do
+        it "removes the invalid filter" do
           expect(query.filters.length).to eq 1
           expect(query.filters[0].name).to eq :status_id
         end
       end
     end
 
-    context 'with group_by' do
+    context "with group_by" do
       before do
         query.group_by = group_by
       end
 
-      context 'valid' do
-        let(:group_by) { 'project' }
+      context "valid" do
+        let(:group_by) { "project" }
 
-        it 'leaves the value untouched' do
+        it "leaves the value untouched" do
           query.valid_subset!
 
           expect(query.group_by).to eql group_by
         end
       end
 
-      context 'invalid' do
-        let(:group_by) { 'cf_0815' }
+      context "invalid" do
+        let(:group_by) { "cf_0815" }
 
-        it 'removes the group by' do
+        it "removes the group by" do
           query.valid_subset!
 
           expect(query.group_by).to be_nil
@@ -656,60 +671,60 @@ RSpec.describe Query,
       end
     end
 
-    context 'with sort_criteria' do
+    context "with sort_criteria" do
       before do
         query.sort_criteria = sort_by
       end
 
-      context 'valid' do
-        let(:sort_by) { [['project', 'desc']] }
+      context "valid" do
+        let(:sort_by) { [["project", "desc"]] }
 
-        it 'leaves the value untouched' do
+        it "leaves the value untouched" do
           query.valid_subset!
 
           expect(query.sort_criteria).to eql sort_by
         end
       end
 
-      context 'invalid' do
-        let(:sort_by) { [['cf_0815', 'desc']] }
+      context "invalid" do
+        let(:sort_by) { [["cf_0815", "desc"]] }
 
-        it 'removes the sorting' do
+        it "removes the sorting" do
           query.valid_subset!
 
           expect(query.sort_criteria).to be_empty
         end
       end
 
-      context 'parent' do
-        let(:sort_by) { [['parent', 'asc'], ['start_date', 'asc']] }
+      context "parent" do
+        let(:sort_by) { [["parent", "asc"], ["start_date", "asc"]] }
 
-        it 'is valid' do
+        it "is valid" do
           expect(query).to be_valid
-          expect(query.sort_criteria).to contain_exactly(['id', 'asc'], ['start_date', 'asc'])
+          expect(query.sort_criteria).to contain_exactly(["id", "asc"], ["start_date", "asc"])
         end
       end
 
-      context 'partially invalid' do
-        let(:sort_by) { [['cf_0815', 'desc'], ['project', 'desc']] }
+      context "partially invalid" do
+        let(:sort_by) { [["cf_0815", "desc"], ["project", "desc"]] }
 
-        it 'removes the offending values from sort' do
+        it "removes the offending values from sort" do
           query.valid_subset!
 
-          expect(query.sort_criteria).to contain_exactly(['project', 'desc'])
+          expect(query.sort_criteria).to contain_exactly(["project", "desc"])
         end
       end
     end
 
-    context 'with columns' do
+    context "with columns" do
       before do
         query.column_names = columns
       end
 
-      context 'valid' do
+      context "valid" do
         let(:columns) { %i(status project) }
 
-        it 'leaves the values untouched' do
+        it "leaves the values untouched" do
           query.valid_subset!
 
           expect(query.column_names)
@@ -717,10 +732,10 @@ RSpec.describe Query,
         end
       end
 
-      context 'invalid' do
+      context "invalid" do
         let(:columns) { %i(bogus cf_0815) }
 
-        it 'removes the values' do
+        it "removes the values" do
           query.valid_subset!
 
           expect(query.column_names)
@@ -728,10 +743,10 @@ RSpec.describe Query,
         end
       end
 
-      context 'partially invalid' do
+      context "partially invalid" do
         let(:columns) { %i(status cf_0815) }
 
-        it 'removes the offending values' do
+        it "removes the offending values" do
           query.valid_subset!
 
           expect(query.column_names)
@@ -740,14 +755,14 @@ RSpec.describe Query,
       end
     end
 
-    context 'with highlighted_attributes' do
+    context "with highlighted_attributes" do
       let(:highlighted_attributes) { %i{status priority due_date foo} }
 
       before do
         query.highlighted_attributes = highlighted_attributes
       end
 
-      it 'removes the offending values' do
+      it "removes the offending values" do
         query.valid_subset!
 
         expect(query.highlighted_attributes)
@@ -755,9 +770,9 @@ RSpec.describe Query,
       end
     end
 
-    context 'with timestamps', with_flag: { show_changes: true } do
+    context "with timestamps" do
       let(:timestamps) do
-        [3.weeks.ago.iso8601, 'oneWeekAgo@12:00+00:00', 'oneDayAgo@12:00+00:00', 'PT0S']
+        [3.weeks.ago.iso8601, "oneWeekAgo@12:00+00:00", "oneDayAgo@12:00+00:00", "PT0S"]
       end
 
       before do
@@ -765,15 +780,15 @@ RSpec.describe Query,
         query.valid_subset!
       end
 
-      context 'without EE', with_ee: false do
-        it 'removes the forbidden values' do
+      context "without EE", with_ee: false do
+        it "removes the forbidden values" do
           expect(query.timestamps)
-          .to match_array %w{oneDayAgo@12:00+00:00 PT0S}
+            .to match_array %w{oneDayAgo@12:00+00:00 PT0S}
         end
       end
 
-      context 'with EE', with_ee: %i[baseline_comparison] do
-        it 'allows all valid values' do
+      context "with EE", with_ee: %i[baseline_comparison] do
+        it "allows all valid values" do
           expect(query.timestamps)
             .to match_array timestamps
         end
@@ -781,26 +796,45 @@ RSpec.describe Query,
     end
   end
 
-  describe '#filter_for' do
-    context 'for a status_id filter' do
-      subject { query.filter_for('status_id') }
+  describe "#add_filter" do
+    it "keeps distinct filters that happen to share an operator and values" do
+      query.add_filter("assigned_to_id", "=", ["1"])
+      query.add_filter("author_id", "=", ["1"])
 
-      it 'exists' do
+      expect(query.filters.map { it.field.to_s })
+        .to include("assigned_to_id", "author_id")
+    end
+
+    it "updates an already active filter instead of listing it twice" do
+      query.add_filter("assigned_to_id", "=", ["1"])
+
+      expect { query.add_filter("assigned_to_id", "=", ["2"]) }
+        .not_to change { query.filters.count }
+
+      expect(query.filter_for("assigned_to_id").values).to eq(["2"])
+    end
+  end
+
+  describe "#filter_for" do
+    context "for a status_id filter" do
+      subject { query.filter_for("status_id") }
+
+      it "exists" do
         expect(subject).not_to be_nil
       end
 
-      it 'has the context set' do
+      it "has the context set" do
         expect(subject.context).to eql query
       end
 
-      it 'reuses an existing filter' do
-        expect(subject.object_id).to eql query.filter_for('status_id').object_id
+      it "reuses an existing filter" do
+        expect(subject.object_id).to eql query.filter_for("status_id").object_id
       end
     end
   end
 
-  describe 'filters after deserialization' do
-    it 'sets the context (project) on deserialization' do
+  describe "filters after deserialization" do
+    it "sets the context (project) on deserialization" do
       query.save!
 
       query.reload
@@ -810,24 +844,24 @@ RSpec.describe Query,
     end
   end
 
-  describe '#remove_filter' do
-    context 'if the filter exists' do
-      it 'removes the filter' do
+  describe "#remove_filter" do
+    context "if the filter exists" do
+      it "removes the filter" do
         # Works because status_id is there by default
-        expect { query.remove_filter('status_id') }
+        expect { query.remove_filter("status_id") }
           .to change { query.filters.count }.by(-1)
       end
     end
 
-    context 'if the filter does not exist' do
-      it 'is a noop' do
-        expect { query.remove_filter('assigned_to_id') }
+    context "if the filter does not exist" do
+      it "is a noop" do
+        expect { query.remove_filter("assigned_to_id") }
           .not_to change { query.filters.count }
       end
     end
   end
 
-  describe 'filters and statement_filters (private method)' do
+  describe "filters and statement_filters (private method)" do
     def subproject_filter?(filter)
       filter.is_a?(Queries::WorkPackages::Filter::SubprojectFilter)
     end
@@ -836,7 +870,7 @@ RSpec.describe Query,
       filters.detect { |filter| subproject_filter?(filter) }
     end
 
-    shared_examples_for 'adds a subproject id filter' do |operator|
+    shared_examples_for "adds a subproject id filter" do |operator|
       it "does not add a visible subproject filter" do
         expect(detect_subproject_filter(query.filters)).to be_nil
       end
@@ -848,8 +882,8 @@ RSpec.describe Query,
       end
     end
 
-    shared_examples_for 'does not add a subproject id filter' do
-      it 'does not add a second subproject id filter' do
+    shared_examples_for "does not add a subproject id filter" do
+      it "does not add a second subproject id filter" do
         expect(query.filters.count).to eq(query.send(:statement_filters).count)
 
         expect(query.filters.select { |filter| subproject_filter?(filter) })
@@ -857,51 +891,51 @@ RSpec.describe Query,
       end
     end
 
-    context 'when subprojects included settings active', with_settings: { display_subprojects_work_packages: true } do
-      it_behaves_like 'adds a subproject id filter', '*'
+    context "when subprojects included settings active", with_settings: { display_subprojects_work_packages: true } do
+      it_behaves_like "adds a subproject id filter", "*"
     end
 
-    context 'when subprojects included settings inactive', with_settings: { display_subprojects_work_packages: false } do
-      it_behaves_like 'adds a subproject id filter', '!*'
+    context "when subprojects included settings inactive", with_settings: { display_subprojects_work_packages: false } do
+      it_behaves_like "adds a subproject id filter", "!*"
     end
 
-    context 'with a subproject filter added manually' do
+    context "with a subproject filter added manually" do
       before do
-        query.add_filter('subproject_id', '=', ['1234'])
+        query.add_filter("subproject_id", "=", ["1234"])
       end
 
-      it_behaves_like 'does not add a subproject id filter'
+      it_behaves_like "does not add a subproject id filter"
     end
 
-    context 'with a only_subproject filter added manually' do
+    context "with a only_subproject filter added manually" do
       before do
-        query.add_filter('only_subproject_id', '=', ['1234'])
+        query.add_filter("only_subproject_id", "=", ["1234"])
       end
 
-      it_behaves_like 'does not add a subproject id filter'
+      it_behaves_like "does not add a subproject id filter"
     end
 
-    context 'with a project filter added manually' do
+    context "with a project filter added manually" do
       before do
-        query.add_filter('project_id', '=', ['1234'])
+        query.add_filter("project_id", "=", ["1234"])
       end
 
-      it_behaves_like 'does not add a subproject id filter'
+      it_behaves_like "does not add a subproject id filter"
     end
   end
 
-  describe 'ical tokens' do
+  describe "ical tokens" do
     let(:user) { create(:user) }
     let(:query) { create(:query, user:) }
 
-    context 'when present' do
+    context "when present" do
       let(:ical_token) { create(:ical_token, user:, query:, name: "Some Token") }
 
-      it 'can be accessed via relation' do
+      it "can be accessed via relation" do
         expect(query.ical_tokens).to contain_exactly(ical_token)
       end
 
-      it 'are destroyed when query is destroyed' do
+      it "are destroyed when query is destroyed" do
         expect do
           query.destroy!
         end.to change { Token::ICal.where(id: ical_token.id).count }.by(-1)
@@ -909,12 +943,33 @@ RSpec.describe Query,
       end
     end
 
-    context 'when not present' do
-      it 'do not cause errors on query.destroy' do
+    context "when not present" do
+      it "do not cause errors on query.destroy" do
         expect do
           query.destroy!
         end.not_to raise_error
       end
+    end
+  end
+
+  describe "#work_package_journals" do
+    let(:work_package) { create(:work_package, project:, author: project_member) }
+    let(:user) { create(:user, member_with_permissions: { work_package => %i[view_work_packages] }) }
+
+    before do
+      allow(User).to receive(:current).and_return(user)
+
+      work_package.add_journal(user:, notes: "This is a public note", internal: false)
+      work_package.save(validate: false)
+      work_package.add_journal(user:, notes: "This is an internal note", internal: true)
+      work_package.save(validate: false)
+    end
+
+    it "excludes internal comments", :aggregate_failures do
+      expect(work_package.journals.pluck(:restricted)).to contain_exactly(false, false, true)
+      expect(query.work_package_journals.count).to eq(2)
+      internal_journals = work_package.journals.where(restricted: true)
+      expect(query.work_package_journals).not_to include(internal_journals)
     end
   end
 end

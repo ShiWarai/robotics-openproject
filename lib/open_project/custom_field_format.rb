@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -30,18 +32,44 @@ module OpenProject
   class CustomFieldFormat
     include Redmine::I18n
 
-    cattr_accessor :available
-    @@available = {}
+    class_attribute :registered_by_name, default: {}
 
-    attr_accessor :name, :order, :label, :edit_as, :class_names, :formatter
+    attr_reader :name, :order, :label, :edit_as
 
-    def initialize(name, label:, order:, edit_as: name, only: nil, formatter: 'CustomValue::StringStrategy')
-      self.name = name
-      self.label = label
-      self.order = order
-      self.edit_as = edit_as
-      self.class_names = only
-      self.formatter = formatter
+    def initialize(name,
+                   label:,
+                   order:,
+                   edit_as: name,
+                   only: nil,
+                   multi_value_possible: false,
+                   numeric_bounds_possible: false,
+                   length_limits_possible: false,
+                   enterprise_feature: nil,
+                   enabled: lambda { true },
+                   formatter: "CustomValue::StringStrategy")
+      @name = name
+      @label = label
+      @order = order
+      @edit_as = edit_as
+      @class_names = only
+      @multi_value_possible = multi_value_possible
+      @numeric_bounds_possible = numeric_bounds_possible
+      @length_limits_possible = length_limits_possible
+      @enterprise_feature = enterprise_feature
+      @enabled = enabled
+      @formatter = formatter
+    end
+
+    def multi_value_possible?
+      @multi_value_possible
+    end
+
+    def numeric_bounds_possible?
+      @numeric_bounds_possible
+    end
+
+    def length_limits_possible?
+      @length_limits_possible
     end
 
     def formatter
@@ -49,30 +77,63 @@ module OpenProject
       Kernel.const_get(@formatter)
     end
 
+    def available?
+      enabled? && enterprise_feature_allowed?
+    end
+
+    def enabled?
+      @enabled.call
+    end
+
+    def disabled?
+      !enabled?
+    end
+
+    def enterprise_feature_allowed?
+      !@enterprise_feature || EnterpriseToken.allows_to?(@enterprise_feature)
+    end
+
+    def for_class_name?(class_name)
+      (@class_names.nil? || @class_names.include?(class_name)) && !label.nil?
+    end
+
     class << self
-      def map(&)
-        yield self
+      def register(name, **)
+        return if registered_by_name.has_key?(name)
+
+        registered_by_name[name] = new(name, **)
+        @registered = nil
       end
 
-      # Registers a custom field format
-      def register(custom_field_format, _options = {})
-        @@available[custom_field_format.name] = custom_field_format unless @@available.keys.include?(custom_field_format.name)
+      def find_by(name:)
+        registered_by_name[name.to_s]
       end
 
-      def available_formats
-        @@available.keys
+      def registered
+        @registered ||= registered_by_name.values.sort_by(&:order)
       end
 
-      def find_by_name(name)
-        @@available[name.to_s]
+      def available = registered.select(&:available?)
+      def enabled = registered.select(&:enabled?)
+      def disabled = registered.select(&:disabled?)
+
+      def registered_formats = registered.map(&:name)
+      def available_formats = available.map(&:name)
+      def enabled_formats = enabled.map(&:name)
+      def disabled_formats = disabled.map(&:name)
+
+      def enabled_for_class_name(class_name)
+        filter_for_class_name(enabled, class_name)
       end
 
-      def all_for_field(custom_field)
-        class_name = custom_field.class.customized_class.name
+      def available_for_class_name(class_name)
+        filter_for_class_name(available, class_name)
+      end
 
-        available
-          .values
-          .select { |field| field.class_names.nil? || field.class_names.include?(class_name) }
+      private
+
+      def filter_for_class_name(list, class_name)
+        list.select { |format| format.for_class_name?(class_name) }
       end
     end
   end

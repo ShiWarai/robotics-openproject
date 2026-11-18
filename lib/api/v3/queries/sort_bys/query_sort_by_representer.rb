@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -58,12 +58,20 @@ module API
 
           property :name
 
+          # rubocop:disable Naming/PredicateMethod -- name must match the "displayable" property below
+          def displayable
+            represented.displayable?
+          end
+          # rubocop:enable Naming/PredicateMethod
+
+          property :displayable, exec_context: :decorator
+
           def self_link_params
             [represented.converted_name, represented.direction_name]
           end
 
           def _type
-            'QuerySortBy'
+            "QuerySortBy"
           end
 
           def json_cache_key

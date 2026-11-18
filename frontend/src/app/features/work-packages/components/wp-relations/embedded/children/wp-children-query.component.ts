@@ -1,6 +1,6 @@
-// -- copyright
+//-- copyright
 // OpenProject is an open source project management software.
-// Copyright (C) 2012-2023 the OpenProject GmbH
+// Copyright (C) the OpenProject GmbH
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License version 3.
@@ -21,16 +21,15 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 //
 // See COPYRIGHT and LICENSE files for more details.
 //++
 
-import { Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnInit, inject } from '@angular/core';
 import { I18nService } from 'core-app/core/i18n/i18n.service';
 import { PathHelperService } from 'core-app/core/path-helper/path-helper.service';
 import { WorkPackageResource } from 'core-app/features/hal/resources/work-package-resource';
-import { UrlParamsHelperService } from 'core-app/features/work-packages/components/wp-query/url-params-helper';
 import { WorkPackageRelationsHierarchyService } from 'core-app/features/work-packages/components/wp-relations/wp-relations-hierarchy/wp-relations-hierarchy.service';
 import { OpUnlinkTableAction } from 'core-app/features/work-packages/components/wp-table/table-actions/actions/unlink-table-action';
 import { OpTableActionFactory } from 'core-app/features/work-packages/components/wp-table/table-actions/table-action';
@@ -43,6 +42,7 @@ import { HalEventsService } from 'core-app/features/hal/services/hal-events.serv
 import { ApiV3Service } from 'core-app/core/apiv3/api-v3.service';
 import { GroupDescriptor } from 'core-app/features/work-packages/components/wp-single-view/wp-single-view.component';
 import idFromLink from 'core-app/features/hal/helpers/id-from-link';
+import { WorkPackageRelationsService } from 'core-app/features/work-packages/components/wp-relations/wp-relations.service';
 
 @Component({
   selector: 'wp-children-query',
@@ -50,8 +50,21 @@ import idFromLink from 'core-app/features/hal/helpers/id-from-link';
   providers: [
     { provide: WorkPackageInlineCreateService, useClass: WpChildrenInlineCreateService },
   ],
+  standalone: false,
+  // TODO: This component has been partially migrated to be zoneless-compatible.
+  // After testing, this should be updated to ChangeDetectionStrategy.OnPush.
+  // eslint-disable-next-line @angular-eslint/prefer-on-push-component-change-detection
+  changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class WorkPackageChildrenQueryComponent extends WorkPackageRelationQueryBase implements OnInit {
+  protected wpRelationsHierarchyService = inject(WorkPackageRelationsHierarchyService);
+  protected PathHelper = inject(PathHelperService);
+  protected wpInlineCreate = inject(WorkPackageInlineCreateService);
+  protected halEvents = inject(HalEventsService);
+  protected apiV3Service = inject(ApiV3Service);
+  readonly I18n = inject(I18nService);
+  readonly wpRelations = inject(WorkPackageRelationsService);
+
   @Input() public workPackage:WorkPackageResource;
 
   @Input() public query:QueryResource;
@@ -75,16 +88,6 @@ export class WorkPackageChildrenQueryComponent extends WorkPackageRelationQueryB
       (child:WorkPackageResource) => !!child.changeParent,
     ),
   ];
-
-  constructor(protected wpRelationsHierarchyService:WorkPackageRelationsHierarchyService,
-    protected PathHelper:PathHelperService,
-    protected wpInlineCreate:WorkPackageInlineCreateService,
-    protected halEvents:HalEventsService,
-    protected apiV3Service:ApiV3Service,
-    protected queryUrlParamsHelper:UrlParamsHelperService,
-    readonly I18n:I18nService) {
-    super(queryUrlParamsHelper);
-  }
 
   ngOnInit() {
     // Set reference target and reference class
@@ -116,6 +119,9 @@ export class WorkPackageChildrenQueryComponent extends WorkPackageRelationQueryB
         filter(() => !!this.embeddedTable?.isInitialized),
         this.untilDestroyed(),
       )
-      .subscribe(() => this.refreshTable());
+      .subscribe(() => {
+        this.wpRelations.updateCounter(this.workPackage);
+        this.refreshTable();
+      });
   }
 }

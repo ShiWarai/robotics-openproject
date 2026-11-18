@@ -1,6 +1,6 @@
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -28,14 +28,14 @@
 
 class OpenProject::JournalFormatter::ActiveStatus < JournalFormatter::Base
   def render(_key, values, options = { html: true })
-    label_text = label('project')
+    label_text = label("project")
     label_text = content_tag(:strong, label_text) if options[:html]
 
-    value = \
+    value =
       if values.last
-        I18n.t('activerecord.attributes.project.active_value.true')
+        I18n.t("activerecord.attributes.project.active_value.true")
       else
-        I18n.t('activerecord.attributes.project.active_value.false')
+        I18n.t("activerecord.attributes.project.active_value.false")
       end
     value = content_tag(:strong, value) if options[:html]
 

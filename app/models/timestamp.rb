@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2022 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -38,9 +40,9 @@ class Timestamp
 
     DATE_KEYWORD_REGEX =
       %r{
-        ^(?:#{ALLOWED_DATE_KEYWORDS.join("|")}) # match the relative date keyword
+        \A(?:#{ALLOWED_DATE_KEYWORDS.join('|')}) # match the relative date keyword
         @(?:([0-1]?[0-9]|2[0-3]):[0-5]?[0-9]) # match the hour part
-          [+-](?:([0-1]?[0-9]|2[0-3]):[0-5]?[0-9])$ # match the timezone offset
+          [+-](?:([0-1]?[0-9]|2[0-3]):[0-5]?[0-9])\z # match the timezone offset
       }x
 
     def initialize(string)
@@ -65,14 +67,14 @@ class Timestamp
     class << self
       def substitute_special_shortcut_values(string)
         # map now to PT0S
-        return 'PT0S' if string == 'now'
+        return "PT0S" if string == "now"
 
         # map 1y to P1Y, 1m to P1M, 1w to P1W, 1d to P1D
         # map -1y to P-1Y, -1m to P-1M, -1w to P-1W, -1d to P-1D
         # map -1y1d to P-1Y-1D
-        units = ['y', 'm', 'w', 'd']
-        sign = '-' if string.start_with?('-')
-        substitutions = units.map { |unit| string.scan(/\d+#{unit}/).first&.upcase }.compact
+        units = ["y", "m", "w", "d"]
+        sign = "-" if string.start_with?("-")
+        substitutions = units.filter_map { |unit| string.scan(/\d+#{unit}/).first&.upcase }
 
         return string if substitutions.empty?
 
@@ -102,6 +104,12 @@ class Timestamp
     def now
       new(ActiveSupport::Duration.build(0).iso8601)
     end
+
+    def allowed(timestamps)
+      return timestamps if EnterpriseToken.allows_to?(:baseline_comparison)
+
+      timestamps.select { |t| t.one_day_ago? || t.to_time >= Date.yesterday }
+    end
   end
 
   def initialize(arg = Timestamp.now.to_s)
@@ -129,7 +137,7 @@ class Timestamp
   end
 
   def one_day_ago?
-    to_s.start_with? 'oneDayAgo'
+    to_s.start_with? "oneDayAgo"
   end
 
   def to_s
@@ -171,13 +179,13 @@ class Timestamp
       raise ArgumentError, "This timestamp does not contain a relative date keyword and cannot be represented as Time."
     end
 
-    relative_date_keyword, time_part = @timestamp_string.split('@')
+    relative_date_keyword, time_part = @timestamp_string.split("@")
 
     date = case relative_date_keyword
-           when 'oneDayAgo'      then 1.day.ago
-           when 'lastWorkingDay' then Day.last_working.date || 1.day.ago
-           when 'oneWeekAgo'     then 1.week.ago
-           when 'oneMonthAgo'    then 1.month.ago
+           when "oneDayAgo"      then 1.day.ago
+           when "lastWorkingDay" then Day.last_working.date || 1.day.ago
+           when "oneWeekAgo"     then 1.week.ago
+           when "oneMonthAgo"    then 1.month.ago
            end
 
     Time.zone.parse(time_part, date)

@@ -2,7 +2,7 @@
 
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -34,13 +34,31 @@ module Components
   class OnOffStatusComponent < ::ApplicationComponent
     options :on_text
     options :on_description
+    options :on_scheme
     options :off_text
     options :off_description
+    options :off_scheme
 
     options :is_on
 
     def enabled?
       !!model[:is_on]
+    end
+
+    def scheme
+      if enabled?
+        model[:on_scheme] || :success
+      else
+        model[:off_scheme] || :critical
+      end
+    end
+
+    def classes
+      [].tap do |classes|
+        classes << "on-off-status"
+        classes << "-enabled" if enabled?
+        classes << "-disabled" unless enabled?
+      end
     end
   end
 end

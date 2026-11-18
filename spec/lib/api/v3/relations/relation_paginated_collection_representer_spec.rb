@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 #-- copyright
 # OpenProject is an open source project management software.
-# Copyright (C) 2012-2023 the OpenProject GmbH
+# Copyright (C) the OpenProject GmbH
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License version 3.
@@ -26,7 +28,7 @@
 # See COPYRIGHT and LICENSE files for more details.
 #++
 
-require 'spec_helper'
+require "spec_helper"
 
 RSpec.describe API::V3::Relations::RelationPaginatedCollectionRepresenter do
   let(:work_package) do
@@ -35,19 +37,30 @@ RSpec.describe API::V3::Relations::RelationPaginatedCollectionRepresenter do
 
   let(:relations) do
     build_stubbed_list(:relation, total).tap do |relations|
-      allow(relations)
-        .to receive(:limit)
-              .with(page_size)
-              .and_return(relations)
+      without_partial_double_verification do
+        allow(relations)
+          .to receive(:limit)
+                .with(page_size)
+                .and_return(relations)
 
-      allow(relations)
-        .to receive(:offset)
-              .with(page - 1)
-              .and_return(relations)
+        allow(relations)
+          .to receive(:offset)
+                .with(page - 1)
+                .and_return(relations)
 
-      allow(relations)
-        .to receive(:count)
-              .and_return(relations.length)
+        allow(relations)
+          .to receive(:where)
+                .with(id: relations.pluck(:id))
+                .and_return(relations)
+
+        allow(relations)
+          .to receive_messages(count: relations.length,
+                               model: relations,
+                               eager_load: relations,
+                               preload: relations,
+                               order: relations,
+                               order_values: [])
+      end
     end
   end
 
@@ -66,10 +79,10 @@ RSpec.describe API::V3::Relations::RelationPaginatedCollectionRepresenter do
   let(:page) { 1 }
   let(:page_size) { 20 }
   let(:actual_count) { total }
-  let(:self_base_link) { 'api/v3/relations' }
-  let(:collection_inner_type) { 'Relation' }
+  let(:self_base_link) { "api/v3/relations" }
+  let(:collection_inner_type) { "Relation" }
 
   subject(:collection) { representer.to_json }
 
-  it_behaves_like 'offset-paginated APIv3 collection', 3, 'relations', 'Relation'
+  it_behaves_like "offset-paginated APIv3 collection", 3, "relations", "Relation"
 end
